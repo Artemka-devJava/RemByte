@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FixByte CRM</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    [data-theme='light'] body { background: #f8fafc; }
+    [data-theme='light'] .topnav { border-bottom-color: rgba(15,23,42,.12); }
+    [data-theme='light'] .topnav-logo-text,
+    [data-theme='light'] .hero-title,
+    [data-theme='light'] .stat-num { color: #0f172a; }
+    [data-theme='light'] .topnav-logo-sub,
+    [data-theme='light'] .topnav-username,
+    [data-theme='light'] .hero-desc,
+    [data-theme='light'] .stat-lbl,
+    [data-theme='light'] .quick-nav-item { color: #475569; }
+    [data-theme='light'] .stats-row,
+    [data-theme='light'] .quick-nav,
+    [data-theme='light'] .quick-nav-item,
+    [data-theme='light'] .stat-item { border-color: rgba(15,23,42,.12); }
+    [data-theme='light'] .btn-hero-secondary,
+    [data-theme='light'] .btn-logout { background: rgba(15,23,42,.06); border-color: rgba(15,23,42,.12); color: #334155; }
+
+    html, body {
+      height: 100%; width: 100%;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+    }
+
+    body {
+      background: #0f172a;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ===== ШАПКА ===== */
+    .topnav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 40px;
+      border-bottom: 1px solid rgba(255,255,255,.07);
+      position: relative; z-index: 10;
+    }
+    .topnav-logo { display: flex; align-items: center; gap: 10px; }
+    .topnav-logo-icon {
+      width: 42px; height: 42px;
+      border-radius: 9px; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .topnav-logo-icon img {
+      width: 100%; height: 100%; object-fit: contain;
+    }
+    .topnav-logo-text { font-size: 18px; font-weight: 800; color: #fff; letter-spacing: -.4px; }
+    .topnav-logo-sub  { font-size: 10px; color: #475569; display: block; }
+
+    .topnav-user {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .topnav-username {
+      font-size: 13.5px; color: #94a3b8; font-weight: 500;
+    }
+    .topnav-theme {
+      padding: 7px 10px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 8px;
+      background: rgba(255,255,255,.06);
+      color: #e2e8f0;
+      font-family: inherit;
+      font-size: 12.5px;
+    }
+    [data-theme='light'] .topnav-theme {
+      border-color: rgba(15,23,42,.15);
+      background: rgba(15,23,42,.06);
+      color: #0f172a;
+    }
+    .btn-logout {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 14px; background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 8px; color: #94a3b8;
+      font-size: 13px; font-family: inherit; cursor: pointer;
+      text-decoration: none; transition: all .2s;
+    }
+    .btn-logout:hover { background: rgba(239,68,68,.15); color: #fca5a5; border-color: rgba(239,68,68,.3); text-decoration: none; }
+
+    /* ===== HERO ===== */
+    .hero {
+      flex: 1;
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center;
+      text-align: center;
+      padding: 0 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Фоновые декоративные элементы */
+    .hero-glow-1 {
+      position: absolute; width: 600px; height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(37,99,235,.18) 0%, transparent 70%);
+      top: -200px; left: -100px; pointer-events: none;
+    }
+    .hero-glow-2 {
+      position: absolute; width: 500px; height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(249,115,22,.12) 0%, transparent 70%);
+      bottom: -150px; right: -80px; pointer-events: none;
+    }
+    .hero-grid {
+      position: absolute; inset: 0; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(37,99,235,.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(37,99,235,.05) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+
+    .hero-content { position: relative; z-index: 1; max-width: 720px; }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(37,99,235,.15); border: 1px solid rgba(37,99,235,.35);
+      border-radius: 20px; padding: 6px 16px;
+      font-size: 12.5px; color: #93c5fd; font-weight: 600;
+      margin-bottom: 28px; letter-spacing: .3px;
+    }
+    .hero-badge-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #60a5fa;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(.85)} }
+
+    .hero-title {
+      font-size: clamp(38px, 6vw, 64px);
+      font-weight: 900; color: #fff;
+      letter-spacing: -2.5px; line-height: 1.05;
+      margin-bottom: 20px;
+    }
+    .hero-title .accent { color: #60a5fa; }
+    .hero-title .accent-orange { color: #fb923c; }
+
+    .hero-desc {
+      font-size: clamp(14px, 1.8vw, 17px);
+      color: #94a3b8; line-height: 1.7;
+      max-width: 520px; margin: 0 auto 40px;
+    }
+
+    .hero-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+    .btn-hero-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 14px 28px; background: #2563eb; color: #fff;
+      border-radius: 10px; font-size: 15px; font-weight: 700;
+      font-family: inherit; text-decoration: none; border: none; cursor: pointer;
+      transition: all .2s;
+      box-shadow: 0 4px 20px rgba(37,99,235,.35);
+    }
+    .btn-hero-primary:hover {
+      background: #1d4ed8; transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(37,99,235,.45);
+      color: #fff; text-decoration: none;
+    }
+
+    .btn-hero-secondary {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 14px 28px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.12);
+      color: #e2e8f0; border-radius: 10px;
+      font-size: 15px; font-weight: 600;
+      font-family: inherit; text-decoration: none; cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-hero-secondary:hover {
+      background: rgba(255,255,255,.1);
+      color: #fff; text-decoration: none;
+    }
+
+    /* ===== СТАТИСТИКА ===== */
+    .stats-row {
+      display: flex; gap: 0;
+      margin-top: 60px; position: relative; z-index: 1;
+      border-top: 1px solid rgba(255,255,255,.07);
+    }
+    .stat-item {
+      flex: 1; text-align: center;
+      padding: 24px 20px;
+      border-right: 1px solid rgba(255,255,255,.07);
+    }
+    .stat-item:last-child { border-right: none; }
+    .stat-num  { font-size: 26px; font-weight: 800; color: #fff; }
+    .stat-lbl  { font-size: 12px; color: #64748b; margin-top: 4px; font-weight: 500; }
+
+    /* ===== НИЖНЯЯ НАВИГАЦИЯ ===== */
+    .quick-nav {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      border-top: 1px solid rgba(255,255,255,.07);
+      position: relative; z-index: 1;
+    }
+    .quick-nav-item {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 6px; padding: 16px 10px;
+      color: #64748b; text-decoration: none;
+      border-right: 1px solid rgba(255,255,255,.07);
+      font-size: 12px; font-weight: 500;
+      transition: all .2s;
+    }
+    .quick-nav-item:last-child { border-right: none; }
+    .quick-nav-item:hover { background: rgba(37,99,235,.1); color: #60a5fa; text-decoration: none; }
+    .quick-nav-item .nav-ic { font-size: 20px; }
+
+    @media (max-width: 640px) {
+      .topnav { padding: 14px 20px; }
+      .hero-title { font-size: 32px; }
+      .stats-row { display: none; }
+      .quick-nav { grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ШАПКА -->
+  <nav class="topnav">
+    <div class="topnav-logo">
+      <div class="topnav-logo-icon">
+        <img src="/images/logo.png" alt="FixByte логотип">
+      </div>
+      <div>
+        <span class="topnav-logo-text">FixByte</span>
+        <span class="topnav-logo-sub">CRM-система</span>
+      </div>
+    </div>
+    <div class="topnav-user">
+      <select class="topnav-theme" data-theme-select aria-label="Выбор темы">
+        <option value="system">Системная</option>
+        <option value="light">Светлая</option>
+        <option value="dark">Темная</option>
+      </select>
+      <span class="topnav-username" th:text="'👤 ' + ${#authentication?.name ?: 'Пользователь'}">👤 admin</span>
+      <form th:action="@{/logout}" method="post" style="display:inline;">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf}"/>
+        <button type="submit" class="btn-logout">🚪 Выйти</button>
+      </form>
+    </div>
+  </nav>
+
+  <!-- HERO СЕКЦИЯ -->
+  <div class="hero">
+    <div class="hero-glow-1"></div>
+    <div class="hero-glow-2"></div>
+    <div class="hero-grid"></div>
+
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="hero-badge-dot"></span>
+        Система готова к работе
+      </div>
+
+      <h1 class="hero-title">
+        <span class="accent">Fix</span>Byte<br>
+        <span class="accent-orange">CRM</span>
+      </h1>
+
+      <p class="hero-desc">
+        Управляйте заказами, клиентами и финансами сервисного центра в одном месте. Быстро, удобно, профессионально.
+      </p>
+
+      <div class="hero-actions">
+        <a href="/dashboard" class="btn-hero-primary">
+          📊 Открыть панель управления
+        </a>
+        <a href="/orders" class="btn-hero-secondary">
+          📋 Перейти к заказам
+        </a>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-item">
+        <div class="stat-num" id="statClients">—</div>
+        <div class="stat-lbl">Клиентов</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num" id="statOrders">—</div>
+        <div class="stat-lbl">Заказов</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num" id="statActive">—</div>
+        <div class="stat-lbl">Активных заказов</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num" id="statServices">—</div>
+        <div class="stat-lbl">Услуг в каталоге</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- БЫСТРЫЙ ДОСТУП -->
+  <div class="quick-nav">
+    <a href="/dashboard"  class="quick-nav-item"><span class="nav-ic">📊</span>Панель</a>
+    <a href="/clients"    class="quick-nav-item"><span class="nav-ic">👥</span>Клиенты</a>
+    <a href="/orders"     class="quick-nav-item"><span class="nav-ic">📋</span>Заказы</a>
+    <a href="/services"   class="quick-nav-item"><span class="nav-ic">🔧</span>Услуги</a>
+    <a href="/calculator" class="quick-nav-item"><span class="nav-ic">💰</span>Калькулятор</a>
+  </div>
+
+  <script src="/js/theme.js"></script>
+  <script>
+    // Загрузить статистику
+    async function loadStats() {
+      try {
+        const [clients, orders, services] = await Promise.all([
+          fetch('/api/clients').then(r => r.json()).catch(() => []),
+          fetch('/api/orders').then(r => r.json()).catch(() => []),
+          fetch('/api/services/active').then(r => r.json()).catch(() => [])
+        ]);
+        document.getElementById('statClients').textContent  = clients.length  || 0;
+        document.getElementById('statOrders').textContent   = orders.length   || 0;
+        document.getElementById('statActive').textContent   = orders.filter(o => !['COMPLETED','CANCELLED'].includes(o.status)).length || 0;
+        document.getElementById('statServices').textContent = services.length || 0;
+      } catch(e) { /* не критично */ }
+    }
+    loadStats();
+  </script>
+</body>
+</html>

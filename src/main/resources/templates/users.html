@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Пользователи — FixByte CRM</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .sidebar-user{padding:12px 14px;border-top:1px solid rgba(255,255,255,.07);margin-top:auto;}
+    .sidebar-user-name{font-size:12px;color:#64748b;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .btn-sidebar-logout{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);border-radius:7px;color:#fca5a5;font-size:12.5px;font-family:inherit;cursor:pointer;transition:all .2s;}
+    .btn-sidebar-logout:hover{background:rgba(239,68,68,.2);color:#fff;}
+    .role-admin    { background:#fef9c3; color:#a16207; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+    .role-operator { background:#dbeafe; color:#1d4ed8; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><img src="/images/logo.png" alt="FixByte логотип"></div>
+      <div><span class="logo-text">FixByte</span><span class="logo-sub">CRM-система</span></div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/"           class="nav-item"><span class="nav-icon">🏠</span>Главная</a>
+      <a href="/dashboard"  class="nav-item"><span class="nav-icon">📊</span>Панель</a>
+      <a href="/clients"    class="nav-item"><span class="nav-icon">👥</span>Клиенты</a>
+      <a href="/orders"     class="nav-item"><span class="nav-icon">📋</span>Заказы</a>
+      <a href="/services"   class="nav-item"><span class="nav-icon">🔧</span>Услуги</a>
+      <a href="/calculator" class="nav-item"><span class="nav-icon">💰</span>Калькулятор</a>
+      <a href="/users"      class="nav-item active"><span class="nav-icon">🔑</span>Пользователи</a>
+    </nav>
+    <div class="theme-switcher">
+      <label for="themeSelectUsers">Тема</label>
+      <select id="themeSelectUsers" class="theme-select" data-theme-select>
+        <option value="system">Системная</option>
+        <option value="light">Светлая</option>
+        <option value="dark">Темная</option>
+      </select>
+    </div>
+    <div class="sidebar-footer">FixByte CRM © 2026</div>
+    <div class="sidebar-user">
+      <div class="sidebar-user-name" th:text="'👤 ' + ${#authentication?.name ?: ''}">👤 admin</div>
+      <form th:action="@{/logout}" method="post">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf}"/>
+        <button type="submit" class="btn-sidebar-logout">🚪 Выйти</button>
+      </form>
+    </div>
+  </aside>
+
+  <div class="main-area">
+    <header class="top-bar">
+      <h1>🔑 Управление пользователями</h1>
+      <button class="btn btn-primary" onclick="openCreateUserModal()">+ Новый пользователь</button>
+    </header>
+
+    <main class="content">
+      <div class="card">
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Логин</th>
+                <th>Отображаемое имя</th>
+                <th>Роль</th>
+                <th>Статус</th>
+                <th>Создан</th>
+                <th>Действия</th>
+              </tr>
+            </thead>
+            <tbody id="usersTable">
+              <tr><td colspan="7" class="empty">Загрузка...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+    <footer class="page-footer">FixByte CRM © 2026</footer>
+  </div>
+</div>
+
+<!-- Модал: создать / редактировать пользователя -->
+<div id="userModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:460px;">
+    <div class="modal-header">
+      <h2 id="userModalTitle">Новый пользователь</h2>
+      <button class="close" onclick="closeUserModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="userForm" onsubmit="submitUser(event)">
+
+        <div class="form-group">
+          <label>Логин (для входа в систему):</label>
+          <input type="text" id="uUsername" required placeholder="ivan_petrov"
+                 autocomplete="off" style="font-family:monospace;">
+        </div>
+
+        <div class="form-group">
+          <label>Отображаемое имя:</label>
+          <input type="text" id="uDisplayName" placeholder="Иван Петров">
+        </div>
+
+        <div class="form-group">
+          <label>Пароль: <small id="uPasswordHint" style="color:var(--c-muted);font-weight:400;">(обязательно при создании)</small></label>
+          <input type="password" id="uPassword" placeholder="Введите пароль" autocomplete="new-password">
+        </div>
+
+        <div class="form-group">
+          <label>Роль:</label>
+          <select id="uRole">
+            <option value="OPERATOR">👷 Оператор — обычный доступ</option>
+            <option value="ADMIN">👑 Администратор — полный доступ</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="uEnabledGroup" style="display:none;">
+          <label style="display:flex;align-items:center;gap:10px;font-weight:400;cursor:pointer;">
+            <input type="checkbox" id="uEnabled" checked style="width:16px;height:16px;accent-color:var(--c-primary);">
+            Аккаунт активен
+          </label>
+        </div>
+
+        <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:12px 14px;font-size:12.5px;color:#92400e;margin-bottom:4px;">
+          ⚠️ Пароль хранится в открытом виде. Используйте только для внутренней системы.
+        </div>
+        <br>
+        <button type="submit" class="btn btn-primary btn-block">💾 Сохранить</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/js/theme.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/users.js"></script>
+</body>
+</html>
+

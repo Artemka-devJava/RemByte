@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Вход — FixByte CRM</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    [data-theme='light'] .login-brand {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+    [data-theme='light'] .brand-logo-text,
+    [data-theme='light'] .brand-headline { color: #0f172a; }
+    [data-theme='light'] .brand-desc,
+    [data-theme='light'] .brand-feature,
+    [data-theme='light'] .brand-logo-sub,
+    [data-theme='light'] .brand-version { color: #334155; }
+    [data-theme='light'] .login-form-panel { background: #ffffff; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ===== ЛЕВАЯ ПАНЕЛЬ ===== */
+    .login-brand {
+      flex: 1;
+      background: #0f172a;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 60px 64px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Декоративные круги */
+    .login-brand::before {
+      content: '';
+      position: absolute;
+      width: 500px; height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(37,99,235,.22) 0%, transparent 70%);
+      top: -120px; right: -120px;
+    }
+    .login-brand::after {
+      content: '';
+      position: absolute;
+      width: 380px; height: 380px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(249,115,22,.14) 0%, transparent 70%);
+      bottom: -80px; left: -60px;
+    }
+
+    .brand-content { position: relative; z-index: 1; }
+
+    .brand-logo {
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 48px;
+    }
+    .brand-logo-icon {
+      width: 52px; height: 52px;
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .brand-logo-icon img { width: 100%; height: 100%; object-fit: contain; }
+    .brand-logo-text {
+      font-size: 28px; font-weight: 800;
+      color: #fff; letter-spacing: -1px;
+    }
+    .brand-logo-sub {
+      font-size: 12px; color: #64748b;
+      display: block; margin-top: 2px;
+    }
+
+    .brand-headline {
+      font-size: 38px; font-weight: 800;
+      color: #fff; line-height: 1.2;
+      margin-bottom: 18px;
+      letter-spacing: -1.5px;
+    }
+    .brand-headline span { color: #60a5fa; }
+
+    .brand-desc {
+      font-size: 15px; color: #94a3b8;
+      line-height: 1.7; max-width: 380px;
+      margin-bottom: 48px;
+    }
+
+    .brand-features { display: flex; flex-direction: column; gap: 14px; }
+    .brand-feature {
+      display: flex; align-items: center; gap: 12px;
+      color: #cbd5e1; font-size: 14px;
+    }
+    .brand-feature-icon {
+      width: 36px; height: 36px; flex-shrink: 0;
+      background: rgba(37,99,235,.15);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px;
+    }
+
+    .brand-version {
+      position: absolute; bottom: 28px; left: 64px;
+      color: #334155; font-size: 12px;
+    }
+
+    /* ===== ПРАВАЯ ПАНЕЛЬ (форма) ===== */
+    .login-form-panel {
+      width: 460px;
+      background: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 48px 52px;
+      position: relative;
+    }
+    .login-theme-select {
+      position: absolute;
+      top: 18px;
+      right: 20px;
+      padding: 7px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #0f172a;
+      font-size: 12.5px;
+      font-family: inherit;
+    }
+
+    .login-form-wrap { width: 100%; max-width: 360px; }
+
+    .login-title {
+      font-size: 26px; font-weight: 800;
+      color: #0f172a; margin-bottom: 6px;
+      letter-spacing: -0.8px;
+    }
+    .login-subtitle { font-size: 14px; color: #64748b; margin-bottom: 36px; }
+
+    /* Алерты */
+    .alert {
+      padding: 12px 16px; border-radius: 8px;
+      font-size: 13.5px; margin-bottom: 20px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .alert-error   { background: #fee2e2; color: #991b1b; border-left: 4px solid #ef4444; }
+    .alert-success { background: #dcfce7; color: #14532d; border-left: 4px solid #22c55e; }
+
+    /* Поля */
+    .form-group { margin-bottom: 18px; }
+    .form-label {
+      display: block; font-size: 12.5px; font-weight: 600;
+      color: #374151; margin-bottom: 7px;
+      text-transform: uppercase; letter-spacing: .5px;
+    }
+    .form-input {
+      width: 100%; padding: 12px 14px;
+      border: 2px solid #e2e8f0; border-radius: 10px;
+      font-size: 15px; font-family: inherit;
+      color: #1e293b; background: #fff;
+      transition: border-color .2s, box-shadow .2s;
+      outline: none;
+    }
+    .form-input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 4px rgba(37,99,235,.1);
+    }
+    .form-input::placeholder { color: #94a3b8; }
+
+    .input-icon-wrap { position: relative; }
+    .input-icon {
+      position: absolute; left: 14px; top: 50%;
+      transform: translateY(-50%);
+      font-size: 17px; color: #94a3b8;
+      pointer-events: none;
+    }
+    .form-input.with-icon { padding-left: 42px; }
+
+    /* Кнопка входа */
+    .btn-login {
+      width: 100%; padding: 14px;
+      background: #2563eb; color: #fff;
+      border: none; border-radius: 10px;
+      font-size: 15px; font-weight: 700;
+      font-family: inherit; cursor: pointer;
+      transition: all .2s;
+      margin-top: 8px;
+      letter-spacing: .2px;
+    }
+    .btn-login:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(37,99,235,.35);
+    }
+    .btn-login:active { transform: translateY(0); }
+
+    .login-footer {
+      margin-top: 32px; text-align: center;
+      color: #94a3b8; font-size: 12.5px;
+    }
+
+    /* Анимация появления */
+    .login-form-wrap {
+      animation: fadeUp .4s ease both;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Разделитель */
+    .divider {
+      display: flex; align-items: center; gap: 12px;
+      margin: 22px 0; color: #cbd5e1; font-size: 12px;
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1;
+      height: 1px; background: #e2e8f0;
+    }
+
+    /* Подсказка с паролем */
+    .hint-box {
+      background: #eff6ff; border: 1px solid #bfdbfe;
+      border-radius: 8px; padding: 12px 14px;
+      font-size: 12.5px; color: #1e40af;
+      margin-bottom: 20px;
+    }
+    .hint-box strong { display: block; margin-bottom: 4px; }
+
+    @media (max-width: 768px) {
+      .login-brand { display: none; }
+      .login-form-panel { width: 100%; padding: 36px 28px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ЛЕВАЯ ПАНЕЛЬ: брендинг -->
+  <div class="login-brand">
+    <div class="brand-content">
+      <div class="brand-logo">
+        <div class="brand-logo-icon"><img src="/images/logo.png" alt="FixByte логотип"></div>
+        <div>
+          <span class="brand-logo-text">FixByte</span>
+          <span class="brand-logo-sub">CRM-система</span>
+        </div>
+      </div>
+
+      <h1 class="brand-headline">
+        Управляй<br>сервисом<br><span>умнее</span>
+      </h1>
+      <p class="brand-desc">
+        Профессиональная CRM для сервисных центров по ремонту ПК и ноутбуков. Заказы, клиенты, финансы — всё в одном месте.
+      </p>
+
+      <div class="brand-features">
+        <div class="brand-feature">
+          <div class="brand-feature-icon">📋</div>
+          <span>Управление заказами и статусами ремонта</span>
+        </div>
+        <div class="brand-feature">
+          <div class="brand-feature-icon">👥</div>
+          <span>База клиентов с историей обращений</span>
+        </div>
+        <div class="brand-feature">
+          <div class="brand-feature-icon">💰</div>
+          <span>Учёт оплат, долгов и финансовая аналитика</span>
+        </div>
+        <div class="brand-feature">
+          <div class="brand-feature-icon">🔧</div>
+          <span>Каталог услуг с калькулятором стоимости</span>
+        </div>
+      </div>
+    </div>
+    <div class="brand-version">FixByte CRM © 2026 v1.0</div>
+  </div>
+
+  <!-- ПРАВАЯ ПАНЕЛЬ: форма входа -->
+  <div class="login-form-panel">
+    <select class="login-theme-select" data-theme-select aria-label="Выбор темы">
+      <option value="system">Системная</option>
+      <option value="light">Светлая</option>
+      <option value="dark">Темная</option>
+    </select>
+    <div class="login-form-wrap">
+
+      <h2 class="login-title">Добро пожаловать</h2>
+      <p class="login-subtitle">Введите данные для входа в систему</p>
+
+      <!-- Сообщение об ошибке -->
+      <div th:if="${param.error}" class="alert alert-error">
+        ❌ Неверный логин или пароль. Попробуйте снова.
+      </div>
+
+      <!-- Сообщение о выходе -->
+      <div th:if="${param.logout}" class="alert alert-success">
+        ✅ Вы успешно вышли из системы.
+      </div>
+
+      <form th:action="@{/login}" method="post">
+
+        <div class="form-group">
+          <label class="form-label" for="username">Логин</label>
+          <div class="input-icon-wrap">
+            <span class="input-icon">👤</span>
+            <input
+              type="text"
+              id="username"
+              name="username"
+              class="form-input with-icon"
+              placeholder="Введите логин"
+              autocomplete="username"
+              required
+              autofocus>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Пароль</label>
+          <div class="input-icon-wrap">
+            <span class="input-icon">🔑</span>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              class="form-input with-icon"
+              placeholder="Введите пароль"
+              autocomplete="current-password"
+              required>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-login">⚡ Войти в систему</button>
+      </form>
+
+
+      <div class="login-footer">
+        FixByte CRM © 2026 — Сервис управления ремонтом ПК
+      </div>
+    </div>
+  </div>
+  <script src="/js/theme.js"></script>
+</body>
+</html>
+
