@@ -1,0 +1,35 @@
+# Git
+.git
+.github
+.gitignore
+
+# IDE
+.idea
+*.iml
+*.ipr
+*.iws
+
+# Maven target (пересобираем внутри Docker)
+target/
+
+# Документация
+*.md
+INDEX.md
+QUICKSTART.md
+README.md
+SOLUTION.md
+START_HERE.md
+PROJECT_REPORT.md
+FIX_LOMBOK_ISSUE.md
+COMPLETE_README.md
+RUN_IN_INTELLIJ.md
+
+# Docker-файлы (не нужны внутри образа)
+Dockerfile
+docker-compose.yml
+docker/
+
+# Env-файлы (передаются через docker-compose, не копируются в образ)
+.env
+.env.*
+

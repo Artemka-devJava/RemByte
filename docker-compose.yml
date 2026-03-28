@@ -1,0 +1,59 @@
+# ============================================================
+# FixByte CRM — Docker Compose
+# Сервисы: app (Spring Boot) + db (MariaDB)
+#
+# Запуск:  docker compose up -d --build
+# Остановка: docker compose down
+# Логи:    docker compose logs -f app
+# ============================================================
+
+services:
+
+  # ── MariaDB ─────────────────────────────────────────────
+  db:
+    image: mariadb:11.4
+    container_name: fixbyte-db
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_PASSWORD:-changeme}
+      MARIADB_DATABASE: rembyte
+    ports:
+      # Снаружи доступна на том же порту 9092 (как в dev), внутри — стандартный 3306
+      - "9092:3306"
+    volumes:
+      - fixbyte-db-data:/var/lib/mysql
+      - ./docker/mariadb/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  # ── Spring Boot App ──────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fixbyte-app
+    restart: unless-stopped
+    ports:
+      - "9087:9087"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      # Внутри Docker сеть — хост БД это имя сервиса 'db', порт 3306
+      MARIADB_URL: jdbc:mariadb://db:3306/rembyte?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=UTF-8
+      MARIADB_USERNAME: root
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-changeme}
+      FIXBYTE_ADMIN_USERNAME: ${FIXBYTE_ADMIN_USERNAME:-admin}
+      FIXBYTE_ADMIN_PASSWORD: ${FIXBYTE_ADMIN_PASSWORD:-changeme}
+      FIXBYTE_OPERATOR_USERNAME: ${FIXBYTE_OPERATOR_USERNAME:-operator}
+      FIXBYTE_OPERATOR_PASSWORD: ${FIXBYTE_OPERATOR_PASSWORD:-changeme}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  fixbyte-db-data:
+    driver: local
+
