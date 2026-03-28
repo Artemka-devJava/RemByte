@@ -32,7 +32,7 @@ public class SecurityConfig {
                 // H2 консоль
                 .requestMatchers("/h2-console/**").permitAll()
                 // Админские страницы
-                .requestMatchers("/users", "/api/users/**").hasRole("ADMIN")
+                .requestMatchers("/users", "/api/users/**", "/admin", "/admin/**").hasRole("ADMIN")
                 // Всё остальное — только авторизованным
                 .anyRequest().authenticated()
             )
@@ -53,7 +53,7 @@ public class SecurityConfig {
             )
             // Отключить CSRF для API и H2 консоли
             .csrf(csrf -> csrf
-                .ignoringRequestMatchers("/api/**", "/h2-console/**")
+                .ignoringRequestMatchers("/api/**", "/h2-console/**", "/admin/restore")
             )
             // Разрешить iframe для H2 консоли
             .headers(headers -> headers

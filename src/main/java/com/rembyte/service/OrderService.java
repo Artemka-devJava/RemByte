@@ -130,6 +130,33 @@ public class OrderService {
     }
 
     /**
+     * Добавить ссылки на фото/видео/документы к заказу
+     */
+    public Order addAttachmentUrls(Long orderId, List<String> photoUrls, List<String> videoUrls, List<String> fileUrls) {
+        return orderRepository.findById(orderId).map(order -> {
+            order.addPhotoUrls(photoUrls);
+            order.addVideoUrls(videoUrls);
+            order.addFileUrls(fileUrls);
+            order.setUpdatedAt(LocalDateTime.now());
+            return orderRepository.save(order);
+        }).orElseThrow(() -> new RuntimeException("Заказ не найден"));
+    }
+
+    /**
+     * Удалить ссылку вложения у заказа
+     */
+    public Order removeAttachmentUrl(Long orderId, String attachmentUrl) {
+        return orderRepository.findById(orderId).map(order -> {
+            boolean removed = order.removeAttachmentUrl(attachmentUrl);
+            if (!removed) {
+                throw new RuntimeException("Вложение не найдено в заказе");
+            }
+            order.setUpdatedAt(LocalDateTime.now());
+            return orderRepository.save(order);
+        }).orElseThrow(() -> new RuntimeException("Заказ не найден"));
+    }
+
+    /**
      * Получить статистику за период
      */
     public OrderStatistics getStatistics(LocalDateTime from, LocalDateTime to) {

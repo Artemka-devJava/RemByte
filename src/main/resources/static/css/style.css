@@ -428,6 +428,242 @@ a:hover { text-decoration: underline; }
 .order-detail-value { flex:1; color:var(--c-text); font-size:14px; }
 .order-detail-divider { border:none; border-top:1px solid var(--c-border); margin:12px 0; }
 
+.order-media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.order-media-card {
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--c-card);
+}
+
+.order-media-preview {
+  position: relative;
+  height: 105px;
+  overflow: hidden;
+}
+
+.order-media-card img,
+.order-media-card video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: #000;
+}
+
+.order-media-link {
+  display: block;
+  padding: 6px 8px;
+  font-size: 11.5px;
+  color: var(--c-primary);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.order-media-link:hover {
+  text-decoration: underline;
+}
+
+.order-media-actions {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 0 4px;
+  z-index: 2;
+  width: calc(100% - 8px);
+  box-sizing: border-box;
+}
+
+.order-media-btn {
+  border: 1px solid var(--c-border);
+  background: rgba(15, 23, 42, 0.82);
+  color: #fff;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  width: 100%;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.order-media-btn:hover {
+  border-color: color-mix(in srgb, var(--c-primary) 80%, #fff 20%);
+  background: color-mix(in srgb, var(--c-primary) 65%, rgba(15,23,42,.82) 35%);
+  color: #fff;
+}
+
+.order-media-btn.danger {
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.order-media-btn.danger:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #991b1b;
+}
+
+.order-media-empty {
+  color: var(--c-muted);
+  font-size: 13px;
+}
+
+/* Document file card */
+.order-media-card.doc-card .order-media-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--c-primary-l);
+  cursor: default;
+}
+
+.order-media-card.doc-card .order-media-doc-icon {
+  font-size: 30px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.order-media-card.doc-card .order-media-doc-name {
+  font-size: 10px;
+  color: var(--c-primary);
+  font-weight: 600;
+  text-align: center;
+  padding: 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.upload-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--c-muted);
+  font-size: 12px;
+}
+
+.selected-files {
+  margin-top: 6px;
+  color: var(--c-muted);
+  font-size: 12px;
+}
+
+.attachment-dropzone {
+  margin-top: 8px;
+  border: 1.5px dashed var(--c-border);
+  border-radius: 9px;
+  padding: 12px;
+  text-align: center;
+  background: color-mix(in srgb, var(--c-primary-l) 35%, var(--c-card) 65%);
+  color: var(--c-muted);
+  cursor: pointer;
+  transition: all .18s;
+}
+
+.attachment-dropzone:hover,
+.attachment-dropzone.is-dragover {
+  border-color: var(--c-primary);
+  background: var(--c-primary-l);
+  color: var(--c-primary);
+}
+
+.attachment-dropzone:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-primary) 24%, transparent 76%);
+}
+
+.attachment-dropzone-icon {
+  font-size: 20px;
+  margin-bottom: 3px;
+}
+
+.attachment-dropzone-text {
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.upload-progress {
+  margin-top: 8px;
+}
+
+.upload-progress-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--c-border) 65%, #fff 35%);
+  overflow: hidden;
+}
+
+.upload-progress-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--c-primary) 0%, color-mix(in srgb, var(--c-primary) 70%, #fff 30%) 100%);
+  transition: width .14s;
+}
+
+.upload-progress-text {
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--c-muted);
+}
+
+.media-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(2, 6, 23, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.media-lightbox-content {
+  max-width: min(95vw, 1200px);
+  max-height: 90vh;
+}
+
+.media-lightbox-content img,
+.media-lightbox-content video {
+  max-width: 100%;
+  max-height: 90vh;
+  border-radius: 10px;
+  box-shadow: 0 12px 42px rgba(0, 0, 0, 0.45);
+}
+
+.media-lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 24px;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.65);
+  color: #fff;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.media-lightbox-close:hover {
+  background: rgba(30, 41, 59, 0.9);
+}
+
 /* ===== STATUS SELECT IN TABLE ===== */
 .status-select {
   padding:4px 8px; border:1.5px solid var(--c-border); border-radius:6px;
@@ -470,6 +706,114 @@ a:hover { text-decoration: underline; }
 
 /* ===== PAGE FOOTER ===== */
 .page-footer { text-align:center; padding:18px; color:var(--c-muted); font-size:11.5px; border-top:1px solid var(--c-border); margin-top:auto; }
+
+/* ===== ЧЕК / КВИТАНЦИЯ ===== */
+.receipt-page {
+  background: #fff; color: #1e293b;
+  padding: 36px 44px;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 13.5px; line-height: 1.6;
+  max-width: 600px; margin: 0 auto;
+  border: 1px solid #e2e8f0; border-radius: 8px;
+}
+.receipt-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding-bottom: 18px; margin-bottom: 18px;
+  border-bottom: 2.5px solid #1e293b;
+}
+.receipt-brand { display: flex; align-items: center; gap: 12px; }
+.receipt-brand-logo { width: 44px; height: 44px; object-fit: contain; }
+.receipt-brand-name { font-size: 21px; font-weight: 800; color: #1e293b; line-height: 1.1; }
+.receipt-brand-sub  { font-size: 11px; color: #64748b; }
+.receipt-meta { text-align: right; }
+.receipt-meta-title { font-size: 16px; font-weight: 700; color: #1e293b; }
+.receipt-meta-num   { font-size: 12.5px; color: #64748b; }
+
+.receipt-section { margin-bottom: 14px; }
+.receipt-section-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .7px; color: #94a3b8; margin-bottom: 3px;
+}
+.receipt-section-value  { font-size: 14px; color: #1e293b; }
+.receipt-section-value2 { font-size: 12.5px; color: #64748b; }
+
+.receipt-services-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+.receipt-services-table thead tr { border-bottom: 1.5px solid #e2e8f0; }
+.receipt-services-table th {
+  padding: 7px 8px; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .5px; color: #94a3b8; text-align: left;
+}
+.receipt-services-table th:last-child { text-align: right; }
+.receipt-services-table td {
+  padding: 8px 8px; font-size: 13.5px; color: #1e293b;
+  border-bottom: 1px dashed #e2e8f0;
+}
+.receipt-services-table td:last-child { text-align: right; white-space: nowrap; }
+.receipt-services-table tbody tr:last-child td { border-bottom: none; }
+
+.receipt-totals { border-top: 1.5px solid #e2e8f0; padding-top: 10px; margin-top: 4px; }
+.receipt-total-row {
+  display: flex; justify-content: space-between;
+  padding: 4px 8px; font-size: 13.5px;
+}
+.receipt-total-row.highlight {
+  font-weight: 700; font-size: 15px; color: #1e293b;
+  background: #f8fafc; border-radius: 6px;
+  margin-top: 4px; padding: 8px;
+}
+.receipt-total-row.paid        { color: #16a34a; }
+.receipt-total-row.balance-ok  { color: #16a34a; }
+.receipt-total-row.balance-due { color: #dc2626; font-weight: 600; }
+
+.receipt-divider { border: none; border-top: 1px solid #e2e8f0; margin: 14px 0; }
+
+.receipt-footer-row {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  margin-top: 28px; padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+.receipt-sig-label { font-size: 11.5px; color: #64748b; margin-bottom: 28px; }
+.receipt-sig-name  { font-size: 12px; color: #475569; }
+.receipt-sig-line  { border-top: 1px solid #1e293b; width: 190px; margin-top: 2px; }
+.receipt-stamp {
+  width: 88px; height: 88px;
+  border: 2px dashed #cbd5e1; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: #94a3b8; text-align: center; line-height: 1.4;
+  flex-shrink: 0;
+}
+
+/* Редактируемые поля в чеке */
+.receipt-page [contenteditable="true"] {
+  border-radius: 3px; cursor: text; outline: none;
+  display: inline-block; min-width: 10px;
+  transition: background .12s, box-shadow .12s;
+}
+.receipt-page [contenteditable="true"]:hover { background: rgba(37,99,235,.07); }
+.receipt-page [contenteditable="true"]:focus {
+  background: rgba(37,99,235,.11);
+  box-shadow: 0 0 0 2px rgba(37,99,235,.22);
+}
+/* При печати убрать подсветку редактируемых полей */
+@media print {
+  .receipt-page [contenteditable] { background: transparent !important; box-shadow: none !important; }
+}
+
+/* Чипы включения/выключения полей чека (только для администратора) */
+.receipt-toggle-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 20px;
+  border: 1.5px solid var(--c-border);
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  background: var(--c-card); color: var(--c-text);
+  transition: border-color .15s, color .15s;
+  user-select: none;
+}
+.receipt-toggle-chip:hover { border-color: var(--c-primary); color: var(--c-primary); }
+.receipt-toggle-chip input[type="checkbox"] {
+  width: 13px; height: 13px; margin: 0; cursor: pointer;
+  accent-color: var(--c-primary);
+}
 
 /* ===== RESPONSIVE ===== */
 @media (max-width:768px) {

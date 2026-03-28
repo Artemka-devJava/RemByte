@@ -290,10 +290,11 @@
     .quick-nav-item .nav-ic { font-size: 20px; }
 
     @media (max-width: 640px) {
+      html, body { overflow-y: auto; }
       .topnav { padding: 14px 20px; }
       .hero-title { font-size: 32px; }
       .stats-row { display: none; }
-      .quick-nav { grid-template-columns: repeat(3, 1fr); }
+      .quick-nav { grid-template-columns: repeat(2, 1fr); }
     }
   </style>
 </head>

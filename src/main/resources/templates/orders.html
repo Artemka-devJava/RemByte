@@ -1,5 +1,6 @@
-<!DOCTYPE html>
-<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+﻿<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -26,6 +27,8 @@
       <a href="/orders"     class="nav-item active"><span class="nav-icon">📋</span>Заказы</a>
       <a href="/services"   class="nav-item"><span class="nav-icon">🔧</span>Услуги</a>
       <a href="/calculator" class="nav-item"><span class="nav-icon">💰</span>Калькулятор</a>
+
+      <a href="/admin"      class="nav-item" sec:authorize="hasRole('ADMIN')"><span class="nav-icon">⚙️</span>Настройки</a>
     </nav>
     <div class="theme-switcher">
       <label for="themeSelectOrders">Тема</label>
@@ -173,11 +176,40 @@
           <button class="btn btn-success" onclick="addPaymentFromModal()">💳 Оплата</button>
         </div>
       </div>
+
+      <div class="form-group">
+        <label style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--c-muted);">Вложения (фото, видео, документы):</label>
+        <div id="vOrderMedia" class="order-media-grid">
+          <div class="order-media-empty">Нет вложений</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--c-muted);">Добавить вложения:</label>
+        <input type="file" id="vAttachmentFiles" multiple
+               accept="image/*,video/*,.txt,.pdf,.doc,.docx,.xls,.xlsx,.csv,.rtf">
+        <label for="vAttachmentFiles" id="vAttachmentDropzone" class="attachment-dropzone" tabindex="0">
+          <div class="attachment-dropzone-icon">📥</div>
+          <div class="attachment-dropzone-text">Перетащите файлы сюда или нажмите для выбора</div>
+        </label>
+        <small class="upload-hint">Фото: jpg/jpeg/png/webp/gif до 15MB · Видео: mp4/webm/mov/m4v до 120MB · Документы: pdf/doc(x)/xls(x)/txt/csv/rtf до 20MB</small>
+        <div id="vAttachmentFilesList" class="selected-files"></div>
+        <div id="vUploadProgress" class="upload-progress" style="display:none;">
+          <div class="upload-progress-track">
+            <div id="vUploadProgressBar" class="upload-progress-bar" style="width:0%;"></div>
+          </div>
+          <div id="vUploadProgressText" class="upload-progress-text">0%</div>
+        </div>
+        <div style="margin-top:8px;">
+          <button id="vUploadAttachmentsBtn" class="btn btn-secondary" type="button" onclick="uploadAttachmentsFromView()">📎 Загрузить файлы</button>
+        </div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeViewOrderModal()">Закрыть</button>
+      <button class="btn btn-accent"    id="btnPrintReceipt" onclick="openCurrentReceipt()" style="display:none;">🧾 Напечатать чек</button>
       <button class="btn btn-secondary" onclick="openEditFromView()">✏️ Редактировать</button>
-      <button class="btn btn-primary" onclick="saveOrderStatus()">💾 Сохранить статус</button>
+      <button class="btn btn-primary"   onclick="saveOrderStatus()">💾 Сохранить статус</button>
     </div>
   </div>
 </div>
@@ -209,6 +241,23 @@
           <label>Заметки:</label>
           <textarea id="orderNotes" placeholder="Дополнительная информация..."></textarea>
         </div>
+        <div class="form-group">
+          <label>Фото/видео к заказу:</label>
+          <input type="file" id="createAttachmentFiles" multiple
+                 accept="image/*,video/*,.txt,.pdf,.doc,.docx,.xls,.xlsx,.csv,.rtf">
+          <label for="createAttachmentFiles" id="createAttachmentDropzone" class="attachment-dropzone" tabindex="0">
+            <div class="attachment-dropzone-icon">📥</div>
+            <div class="attachment-dropzone-text">Перетащите файлы сюда или нажмите для выбора</div>
+          </label>
+          <small class="upload-hint">Фото: jpg/jpeg/png/webp/gif до 15MB · Видео: mp4/webm/mov/m4v до 120MB · Документы: pdf/doc(x)/xls(x)/txt/csv/rtf до 20MB. Файлы загрузятся после сохранения заказа.</small>
+          <div id="createAttachmentFilesList" class="selected-files"></div>
+          <div id="createUploadProgress" class="upload-progress" style="display:none;">
+            <div class="upload-progress-track">
+              <div id="createUploadProgressBar" class="upload-progress-bar" style="width:0%;"></div>
+            </div>
+            <div id="createUploadProgressText" class="upload-progress-text">0%</div>
+          </div>
+        </div>
         <div class="order-total-box">
           <span>💰 Итого:</span>
           <span id="orderTotalPrice">0 ₽</span>
@@ -220,7 +269,136 @@
   </div>
 </div>
 
+<!-- ===== МОДАЛ: Превью медиа ===== -->
+<div id="mediaLightbox" class="media-lightbox" style="display:none;">
+  <button class="media-lightbox-close" type="button" onclick="closeMediaLightbox()">&times;</button>
+  <div id="mediaLightboxContent" class="media-lightbox-content"></div>
+</div>
+
+<!-- ===== МОДАЛ: Чек / Квитанция ===== -->
+<div id="receiptModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:700px;">
+    <div class="modal-header">
+      <h2>🧾 Чек / Квитанция</h2>
+      <button class="close" onclick="closeReceiptModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="padding:16px 20px;">
+
+      <!-- Управление полями (только для администратора) -->
+      <div id="receiptFieldToggles" style="display:none;margin-bottom:12px;padding:10px 14px;background:var(--c-card);border:1px solid var(--c-border);border-radius:8px;">
+        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--c-muted);margin-bottom:8px;">Показать / скрыть поля:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          <label class="receipt-toggle-chip"><input type="checkbox" data-toggle-section="rSectionAddress"   checked> Адрес</label>
+          <label class="receipt-toggle-chip"><input type="checkbox" data-toggle-section="rSectionClient"    checked> Клиент</label>
+          <label class="receipt-toggle-chip"><input type="checkbox" data-toggle-section="rSectionDevice"    checked> Устройство</label>
+          <label class="receipt-toggle-chip"><input type="checkbox" data-toggle-section="rSectionServices"  checked> Услуги</label>
+          <label class="receipt-toggle-chip"><input type="checkbox" data-toggle-section="rRowPaid"          checked> Оплачено</label>
+          <label class="receipt-toggle-chip"><input type="checkbox" data-toggle-section="rBalanceRow"       checked> Остаток</label>
+          <label class="receipt-toggle-chip"><input type="checkbox" data-toggle-section="rSectionNotes"     checked> Заметки</label>
+          <label class="receipt-toggle-chip"><input type="checkbox" data-toggle-section="rSectionSignature" checked> Подпись</label>
+        </div>
+      </div>
+
+      <!-- Подсказка для администратора -->
+      <div id="receiptEditHint" style="display:none;margin-bottom:12px;padding:8px 14px;
+           background:var(--c-info-bg);border-left:3px solid var(--c-info);border-radius:7px;
+           font-size:12.5px;color:var(--c-info);">
+        ✏️ Нажмите на любое поле чека для редактирования
+      </div>
+
+      <!-- Сам чек -->
+      <div id="receiptContent" class="receipt-page">
+
+        <!-- Шапка -->
+        <div class="receipt-header">
+          <div class="receipt-brand">
+            <img src="/images/logo.png" alt="Лого" class="receipt-brand-logo">
+            <div>
+              <div class="receipt-brand-name" id="rCompanyName" data-editable>FixByte</div>
+              <div class="receipt-brand-sub"  id="rCompanySub"  data-editable>Сервисный центр · Ремонт техники</div>
+              <div id="rSectionAddress">
+                <div class="receipt-brand-sub" id="rCompanyAddress" data-editable style="color:var(--c-muted,#64748b);">г. Город, ул. Ремонтная, д. 1</div>
+              </div>
+            </div>
+          </div>
+          <div class="receipt-meta">
+            <div class="receipt-meta-title">ЧЕК / КВИТАНЦИЯ</div>
+            <div class="receipt-meta-num">№&nbsp;<span id="rOrderNumber" data-editable>—</span></div>
+            <div class="receipt-meta-num">от&nbsp;<span id="rOrderDate"  data-editable>—</span></div>
+          </div>
+        </div>
+
+        <!-- Клиент -->
+        <div class="receipt-section" id="rSectionClient">
+          <div class="receipt-section-label">Клиент</div>
+          <div class="receipt-section-value"  id="rClientName"    data-editable>—</div>
+          <div class="receipt-section-value2" id="rClientPhone"   data-editable></div>
+          <div class="receipt-section-value2" id="rClientAddress" data-editable></div>
+        </div>
+
+        <!-- Устройство -->
+        <div class="receipt-section" id="rSectionDevice">
+          <div class="receipt-section-label">Устройство / Описание работ</div>
+          <div class="receipt-section-value" id="rDevice" data-editable>—</div>
+        </div>
+
+        <!-- Услуги -->
+        <div class="receipt-section" id="rSectionServices">
+          <div class="receipt-section-label">Выполненные работы</div>
+          <table class="receipt-services-table">
+            <thead><tr><th>Наименование</th><th style="text-align:right;">Стоимость</th></tr></thead>
+            <tbody id="rServicesTbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Итоги -->
+        <div class="receipt-totals">
+          <div class="receipt-total-row highlight">
+            <span>ИТОГО:</span><span id="rTotal" data-editable>—</span>
+          </div>
+          <div class="receipt-total-row paid" id="rRowPaid">
+            <span>Оплачено:</span><span id="rPaid" data-editable>—</span>
+          </div>
+          <div class="receipt-total-row" id="rBalanceRow">
+            <span>Остаток:</span><span id="rBalance" data-editable>—</span>
+          </div>
+        </div>
+
+        <hr class="receipt-divider">
+
+        <!-- Заметки -->
+        <div class="receipt-section" id="rSectionNotes">
+          <div class="receipt-section-label">Заметки / Гарантия</div>
+          <div class="receipt-section-value" id="rNotes" data-editable style="min-height:18px;">—</div>
+        </div>
+
+        <!-- Подпись -->
+        <div class="receipt-footer-row" id="rSectionSignature">
+          <div>
+            <div class="receipt-sig-label">Принял / Выдал:</div>
+            <div class="receipt-sig-name" id="rEmployee" data-editable>________________</div>
+            <div class="receipt-sig-line"></div>
+          </div>
+        </div>
+
+      </div><!-- /receiptContent -->
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeReceiptModal()">Закрыть</button>
+      <button class="btn btn-secondary" onclick="printReceiptDirect()">🖨️ Распечатать</button>
+      <button class="btn btn-primary"   id="btnSavePdf" onclick="saveReceiptAsPdf()">📎 Сохранить PDF и прикрепить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Маркер роли администратора для JS -->
+<span id="adminMarker" sec:authorize="hasRole('ADMIN')" style="display:none;"></span>
+
 <div id="toast-container"></div>
+<!-- CDN: html2canvas + jsPDF для генерации PDF-чека -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script>const IS_ADMIN = !!document.getElementById('adminMarker');</script>
 <script src="/js/theme.js"></script>
 <script src="/js/api.js"></script>
 <script src="/js/orders.js"></script>

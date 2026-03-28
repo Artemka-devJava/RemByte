@@ -283,6 +283,48 @@ const OrderAPI = {
         }
     },
 
+    // Загрузить вложения (фото/видео) к заказу
+    uploadAttachments: async (id, files) => {
+        try {
+            const formData = new FormData();
+            Array.from(files || []).forEach(file => formData.append('files', file));
+
+            const response = await fetch(`${API_BASE}/orders/${id}/attachments`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const message = await response.text();
+                throw new Error(message || 'Ошибка загрузки вложений');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error uploading order attachments:', error);
+            throw error;
+        }
+    },
+
+    // Удалить вложение у заказа
+    deleteAttachment: async (id, attachmentUrl) => {
+        try {
+            const response = await fetch(`${API_BASE}/orders/${id}/attachments?url=${encodeURIComponent(attachmentUrl)}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) {
+                const message = await response.text();
+                throw new Error(message || 'Ошибка удаления вложения');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error deleting order attachment:', error);
+            throw error;
+        }
+    },
+
     // Получить статистику
     getStatistics: async (from, to) => {
         try {

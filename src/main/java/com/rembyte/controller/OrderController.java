@@ -1,12 +1,14 @@
 package com.rembyte.controller;
 
 import com.rembyte.model.Order;
-import com.rembyte.model.RepairService;
+import com.rembyte.service.FileStorageService;
 import com.rembyte.service.OrderService;
 import com.rembyte.service.OrderStatistics;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -20,9 +22,11 @@ import java.util.List;
 @CrossOrigin(origins = "*")
 public class OrderController {
     private final OrderService orderService;
+    private final FileStorageService fileStorageService;
 
-    public OrderController(OrderService orderService) {
+    public OrderController(OrderService orderService, FileStorageService fileStorageService) {
         this.orderService = orderService;
+        this.fileStorageService = fileStorageService;
     }
 
     @PostMapping
@@ -74,14 +78,11 @@ public class OrderController {
     }
 
     @PostMapping("/{id}/add-service/{serviceId}")
-    public ResponseEntity<Order> addServiceToOrder(@PathVariable Long id, 
+    public ResponseEntity<Order> addServiceToOrder(@PathVariable Long id,
                                                     @PathVariable Long serviceId) {
-        try {
-            // Nota: В реальном приложении нужно получить сервис из БД
-            return ResponseEntity.ok(orderService.getOrderById(id).get());
-        } catch (Exception e) {
-            return ResponseEntity.notFound().build();
-        }
+        return orderService.getOrderById(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PostMapping("/{id}/payment")
@@ -90,6 +91,32 @@ public class OrderController {
             return ResponseEntity.ok(orderService.addPayment(id, amount));
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    @PostMapping(value = "/{id}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadAttachments(@PathVariable Long id,
+                                               @RequestParam("files") MultipartFile[] files) {
+        try {
+            FileStorageService.UploadResult uploaded = fileStorageService.saveOrderAttachments(id, files);
+            return ResponseEntity.ok(orderService.addAttachmentUrls(id, uploaded.photoUrls(), uploaded.videoUrls(), uploaded.fileUrls()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Заказ не найден");
+        }
+    }
+
+    @DeleteMapping("/{id}/attachments")
+    public ResponseEntity<?> deleteAttachment(@PathVariable Long id,
+                                              @RequestParam("url") String attachmentUrl) {
+        try {
+            fileStorageService.deleteOrderAttachment(id, attachmentUrl);
+            return ResponseEntity.ok(orderService.removeAttachmentUrl(id, attachmentUrl));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }
     }
 
