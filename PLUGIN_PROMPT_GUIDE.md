@@ -9,17 +9,21 @@
 - Кнопка плагина появляется в левом меню (`🧩 <название>`).
 - Плагин запускается на странице `/plugins?pluginId=...`.
 - Запуск идёт в изолированном `iframe sandbox="allow-scripts allow-modals"`.
+- Для сохранения данных доступен безопасный SDK хоста:
+  - `RemBytePluginAPI.getData(defaultValue)`
+  - `RemBytePluginAPI.setData(value)`
 
 ### Важно по изоляции
 
 Плагин:
 - не должен вызывать API CRM,
-- не должен пытаться обращаться к `window.parent`,
-- не должен ожидать доступ к DOM основной CRM.
+- не должен пытаться работать с DOM основной CRM,
+- не должен ожидать доступ к сессии CRM.
 
 Разрешено:
 - локальная логика внутри плагина,
-- `localStorage` для данных самого плагина,
+- сохранение данных через `RemBytePluginAPI` (рекомендуется),
+- fallback на `localStorage` (если плагин запускается вне CRM),
 - чистый HTML/CSS/JS без внешней сборки.
 
 ## 2) Минимальный контракт плагина
@@ -37,6 +41,26 @@
 - понятный `title`
 - кнопка очистки/сброса
 - безопасная работа с вводом
+
+### Мини-SDK для хранения данных
+
+```javascript
+async function loadState() {
+  const defaults = { items: [] };
+  if (window.RemBytePluginAPI?.getData) {
+	return await window.RemBytePluginAPI.getData(defaults);
+  }
+  return JSON.parse(localStorage.getItem('my_plugin_state') || JSON.stringify(defaults));
+}
+
+async function saveState(state) {
+  if (window.RemBytePluginAPI?.setData) {
+	await window.RemBytePluginAPI.setData(state);
+	return;
+  }
+  localStorage.setItem('my_plugin_state', JSON.stringify(state));
+}
+```
 
 ## 3) Шаблон промта для генерации нового плагина
 
@@ -111,4 +135,6 @@
 
 Текущий пример:
 - `plugin-samples/text-editor-plugin.html`
+- `plugin-samples/snake-game-plugin.html`
+- `plugin-samples/tetris-game-plugin.html`
 

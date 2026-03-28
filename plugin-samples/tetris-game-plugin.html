@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Тетрис</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #111827;
+      --panel-2: #0f172a;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --border: #334155;
+      --primary: #22c55e;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 14px;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at top, #18253a 0%, var(--bg) 65%);
+      color: var(--text);
+    }
+
+    .wrap {
+      width: min(98vw, 840px);
+      background: color-mix(in srgb, var(--panel) 85%, #020617 15%);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 12px 38px rgba(0, 0, 0, .35);
+      padding: 14px;
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 14px;
+    }
+
+    .board-wrap {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #030712;
+      position: relative;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      image-rendering: pixelated;
+      background: linear-gradient(180deg, #0a1222 0%, #060b14 100%);
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      background: rgba(2, 6, 23, .62);
+      padding: 14px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .18s;
+    }
+
+    .overlay.show { opacity: 1; }
+
+    .overlay h3 {
+      margin: 0 0 8px 0;
+      font-size: 24px;
+    }
+
+    .overlay p {
+      margin: 0;
+      color: #dbeafe;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .side {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .card {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+    }
+
+    .title {
+      margin: 0 0 4px 0;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12.5px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .badge {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      background: #0a1220;
+    }
+
+    .badge .lbl {
+      color: var(--muted);
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+
+    .badge .val {
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: 1px solid var(--border);
+      background: #0b1628;
+      color: var(--text);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all .15s;
+      font-family: inherit;
+    }
+
+    .btn:hover { border-color: var(--primary); color: #fff; }
+    .btn.primary { background: #14532d; border-color: #166534; }
+    .btn.warn { background: #40210a; border-color: #92400e; }
+    .btn.danger { background: #3f1010; border-color: #7f1d1d; }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.45;
+    }
+
+    .hint code {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1px 6px;
+      background: #0a1220;
+      color: #fff;
+    }
+
+    @media (max-width: 760px) {
+      .wrap {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="board-wrap">
+    <canvas id="game" width="300" height="600" aria-label="Игровое поле тетриса"></canvas>
+    <div id="overlay" class="overlay show">
+      <div>
+        <h3>Нажмите Старт</h3>
+        <p>Управление: стрелки / WASD, пробел - быстрый сброс, P - пауза.</p>
+      </div>
+    </div>
+  </div>
+
+  <aside class="side">
+    <section class="card">
+      <h2 class="title">Тетрис</h2>
+      <p class="subtitle">Плагин работает в изолированной песочнице CRM.</p>
+    </section>
+
+    <section class="card stats">
+      <div class="badge">
+        <div class="lbl">Счет</div>
+        <div id="score" class="val">0</div>
+      </div>
+      <div class="badge">
+        <div class="lbl">Рекорд</div>
+        <div id="best" class="val">0</div>
+      </div>
+      <div class="badge">
+        <div class="lbl">Линии</div>
+        <div id="lines" class="val">0</div>
+      </div>
+      <div class="badge">
+        <div class="lbl">Уровень</div>
+        <div id="level" class="val">1</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="actions">
+        <button id="startBtn" class="btn primary" type="button">Старт</button>
+        <button id="pauseBtn" class="btn warn" type="button" disabled>Пауза</button>
+        <button id="restartBtn" class="btn danger" type="button" disabled>Рестарт</button>
+      </div>
+      <p class="hint" style="margin:10px 0 0 0;">Сохраняется только рекорд. Если localStorage ограничен, плагин продолжит работать без падений.</p>
+    </section>
+
+    <section class="card hint">
+      <div><b>Клавиши:</b></div>
+      <div><code>←/A</code> - влево, <code>→/D</code> - вправо</div>
+      <div><code>↑/W</code> - поворот, <code>↓/S</code> - мягкий спуск</div>
+      <div><code>Space</code> - быстрый сброс, <code>P</code> - пауза</div>
+    </section>
+  </aside>
+</div>
+
+<script>
+(function () {
+  const COLS = 10;
+  const ROWS = 20;
+  const CELL = 30;
+  const LEVEL_STEP = 10;
+  const SCORE_BY_LINES = [0, 100, 300, 500, 800];
+  const BEST_KEY = 'tetris_best_score_v1';
+
+  const SHAPES = {
+    I: [[1, 1, 1, 1]],
+    O: [[1, 1], [1, 1]],
+    T: [[0, 1, 0], [1, 1, 1]],
+    S: [[0, 1, 1], [1, 1, 0]],
+    Z: [[1, 1, 0], [0, 1, 1]],
+    J: [[1, 0, 0], [1, 1, 1]],
+    L: [[0, 0, 1], [1, 1, 1]]
+  };
+
+  const PIECES = Object.keys(SHAPES);
+  const COLORS = {
+    I: '#06b6d4',
+    O: '#facc15',
+    T: '#a855f7',
+    S: '#22c55e',
+    Z: '#ef4444',
+    J: '#3b82f6',
+    L: '#f97316'
+  };
+
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const overlay = document.getElementById('overlay');
+
+  const scoreEl = document.getElementById('score');
+  const bestEl = document.getElementById('best');
+  const linesEl = document.getElementById('lines');
+  const levelEl = document.getElementById('level');
+
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const restartBtn = document.getElementById('restartBtn');
+
+  let board = createBoard();
+  let current = null;
+  let score = 0;
+  let lines = 0;
+  let level = 1;
+  let best = 0;
+  let running = false;
+  let paused = false;
+  let gameOver = false;
+  let lastTime = 0;
+  let dropAccumulator = 0;
+
+  const storage = createStorageAdapter();
+
+  function createStorageAdapter() {
+    const hasPluginApi = () => !!(window.RemBytePluginAPI && typeof window.RemBytePluginAPI.getData === 'function');
+
+    return {
+      async loadBest() {
+        try {
+          if (hasPluginApi()) {
+            const data = await window.RemBytePluginAPI.getData({ tetrisBest: 0 });
+            const value = Number(data && data.tetrisBest);
+            return Number.isFinite(value) ? value : 0;
+          }
+
+          const raw = localStorage.getItem(BEST_KEY);
+          const value = Number(raw || 0);
+          return Number.isFinite(value) ? value : 0;
+        } catch {
+          return 0;
+        }
+      },
+
+      async saveBest(value) {
+        try {
+          if (hasPluginApi()) {
+            const data = await window.RemBytePluginAPI.getData({ tetrisBest: 0 });
+            const next = (data && typeof data === 'object') ? data : { tetrisBest: 0 };
+            next.tetrisBest = value;
+            await window.RemBytePluginAPI.setData(next);
+            return;
+          }
+
+          localStorage.setItem(BEST_KEY, String(value));
+        } catch {
+          // storage can be unavailable in sandbox; ignore safely
+        }
+      }
+    };
+  }
+
+  function createBoard() {
+    return Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+  }
+
+  function cloneMatrix(matrix) {
+    return matrix.map(row => row.slice());
+  }
+
+  function randomPiece() {
+    const type = PIECES[Math.floor(Math.random() * PIECES.length)];
+    const matrix = cloneMatrix(SHAPES[type]);
+    return {
+      type,
+      matrix,
+      x: Math.floor((COLS - matrix[0].length) / 2),
+      y: 0
+    };
+  }
+
+  function rotate(matrix) {
+    const rows = matrix.length;
+    const cols = matrix[0].length;
+    const out = Array.from({ length: cols }, () => Array(rows).fill(0));
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        out[x][rows - y - 1] = matrix[y][x];
+      }
+    }
+    return out;
+  }
+
+  function collides(piece, nextX, nextY, nextMatrix) {
+    const matrix = nextMatrix || piece.matrix;
+    const px = nextX == null ? piece.x : nextX;
+    const py = nextY == null ? piece.y : nextY;
+
+    for (let y = 0; y < matrix.length; y++) {
+      for (let x = 0; x < matrix[y].length; x++) {
+        if (!matrix[y][x]) continue;
+        const bx = px + x;
+        const by = py + y;
+
+        if (bx < 0 || bx >= COLS || by >= ROWS) return true;
+        if (by >= 0 && board[by][bx]) return true;
+      }
+    }
+    return false;
+  }
+
+  function mergePiece(piece) {
+    for (let y = 0; y < piece.matrix.length; y++) {
+      for (let x = 0; x < piece.matrix[y].length; x++) {
+        if (!piece.matrix[y][x]) continue;
+        const by = piece.y + y;
+        const bx = piece.x + x;
+        if (by >= 0 && by < ROWS && bx >= 0 && bx < COLS) {
+          board[by][bx] = piece.type;
+        }
+      }
+    }
+  }
+
+  function clearLines() {
+    let cleared = 0;
+    for (let y = ROWS - 1; y >= 0; y--) {
+      if (board[y].every(cell => !!cell)) {
+        board.splice(y, 1);
+        board.unshift(Array(COLS).fill(null));
+        cleared++;
+        y++;
+      }
+    }
+
+    if (cleared > 0) {
+      lines += cleared;
+      score += SCORE_BY_LINES[cleared] * level;
+      level = Math.floor(lines / LEVEL_STEP) + 1;
+      updateStats();
+    }
+  }
+
+  function spawnPiece() {
+    current = randomPiece();
+    if (collides(current)) {
+      endGame();
+    }
+  }
+
+  function dropIntervalMs() {
+    const base = 700;
+    const step = 55;
+    return Math.max(90, base - (level - 1) * step);
+  }
+
+  function move(dx, dy) {
+    if (!current) return false;
+    const nx = current.x + dx;
+    const ny = current.y + dy;
+    if (collides(current, nx, ny)) return false;
+    current.x = nx;
+    current.y = ny;
+    return true;
+  }
+
+  function hardDrop() {
+    if (!current || !running || paused || gameOver) return;
+    while (move(0, 1)) {
+      score += 2;
+    }
+    lockPiece();
+    updateStats();
+  }
+
+  function rotateCurrent() {
+    if (!current || !running || paused || gameOver) return;
+    const rotated = rotate(current.matrix);
+
+    // Простые wall-kicks: текущая позиция, затем сдвиги влево/вправо
+    const kicks = [0, -1, 1, -2, 2];
+    for (const k of kicks) {
+      if (!collides(current, current.x + k, current.y, rotated)) {
+        current.x += k;
+        current.matrix = rotated;
+        return;
+      }
+    }
+  }
+
+  function lockPiece() {
+    mergePiece(current);
+    clearLines();
+    spawnPiece();
+  }
+
+  function tick(deltaMs) {
+    if (!running || paused || gameOver) return;
+    dropAccumulator += deltaMs;
+
+    if (dropAccumulator >= dropIntervalMs()) {
+      dropAccumulator = 0;
+      if (!move(0, 1)) {
+        lockPiece();
+      } else {
+        score += 1;
+        updateStats();
+      }
+    }
+  }
+
+  function drawCell(x, y, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+    ctx.strokeStyle = 'rgba(0,0,0,.35)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x * CELL + .5, y * CELL + .5, CELL - 1, CELL - 1);
+  }
+
+  function drawBoard() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const cell = board[y][x];
+        if (cell) {
+          drawCell(x, y, COLORS[cell]);
+        } else {
+          ctx.fillStyle = 'rgba(148,163,184,.06)';
+          ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+        }
+      }
+    }
+
+    if (current) {
+      for (let y = 0; y < current.matrix.length; y++) {
+        for (let x = 0; x < current.matrix[y].length; x++) {
+          if (!current.matrix[y][x]) continue;
+          const px = current.x + x;
+          const py = current.y + y;
+          if (py >= 0) drawCell(px, py, COLORS[current.type]);
+        }
+      }
+    }
+  }
+
+  function updateStats() {
+    scoreEl.textContent = String(score);
+    linesEl.textContent = String(lines);
+    levelEl.textContent = String(level);
+
+    if (score > best) {
+      best = score;
+      bestEl.textContent = String(best);
+      storage.saveBest(best);
+    }
+  }
+
+  function showOverlay(title, text) {
+    overlay.classList.add('show');
+    overlay.innerHTML = `<div><h3>${escapeHtml(title)}</h3><p>${escapeHtml(text)}</p></div>`;
+  }
+
+  function hideOverlay() {
+    overlay.classList.remove('show');
+  }
+
+  function startGame() {
+    if (running && !gameOver) {
+      paused = false;
+      hideOverlay();
+      pauseBtn.textContent = 'Пауза';
+      pauseBtn.disabled = false;
+      restartBtn.disabled = false;
+      return;
+    }
+
+    board = createBoard();
+    score = 0;
+    lines = 0;
+    level = 1;
+    gameOver = false;
+    paused = false;
+    running = true;
+    dropAccumulator = 0;
+    spawnPiece();
+    hideOverlay();
+    updateStats();
+
+    pauseBtn.disabled = false;
+    restartBtn.disabled = false;
+    pauseBtn.textContent = 'Пауза';
+  }
+
+  function togglePause() {
+    if (!running || gameOver) return;
+    paused = !paused;
+    pauseBtn.textContent = paused ? 'Продолжить' : 'Пауза';
+    if (paused) {
+      showOverlay('Пауза', 'Нажмите кнопку или клавишу P, чтобы продолжить.');
+    } else {
+      hideOverlay();
+    }
+  }
+
+  function endGame() {
+    gameOver = true;
+    running = false;
+    paused = false;
+    pauseBtn.disabled = true;
+    pauseBtn.textContent = 'Пауза';
+    showOverlay('Игра окончена', `Ваш счет: ${score}. Нажмите Рестарт.`);
+    updateStats();
+  }
+
+  function restartGame() {
+    startGame();
+  }
+
+  function loop(ts) {
+    if (!lastTime) lastTime = ts;
+    const delta = ts - lastTime;
+    lastTime = ts;
+
+    tick(delta);
+    drawBoard();
+    requestAnimationFrame(loop);
+  }
+
+  function onKeyDown(e) {
+    const key = e.key;
+    const lower = key.toLowerCase();
+
+    const handled = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' ','p','a','d','w','s'].includes(lower) ||
+                    ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(key);
+
+    if (handled) e.preventDefault();
+
+    if (lower === 'p') {
+      togglePause();
+      return;
+    }
+
+    if (!running || paused || gameOver) return;
+
+    if (key === 'ArrowLeft' || lower === 'a') move(-1, 0);
+    if (key === 'ArrowRight' || lower === 'd') move(1, 0);
+    if (key === 'ArrowDown' || lower === 's') {
+      if (move(0, 1)) {
+        score += 1;
+        updateStats();
+      }
+    }
+    if (key === 'ArrowUp' || lower === 'w') rotateCurrent();
+    if (key === ' ' || lower === ' ') hardDrop();
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  startBtn.addEventListener('click', startGame);
+  pauseBtn.addEventListener('click', togglePause);
+  restartBtn.addEventListener('click', restartGame);
+  window.addEventListener('keydown', onKeyDown, { passive: false });
+
+  storage.loadBest().then(value => {
+    best = Number.isFinite(value) ? value : 0;
+    bestEl.textContent = String(best);
+  });
+
+  drawBoard();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
+

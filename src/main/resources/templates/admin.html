@@ -4,7 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Настройки — FixByte CRM</title>
+  
+  <link rel='icon' type='image/x-icon' href='/images/favicon.ico'>
   <link rel="stylesheet" href="/css/style.css">
   <style>
     .sidebar-user{padding:12px 14px;border-top:1px solid rgba(255,255,255,.07);margin-top:auto;}
@@ -212,7 +213,9 @@
                   <label for="pluginFile">Файл плагина (.html/.htm)</label>
                   <input id="pluginFile" type="file" accept=".html,.htm">
                 </div>
-                <button class="btn btn-primary" onclick="installPlugin()">➕ Установить плагин</button>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <button class="btn btn-primary" onclick="installPlugin()">➕ Установить плагин</button>
+                </div>
               </div>
             </div>
           </div>
@@ -384,10 +387,45 @@ function switchTab(tabId) {
 // ════════════════════════════════════════════════════════
 const PLUGINS_STORAGE_KEY = 'rembyte_plugins_registry';
 
+const PLUGIN_NAME_LOCALIZATION = {
+    'text-editor-plugin': 'Текстовый редактор',
+    'text-editor': 'Текстовый редактор',
+    'snake-game-plugin': 'Змейка',
+    'snake-game': 'Змейка',
+    'tetris-game-plugin': 'Тетрис',
+    'tetris-game': 'Тетрис'
+};
+
+function normalizePluginName(name) {
+    const raw = String(name || '').trim();
+    if (!raw) return 'Плагин';
+
+    const key = raw.toLowerCase().replace(/\.html?$/i, '');
+    if (PLUGIN_NAME_LOCALIZATION[key]) return PLUGIN_NAME_LOCALIZATION[key];
+
+    return raw;
+}
+
+function extractPluginTitleFromHtml(html) {
+    try {
+        const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+        const title = (doc.querySelector('title')?.textContent || '').trim();
+        return title || '';
+    } catch {
+        return '';
+    }
+}
+
 function loadPlugins() {
     try {
         const parsed = JSON.parse(localStorage.getItem(PLUGINS_STORAGE_KEY) || '[]');
-        return Array.isArray(parsed) ? parsed : [];
+        if (!Array.isArray(parsed)) return [];
+
+        // Мягкая миграция старых slug-имен в читаемые русские названия.
+        return parsed.map(p => ({
+            ...p,
+            name: normalizePluginName(p?.name)
+        }));
     } catch {
         return [];
     }
@@ -421,7 +459,10 @@ async function installPlugin() {
         return;
     }
 
-    const name = (nameInput?.value || '').trim() || file.name.replace(/\.html?$/i, '');
+    const typedName = (nameInput?.value || '').trim();
+    const titleName = extractPluginTitleFromHtml(html);
+    const fileName = file.name.replace(/\.html?$/i, '');
+    const name = normalizePluginName(typedName || titleName || fileName);
     const id = `plg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
     const plugins = loadPlugins();
@@ -440,6 +481,7 @@ async function installPlugin() {
     renderPluginList();
     showNotification(`Плагин «${name}» установлен`, 'success');
 }
+
 
 function togglePlugin(pluginId, enabled) {
     const plugins = loadPlugins().map(p => p.id === pluginId ? ({ ...p, enabled }) : p);
@@ -646,4 +688,5 @@ window.onclick = e => {
 </script>
 </body>
 </html>
+
 
