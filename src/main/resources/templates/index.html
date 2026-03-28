@@ -24,6 +24,81 @@
     [data-theme='light'] .btn-hero-secondary,
     [data-theme='light'] .btn-logout { background: rgba(15,23,42,.06); border-color: rgba(15,23,42,.12); color: #334155; }
 
+    /* FixByte фирменная тема */
+    [data-theme='fixbyte'] body { background: #f0f4f8; }
+    [data-theme='fixbyte'] .topnav {
+      background: rgba(255,255,255,.95);
+      border-bottom-color: rgba(45,61,80,.15);
+      box-shadow: 0 1px 8px rgba(45,61,80,.12);
+    }
+    [data-theme='fixbyte'] .topnav-logo-text,
+    [data-theme='fixbyte'] .hero-title,
+    [data-theme='fixbyte'] .stat-num { color: #2d3d50; }
+    [data-theme='fixbyte'] .topnav-logo-sub { color: #5a7a96; }
+    [data-theme='fixbyte'] .topnav-username { color: #5a7a96; }
+    [data-theme='fixbyte'] .topnav-theme {
+      border-color: rgba(45,61,80,.2);
+      background: rgba(45,61,80,.06);
+      color: #2d3d50;
+    }
+    [data-theme='fixbyte'] .hero-desc,
+    [data-theme='fixbyte'] .stat-lbl,
+    [data-theme='fixbyte'] .quick-nav-item { color: #5a7a96; }
+    [data-theme='fixbyte'] .stats-row,
+    [data-theme='fixbyte'] .quick-nav,
+    [data-theme='fixbyte'] .quick-nav-item,
+    [data-theme='fixbyte'] .stat-item { border-color: rgba(45,61,80,.14); }
+    [data-theme='fixbyte'] .hero-badge {
+      background: rgba(54,153,217,.12);
+      border-color: rgba(54,153,217,.4);
+      color: #3699d9;
+    }
+    [data-theme='fixbyte'] .hero-badge-dot { background: #3699d9; }
+    [data-theme='fixbyte'] .hero-title .accent { color: #3699d9; }
+    [data-theme='fixbyte'] .hero-title .accent-orange { color: #2d3d50; }
+    [data-theme='fixbyte'] .hero-glow-1 {
+      background: radial-gradient(circle, rgba(54,153,217,.18) 0%, transparent 70%);
+    }
+    [data-theme='fixbyte'] .hero-glow-2 {
+      background: radial-gradient(circle, rgba(45,61,80,.10) 0%, transparent 70%);
+    }
+    [data-theme='fixbyte'] .hero-grid {
+      background-image:
+        linear-gradient(rgba(54,153,217,.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(54,153,217,.06) 1px, transparent 1px);
+    }
+    [data-theme='fixbyte'] .btn-hero-primary {
+      background: linear-gradient(135deg, #2d3d50 0%, #3699d9 100%);
+      box-shadow: 0 4px 20px rgba(54,153,217,.35);
+    }
+    [data-theme='fixbyte'] .btn-hero-primary:hover {
+      background: linear-gradient(135deg, #1e2c3c 0%, #2d8bc5 100%);
+      box-shadow: 0 8px 28px rgba(54,153,217,.45);
+    }
+    [data-theme='fixbyte'] .btn-hero-secondary {
+      background: rgba(45,61,80,.07);
+      border-color: rgba(45,61,80,.18);
+      color: #2d3d50;
+    }
+    [data-theme='fixbyte'] .btn-hero-secondary:hover {
+      background: rgba(54,153,217,.1);
+      color: #2d3d50;
+    }
+    [data-theme='fixbyte'] .btn-logout {
+      background: rgba(45,61,80,.06);
+      border-color: rgba(45,61,80,.15);
+      color: #5a7a96;
+    }
+    [data-theme='fixbyte'] .btn-logout:hover {
+      background: rgba(54,153,217,.12);
+      color: #2d3d50;
+      border-color: rgba(54,153,217,.3);
+    }
+    [data-theme='fixbyte'] .quick-nav-item:hover {
+      background: rgba(54,153,217,.1);
+      color: #3699d9;
+    }
+
     html, body {
       height: 100%; width: 100%;
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -237,9 +312,14 @@
     </div>
     <div class="topnav-user">
       <select class="topnav-theme" data-theme-select aria-label="Выбор темы">
-        <option value="system">Системная</option>
-        <option value="light">Светлая</option>
-        <option value="dark">Темная</option>
+        <option value="system">🔄 Системная</option>
+        <option value="light">☀️ Светлая</option>
+        <option value="dark">🌙 Тёмная</option>
+        <option value="fixbyte">⚡ FixByte</option>
+        <option value="green">🌿 Зелёная</option>
+        <option value="purple">💜 Фиолетовая</option>
+        <option value="ocean">🌊 Океан</option>
+        <option value="sunset">🌅 Закат</option>
       </select>
       <span class="topnav-username" th:text="'👤 ' + ${#authentication?.name ?: 'Пользователь'}">👤 admin</span>
       <form th:action="@{/logout}" method="post" style="display:inline;">

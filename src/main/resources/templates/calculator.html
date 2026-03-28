@@ -10,6 +10,33 @@
     .sidebar-user-name{font-size:12px;color:#64748b;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .btn-sidebar-logout{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);border-radius:7px;color:#fca5a5;font-size:12.5px;font-family:inherit;cursor:pointer;transition:all .2s;}
     .btn-sidebar-logout:hover{background:rgba(239,68,68,.2);color:#fff;}
+
+    /* чекбокс-группа — изолирована от .form-group правил */
+    .check-group { margin-bottom: 8px; }
+    .check-label {
+      display: flex; align-items: center; gap: 9px;
+      font-size: 13.5px; font-weight: 400; color: var(--c-text);
+      cursor: pointer; user-select: none;
+      padding: 7px 10px;
+      border-radius: 7px;
+      transition: background .15s;
+    }
+    .check-label:hover { background: var(--c-primary-l); }
+    .check-label input[type="checkbox"] {
+      width: 16px; height: 16px;
+      flex-shrink: 0;
+      accent-color: var(--c-primary);
+      cursor: pointer;
+      margin: 0; padding: 0;
+    }
+    .check-badge {
+      margin-left: auto;
+      font-size: 12px; font-weight: 600;
+      color: var(--c-primary);
+      background: var(--c-primary-l);
+      padding: 2px 8px; border-radius: 12px;
+      white-space: nowrap;
+    }
   </style>
 </head>
 <body>
@@ -30,9 +57,14 @@
     <div class="theme-switcher">
       <label for="themeSelectCalculator">Тема</label>
       <select id="themeSelectCalculator" class="theme-select" data-theme-select>
-        <option value="system">Системная</option>
-        <option value="light">Светлая</option>
-        <option value="dark">Темная</option>
+        <option value="system">🔄 Системная</option>
+        <option value="light">☀️ Светлая</option>
+        <option value="dark">🌙 Тёмная</option>
+        <option value="fixbyte">⚡ FixByte</option>
+        <option value="green">🌿 Зелёная</option>
+        <option value="purple">💜 Фиолетовая</option>
+        <option value="ocean">🌊 Океан</option>
+        <option value="sunset">🌅 Закат</option>
       </select>
     </div>
     <div class="sidebar-footer">FixByte CRM © 2026</div>
@@ -59,27 +91,36 @@
 
           <div class="calc-section">
             <label style="font-weight:600;display:block;margin-bottom:8px;">Дополнительные параметры:</label>
-            <div class="form-group">
-              <label style="font-weight:400;display:flex;align-items:center;gap:8px;">
-                <input type="checkbox" id="additionalWork" onchange="calculatePrice()"> Дополнительная диагностика (+500₽)
+            <div class="check-group">
+              <label class="check-label">
+                <input type="checkbox" id="additionalWork" onchange="calculatePrice()">
+                <span>Дополнительная диагностика</span>
+                <span class="check-badge">+500 ₽</span>
               </label>
             </div>
-            <div class="form-group">
-              <label style="font-weight:400;display:flex;align-items:center;gap:8px;">
-                <input type="checkbox" id="urgentOrder" onchange="calculatePrice()"> Срочный заказ (+20%)
+            <div class="check-group">
+              <label class="check-label">
+                <input type="checkbox" id="urgentOrder" onchange="calculatePrice()">
+                <span>Срочный заказ</span>
+                <span class="check-badge">+20%</span>
               </label>
             </div>
-            <div class="form-group">
-              <label style="font-weight:400;display:flex;align-items:center;gap:8px;">
-                <input type="checkbox" id="warranty" onchange="calculatePrice()"> Гарантия на работу (1 год) (+15%)
+            <div class="check-group">
+              <label class="check-label">
+                <input type="checkbox" id="warranty" onchange="calculatePrice()">
+                <span>Гарантия на работу (1 год)</span>
+                <span class="check-badge">+15%</span>
               </label>
             </div>
           </div>
 
           <div class="calc-section">
-            <label style="font-weight:600;display:block;margin-bottom:8px;">Скидка (%):</label>
-            <input type="number" id="discountPercent" min="0" max="100" value="0" onchange="calculatePrice()"
-              style="width:100%;padding:8px 12px;border:1.5px solid var(--c-border);border-radius:7px;font-size:14px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label for="discountPercent" style="font-weight:600;">Скидка (%):</label>
+              <input type="number" id="discountPercent" min="0" max="100" value="0"
+                     onchange="calculatePrice()" class="form-control"
+                     style="background:var(--c-card);color:var(--c-text);">
+            </div>
           </div>
 
           <div class="calc-result">

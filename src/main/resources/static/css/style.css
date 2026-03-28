@@ -49,6 +49,149 @@
   --c-info-bg:    #123240;
 }
 
+/* ===== GREEN theme (light + green accent) ===== */
+[data-theme='green'] {
+  --c-primary:    #16a34a;
+  --c-primary-h:  #15803d;
+  --c-primary-l:  #dcfce7;
+  --c-accent:     #0891b2;
+  --c-accent-h:   #0e7490;
+  --sidebar-bg:   #14532d;
+  --sidebar-text: #86efac;
+}
+
+/* ===== PURPLE theme (dark + violet accent) ===== */
+[data-theme='purple'] {
+  --c-bg:         #0d0d1a;
+  --c-card:       #13132a;
+  --c-text:       #e9e9ff;
+  --c-muted:      #9ca3af;
+  --c-border:     #2d2d4e;
+
+  --c-primary:    #8b5cf6;
+  --c-primary-h:  #7c3aed;
+  --c-primary-l:  #2e1065;
+
+  --c-accent:     #ec4899;
+  --c-accent-h:   #db2777;
+
+  --c-success-bg: #052e16;
+  --c-warn-bg:    #2d1a01;
+  --c-danger-bg:  #2d0101;
+  --c-info-bg:    #0a1a2d;
+
+  --sidebar-bg:   #0a0a1f;
+  --sidebar-text: #a5b4fc;
+}
+[data-theme='purple'] .data-table thead tr { background: #1a1a35; }
+[data-theme='purple'] .data-table tbody tr:hover { background: #1a1a35; }
+
+/* ===== OCEAN theme (dark + cyan accent) ===== */
+[data-theme='ocean'] {
+  --c-bg:         #0a1628;
+  --c-card:       #0f2040;
+  --c-text:       #d0eaff;
+  --c-muted:      #7badd0;
+  --c-border:     #1a3a5c;
+
+  --c-primary:    #0ea5e9;
+  --c-primary-h:  #0284c7;
+  --c-primary-l:  #0c2a4a;
+
+  --c-accent:     #06b6d4;
+  --c-accent-h:   #0891b2;
+
+  --c-success-bg: #052e1a;
+  --c-warn-bg:    #1a2d01;
+  --c-danger-bg:  #2d0a0a;
+  --c-info-bg:    #062040;
+
+  --sidebar-bg:   #061020;
+  --sidebar-text: #60a5d4;
+}
+[data-theme='ocean'] .data-table thead tr { background: #0f2040; }
+[data-theme='ocean'] .data-table tbody tr:hover { background: #132840; }
+
+/* ===== SUNSET theme (light + warm orange accent) ===== */
+[data-theme='sunset'] {
+  --c-primary:    #ea580c;
+  --c-primary-h:  #c2410c;
+  --c-primary-l:  #ffedd5;
+
+  --c-accent:     #d97706;
+  --c-accent-h:   #b45309;
+
+  --c-bg:         #fff7ed;
+  --c-card:       #ffffff;
+  --c-border:     #fed7aa;
+
+  --sidebar-bg:   #431407;
+  --sidebar-text: #fdba74;
+}
+
+/* ===== FIXBYTE brand theme (#2d3d50 + #3699d9) ===== */
+[data-theme='fixbyte'] {
+  --c-bg:         #f0f4f8;
+  --c-card:       #ffffff;
+  --c-text:       #2d3d50;
+  --c-muted:      #5a7a96;
+  --c-border:     #c5d0da;
+
+  --c-primary:    #3699d9;
+  --c-primary-h:  #2d8bc5;
+  --c-primary-l:  #e7f3fa;
+
+  --c-accent:     #2d3d50;
+  --c-accent-h:   #1e2c3c;
+
+  --c-success:    #16a34a;
+  --c-success-bg: #dcfce7;
+  --c-warn:       #d97706;
+  --c-warn-bg:    #fef9c3;
+  --c-danger:     #dc2626;
+  --c-danger-bg:  #fee2e2;
+  --c-info:       #3699d9;
+  --c-info-bg:    #e7f3fa;
+
+  --sidebar-bg:   #2d3d50;
+  --sidebar-text: #7fb8d9;
+
+  --s1: 0 1px 3px rgba(45,61,80,.1);
+  --s2: 0 4px 16px rgba(45,61,80,.12);
+  --s3: 0 8px 32px rgba(45,61,80,.16);
+}
+/* Градиентная кнопка в стиле FixByte */
+[data-theme='fixbyte'] .btn-primary {
+  background: linear-gradient(135deg, #2d3d50 0%, #3699d9 100%);
+  box-shadow: 0 2px 8px rgba(54,153,217,.35);
+}
+[data-theme='fixbyte'] .btn-primary:hover {
+  background: linear-gradient(135deg, #1e2c3c 0%, #2d8bc5 100%);
+  transform: translateY(-1px);
+}
+/* Активный пункт меню с градиентом */
+[data-theme='fixbyte'] .nav-item.active {
+  background: linear-gradient(135deg, #2d3d50 0%, #3699d9 100%);
+}
+[data-theme='fixbyte'] .nav-item:hover {
+  background: rgba(54,153,217,.18);
+  color: #7fb8d9;
+}
+/* Таблицы */
+[data-theme='fixbyte'] .data-table thead tr { background: #eef2f6; }
+[data-theme='fixbyte'] .data-table tbody tr:hover { background: #eef2f6; }
+/* Заголовки групп услуг */
+[data-theme='fixbyte'] .services-group-header {
+  background: linear-gradient(90deg, #2d3d50 0%, #3699d9 100%);
+}
+/* Кнопка поиска */
+[data-theme='fixbyte'] .search-bar button { background: #3699d9; }
+[data-theme='fixbyte'] .search-bar button:hover { background: #2d8bc5; }
+/* Кнопка выхода в сайдбаре */
+[data-theme='fixbyte'] .btn-sidebar-logout { color: #7fb8d9; border-color: rgba(54,153,217,.3); }
+/* stat-card декоративный круг */
+[data-theme='fixbyte'] .stat-card::before { background: #e7f3fa; }
+
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 
 body {

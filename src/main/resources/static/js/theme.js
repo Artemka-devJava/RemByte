@@ -1,15 +1,16 @@
 (function () {
   const STORAGE_KEY = 'fixbyte-theme';
   const media = window.matchMedia('(prefers-color-scheme: dark)');
+  const VALID_THEMES = ['system', 'light', 'dark', 'green', 'purple', 'ocean', 'sunset', 'fixbyte'];
 
   function resolveTheme(mode) {
-    if (mode === 'light' || mode === 'dark') return mode;
-    return media.matches ? 'dark' : 'light';
+    if (mode === 'system') return media.matches ? 'dark' : 'light';
+    return VALID_THEMES.includes(mode) ? mode : 'light';
   }
 
   function getMode() {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved === 'light' || saved === 'dark' || saved === 'system' ? saved : 'system';
+    return VALID_THEMES.includes(saved) ? saved : 'system';
   }
 
   function applyTheme(mode) {
