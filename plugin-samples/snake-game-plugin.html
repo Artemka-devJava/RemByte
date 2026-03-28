@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Змейка</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: #111827;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --primary: #22c55e;
+      --danger: #ef4444;
+      --border: #334155;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #152238 0%, var(--bg) 65%);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+    }
+
+    .game-wrap {
+      width: min(96vw, 560px);
+      background: color-mix(in srgb, var(--card) 85%, #0f172a 15%);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 10px 35px rgba(0, 0, 0, 0.35);
+      padding: 14px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: .2px;
+    }
+
+    .stats {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #0f172a;
+      color: var(--text);
+    }
+
+    .badge strong { color: #fff; }
+
+    .canvas-wrap {
+      position: relative;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #020617;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      image-rendering: pixelated;
+      background: linear-gradient(180deg, #0b1324 0%, #040913 100%);
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 16px;
+      pointer-events: none;
+      background: rgba(2, 6, 23, 0.55);
+      color: #fff;
+      opacity: 0;
+      transition: opacity .2s;
+    }
+
+    .overlay.show { opacity: 1; }
+
+    .overlay .msg {
+      max-width: 420px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .overlay .msg h3 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      line-height: 1.1;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: 1px solid var(--border);
+      background: #0f172a;
+      color: var(--text);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all .15s;
+    }
+
+    .btn:hover { border-color: var(--primary); color: #fff; }
+    .btn.primary { background: #14532d; border-color: #166534; }
+    .btn.danger { background: #3f1010; border-color: #7f1d1d; }
+
+    .hint {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.45;
+    }
+
+    .hint code {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1px 6px;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-wrap">
+    <div class="topbar">
+      <div class="title">🐍 Игра «Змейка»</div>
+      <div class="stats">
+        <span class="badge">Счёт: <strong id="score">0</strong></span>
+        <span class="badge">Рекорд: <strong id="best">0</strong></span>
+        <span class="badge" id="state">Готов</span>
+      </div>
+    </div>
+
+    <div class="canvas-wrap">
+      <canvas id="game" width="520" height="520" aria-label="Поле змейки"></canvas>
+      <div id="overlay" class="overlay show">
+        <div class="msg">
+          <h3>Нажмите «Старт»</h3>
+          <div>Управление: стрелки или <b>W A S D</b>. Пауза: <b>Пробел</b> или <b>P</b>.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn primary" id="startBtn" type="button">▶ Старт</button>
+      <button class="btn" id="pauseBtn" type="button" disabled>⏸ Пауза</button>
+      <button class="btn danger" id="restartBtn" type="button" disabled>↺ Рестарт</button>
+    </div>
+
+    <div class="hint">
+      Плагин полностью изолирован и хранит только локальный рекорд в <code>localStorage</code>.
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const GRID_COUNT = 26;
+      const CELL = 20;
+      const LOOP_MS_START = 110;
+      const LOOP_MS_MIN = 70;
+      const LOOP_MS_STEP = 2;
+      const BEST_KEY = 'snake_plugin_best_score_v1';
+
+      // В sandbox iframe localStorage может быть недоступен (SecurityError).
+      // Делаем мягкий fallback, чтобы игра не падала на старте.
+      const safeStorage = (() => {
+        try {
+          const t = '__snake_storage_test__';
+          window.localStorage.setItem(t, '1');
+          window.localStorage.removeItem(t);
+          return window.localStorage;
+        } catch {
+          return null;
+        }
+      })();
+
+      function loadBestScore() {
+        if (!safeStorage) return 0;
+        try {
+          const n = Number(safeStorage.getItem(BEST_KEY) || 0);
+          return Number.isFinite(n) ? n : 0;
+        } catch {
+          return 0;
+        }
+      }
+
+      function saveBestScore(value) {
+        if (!safeStorage) return;
+        try {
+          safeStorage.setItem(BEST_KEY, String(value));
+        } catch {
+          // ignore quota/security errors
+        }
+      }
+
+      const canvas = document.getElementById('game');
+      const ctx = canvas.getContext('2d');
+      const scoreEl = document.getElementById('score');
+      const bestEl = document.getElementById('best');
+      const stateEl = document.getElementById('state');
+      const overlayEl = document.getElementById('overlay');
+      const startBtn = document.getElementById('startBtn');
+      const pauseBtn = document.getElementById('pauseBtn');
+      const restartBtn = document.getElementById('restartBtn');
+
+      let snake = [];
+      let dir = { x: 1, y: 0 };
+      let nextDir = { x: 1, y: 0 };
+      let food = { x: 8, y: 8 };
+      let running = false;
+      let paused = false;
+      let gameOver = false;
+      let score = 0;
+      let best = loadBestScore();
+      let speed = LOOP_MS_START;
+      let timer = null;
+
+      bestEl.textContent = String(best);
+
+      function resetGameState() {
+        snake = [
+          { x: 6, y: 13 },
+          { x: 5, y: 13 },
+          { x: 4, y: 13 }
+        ];
+        dir = { x: 1, y: 0 };
+        nextDir = { x: 1, y: 0 };
+        score = 0;
+        speed = LOOP_MS_START;
+        paused = false;
+        gameOver = false;
+        spawnFood();
+        updateScore();
+        setState('В игре');
+      }
+
+      function startGame() {
+        if (running) return;
+        resetGameState();
+        running = true;
+        pauseBtn.disabled = false;
+        restartBtn.disabled = false;
+        startBtn.disabled = true;
+        startBtn.textContent = '▶ Идёт игра';
+        hideOverlay();
+        scheduleLoop();
+        draw();
+      }
+
+      function restartGame() {
+        stopLoop();
+        running = false;
+        startBtn.disabled = false;
+        startBtn.textContent = '▶ Старт';
+        pauseBtn.disabled = true;
+        restartBtn.disabled = true;
+        showOverlay('<h3>Нажмите «Старт»</h3><div>Новая игра готова.</div>');
+        setState('Готов');
+        drawBackground();
+      }
+
+      function togglePause() {
+        if (!running || gameOver) return;
+        paused = !paused;
+        if (paused) {
+          setState('Пауза');
+          pauseBtn.textContent = '▶ Продолжить';
+          showOverlay('<h3>Пауза</h3><div>Нажмите Пробел, P или кнопку продолжения.</div>');
+        } else {
+          setState('В игре');
+          pauseBtn.textContent = '⏸ Пауза';
+          hideOverlay();
+        }
+      }
+
+      function onKey(e) {
+        const key = e.key.toLowerCase();
+
+        if (key === ' ' || key === 'p') {
+          e.preventDefault();
+          if (!running) startGame(); else togglePause();
+          return;
+        }
+
+        if (!running || paused || gameOver) return;
+
+        if (key === 'arrowup' || key === 'w') setDirection(0, -1);
+        else if (key === 'arrowdown' || key === 's') setDirection(0, 1);
+        else if (key === 'arrowleft' || key === 'a') setDirection(-1, 0);
+        else if (key === 'arrowright' || key === 'd') setDirection(1, 0);
+      }
+
+      function setDirection(x, y) {
+        // Запрещаем разворот на 180 градусов
+        if (x === -dir.x && y === -dir.y) return;
+        nextDir = { x, y };
+      }
+
+      function gameTick() {
+        if (!running || paused || gameOver) {
+          scheduleLoop();
+          return;
+        }
+
+        dir = nextDir;
+        const head = snake[0];
+        const newHead = { x: head.x + dir.x, y: head.y + dir.y };
+
+        // Выход за границы
+        if (newHead.x < 0 || newHead.y < 0 || newHead.x >= GRID_COUNT || newHead.y >= GRID_COUNT) {
+          finishGame();
+          return;
+        }
+
+        // Столкновение с собой
+        if (snake.some(part => part.x === newHead.x && part.y === newHead.y)) {
+          finishGame();
+          return;
+        }
+
+        snake.unshift(newHead);
+
+        const ate = newHead.x === food.x && newHead.y === food.y;
+        if (ate) {
+          score += 1;
+          speed = Math.max(LOOP_MS_MIN, speed - LOOP_MS_STEP);
+          updateScore();
+          spawnFood();
+        } else {
+          snake.pop();
+        }
+
+        draw();
+        scheduleLoop();
+      }
+
+      function finishGame() {
+        gameOver = true;
+        running = false;
+        stopLoop();
+
+        if (score > best) {
+          best = score;
+          saveBestScore(best);
+          bestEl.textContent = String(best);
+        }
+
+        setState('Игра окончена');
+        startBtn.disabled = false;
+        startBtn.textContent = '▶ Старт';
+        pauseBtn.disabled = true;
+        restartBtn.disabled = false;
+        pauseBtn.textContent = '⏸ Пауза';
+
+        showOverlay(`<h3>Игра окончена</h3><div>Счёт: <b>${score}</b><br>Рекорд: <b>${best}</b></div>`);
+      }
+
+      function scheduleLoop() {
+        stopLoop();
+        timer = setTimeout(gameTick, speed);
+      }
+
+      function stopLoop() {
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+      }
+
+      function spawnFood() {
+        let p;
+        do {
+          p = {
+            x: Math.floor(Math.random() * GRID_COUNT),
+            y: Math.floor(Math.random() * GRID_COUNT)
+          };
+        } while (snake.some(s => s.x === p.x && s.y === p.y));
+        food = p;
+      }
+
+      function updateScore() {
+        scoreEl.textContent = String(score);
+        bestEl.textContent = String(best);
+      }
+
+      function setState(text) {
+        stateEl.textContent = text;
+      }
+
+      function showOverlay(html) {
+        overlayEl.querySelector('.msg').innerHTML = html;
+        overlayEl.classList.add('show');
+      }
+
+      function hideOverlay() {
+        overlayEl.classList.remove('show');
+      }
+
+      function drawBackground() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (let y = 0; y < GRID_COUNT; y++) {
+          for (let x = 0; x < GRID_COUNT; x++) {
+            const odd = (x + y) % 2 === 0;
+            ctx.fillStyle = odd ? '#0a162a' : '#081224';
+            ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+          }
+        }
+      }
+
+      function drawFood() {
+        const px = food.x * CELL;
+        const py = food.y * CELL;
+        ctx.fillStyle = '#ef4444';
+        ctx.fillRect(px + 2, py + 2, CELL - 4, CELL - 4);
+        ctx.fillStyle = '#7f1d1d';
+        ctx.fillRect(px + 7, py + 7, CELL - 14, CELL - 14);
+      }
+
+      function drawSnake() {
+        snake.forEach((part, idx) => {
+          const px = part.x * CELL;
+          const py = part.y * CELL;
+
+          if (idx === 0) {
+            ctx.fillStyle = '#22c55e';
+            ctx.fillRect(px + 1, py + 1, CELL - 2, CELL - 2);
+            ctx.fillStyle = '#14532d';
+            ctx.fillRect(px + 5, py + 5, CELL - 10, CELL - 10);
+          } else {
+            ctx.fillStyle = '#16a34a';
+            ctx.fillRect(px + 2, py + 2, CELL - 4, CELL - 4);
+          }
+        });
+      }
+
+      function draw() {
+        drawBackground();
+        drawFood();
+        drawSnake();
+      }
+
+      startBtn.addEventListener('click', startGame);
+      pauseBtn.addEventListener('click', togglePause);
+      restartBtn.addEventListener('click', restartGame);
+      window.addEventListener('keydown', onKey, { passive: false });
+
+      drawBackground();
+    })();
+  </script>
+</body>
+</html>
+

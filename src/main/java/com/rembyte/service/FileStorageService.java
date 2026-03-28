@@ -1,16 +1,19 @@
 package com.rembyte.service;
 
+import com.rembyte.model.Order;
+import com.rembyte.model.OrderAttachment;
+import com.rembyte.repository.OrderAttachmentRepository;
+import com.rembyte.repository.OrderRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.unit.DataSize;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -21,6 +24,9 @@ import java.util.UUID;
 
 @Service
 public class FileStorageService {
+
+    private final OrderRepository orderRepository;
+    private final OrderAttachmentRepository orderAttachmentRepository;
 
     @Value("${fixbyte.upload.dir:uploads}")
     private String uploadDir;
@@ -48,13 +54,19 @@ public class FileStorageService {
 
     private Set<String> allowedImageExtensions = new HashSet<>();
     private Set<String> allowedVideoExtensions = new HashSet<>();
-    private Set<String> allowedFileExtensions  = new HashSet<>();
+    private Set<String> allowedFileExtensions = new HashSet<>();
+
+    public FileStorageService(OrderRepository orderRepository,
+                              OrderAttachmentRepository orderAttachmentRepository) {
+        this.orderRepository = orderRepository;
+        this.orderAttachmentRepository = orderAttachmentRepository;
+    }
 
     @jakarta.annotation.PostConstruct
     public void init() {
         allowedImageExtensions = parseAllowedExtensions(allowedImageExtensionsRaw);
         allowedVideoExtensions = parseAllowedExtensions(allowedVideoExtensionsRaw);
-        allowedFileExtensions  = parseAllowedExtensions(allowedFileExtensionsRaw);
+        allowedFileExtensions = parseAllowedExtensions(allowedFileExtensionsRaw);
     }
 
     public UploadResult saveOrderAttachments(Long orderId, MultipartFile[] files) {
@@ -65,26 +77,19 @@ public class FileStorageService {
             throw new IllegalArgumentException("Слишком много файлов за один запрос");
         }
 
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+
         List<String> photoUrls = new ArrayList<>();
         List<String> videoUrls = new ArrayList<>();
-        List<String> fileUrls  = new ArrayList<>();
-
-        Path orderDir = Paths.get(uploadDir, "orders", String.valueOf(orderId)).toAbsolutePath().normalize();
-        try {
-            Files.createDirectories(orderDir);
-        } catch (IOException e) {
-            throw new RuntimeException("Не удалось создать папку для вложений", e);
-        }
+        List<String> fileUrls = new ArrayList<>();
 
         for (MultipartFile file : files) {
             if (file == null || file.isEmpty()) {
                 continue;
             }
 
-            String contentType = file.getContentType() == null
-                    ? ""
-                    : file.getContentType().toLowerCase(Locale.ROOT);
-
+            String contentType = normalizeContentType(file.getContentType());
             String safeExt = resolveExtension(file.getOriginalFilename(), contentType);
 
             boolean isImage = contentType.startsWith("image/");
@@ -95,30 +100,40 @@ public class FileStorageService {
                 throw new IllegalArgumentException("Недопустимый тип файла: " + file.getOriginalFilename());
             }
 
+            OrderAttachment.AttachmentType attachmentType;
             if (isImage) {
                 validateExtension(safeExt, allowedImageExtensions, "фото");
                 validateSize(file, maxImageSize, "фото");
+                attachmentType = OrderAttachment.AttachmentType.PHOTO;
             } else if (isVideo) {
                 validateExtension(safeExt, allowedVideoExtensions, "видео");
                 validateSize(file, maxVideoSize, "видео");
+                attachmentType = OrderAttachment.AttachmentType.VIDEO;
             } else {
                 validateExtension(safeExt, allowedFileExtensions, "документа");
                 validateSize(file, maxFileSize, "документа");
+                attachmentType = OrderAttachment.AttachmentType.FILE;
             }
 
             String storedName = System.currentTimeMillis() + "_" + UUID.randomUUID() + safeExt;
-            Path target = orderDir.resolve(storedName);
 
-            try (InputStream in = file.getInputStream()) {
-                Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
+            try {
+                OrderAttachment attachment = new OrderAttachment();
+                attachment.setOrder(order);
+                attachment.setStoredName(storedName);
+                attachment.setOriginalName(sanitizeOriginalName(file.getOriginalFilename(), storedName));
+                attachment.setContentType(contentType.isBlank() ? "application/octet-stream" : contentType);
+                attachment.setAttachmentType(attachmentType);
+                attachment.setContent(file.getBytes());
+                orderAttachmentRepository.save(attachment);
             } catch (IOException e) {
                 throw new RuntimeException("Ошибка сохранения файла: " + file.getOriginalFilename(), e);
             }
 
-            String publicUrl = "/uploads/orders/" + orderId + "/" + storedName;
-            if (isImage) {
+            String publicUrl = buildPublicUrl(orderId, storedName);
+            if (attachmentType == OrderAttachment.AttachmentType.PHOTO) {
                 photoUrls.add(publicUrl);
-            } else if (isVideo) {
+            } else if (attachmentType == OrderAttachment.AttachmentType.VIDEO) {
                 videoUrls.add(publicUrl);
             } else {
                 fileUrls.add(publicUrl);
@@ -128,18 +143,34 @@ public class FileStorageService {
         return new UploadResult(photoUrls, videoUrls, fileUrls);
     }
 
-    private boolean isDocumentType(String contentType, String ext) {
-        if (contentType.startsWith("text/")) return true;
-        if (contentType.contains("pdf")) return true;
-        if (contentType.contains("msword") || contentType.contains("wordprocessingml")) return true;
-        if (contentType.contains("ms-excel") || contentType.contains("spreadsheetml")) return true;
-        if (contentType.contains("ms-powerpoint") || contentType.contains("presentationml")) return true;
-        if (contentType.contains("octet-stream") || contentType.isEmpty()) {
-            return allowedFileExtensions.contains(ext);
+    public StoredAttachment loadOrderAttachment(Long orderId, String storedName) {
+        OrderAttachment fromDb = orderAttachmentRepository.findByOrderIdAndStoredName(orderId, storedName).orElse(null);
+        if (fromDb != null) {
+            return new StoredAttachment(
+                    fromDb.getContent(),
+                    fromDb.getContentType(),
+                    fromDb.getOriginalName()
+            );
         }
-        return false;
+
+        Path legacyFile = getLegacyPath(orderId, storedName);
+        if (!Files.exists(legacyFile)) {
+            throw new RuntimeException("Вложение не найдено");
+        }
+
+        try {
+            String detectedContentType = Files.probeContentType(legacyFile);
+            return new StoredAttachment(
+                    Files.readAllBytes(legacyFile),
+                    detectedContentType == null ? "application/octet-stream" : detectedContentType,
+                    storedName
+            );
+        } catch (IOException e) {
+            throw new RuntimeException("Не удалось прочитать вложение", e);
+        }
     }
 
+    @Transactional
     public void deleteOrderAttachment(Long orderId, String attachmentUrl) {
         if (attachmentUrl == null || attachmentUrl.isBlank()) {
             throw new IllegalArgumentException("URL вложения не передан");
@@ -155,19 +186,54 @@ public class FileStorageService {
             throw new IllegalArgumentException("Некорректное имя файла");
         }
 
-        Path target = Paths.get(uploadDir, "orders", String.valueOf(orderId), fileName)
-                .toAbsolutePath()
-                .normalize();
+        long removedInDb = orderAttachmentRepository.deleteByOrderIdAndStoredName(orderId, fileName);
+        if (removedInDb > 0) {
+            return;
+        }
 
-        if (!Files.exists(target)) {
+        Path legacyPath = getLegacyPath(orderId, fileName);
+        if (!Files.exists(legacyPath)) {
             return;
         }
 
         try {
-            Files.delete(target);
+            Files.delete(legacyPath);
         } catch (IOException e) {
             throw new RuntimeException("Не удалось удалить вложение", e);
         }
+    }
+
+    private Path getLegacyPath(Long orderId, String fileName) {
+        return Paths.get(uploadDir, "orders", String.valueOf(orderId), fileName)
+                .toAbsolutePath()
+                .normalize();
+    }
+
+    private String buildPublicUrl(Long orderId, String storedName) {
+        return "/uploads/orders/" + orderId + "/" + storedName;
+    }
+
+    private String normalizeContentType(String contentType) {
+        return contentType == null ? "" : contentType.toLowerCase(Locale.ROOT);
+    }
+
+    private String sanitizeOriginalName(String originalName, String fallbackName) {
+        if (originalName == null || originalName.isBlank()) {
+            return fallbackName;
+        }
+        return originalName.replaceAll("[\\r\\n\\t]+", " ").trim();
+    }
+
+    private boolean isDocumentType(String contentType, String ext) {
+        if (contentType.startsWith("text/")) return true;
+        if (contentType.contains("pdf")) return true;
+        if (contentType.contains("msword") || contentType.contains("wordprocessingml")) return true;
+        if (contentType.contains("ms-excel") || contentType.contains("spreadsheetml")) return true;
+        if (contentType.contains("ms-powerpoint") || contentType.contains("presentationml")) return true;
+        if (contentType.contains("octet-stream") || contentType.isEmpty()) {
+            return allowedFileExtensions.contains(ext);
+        }
+        return false;
     }
 
     private String resolveExtension(String originalFilename, String contentType) {
@@ -223,6 +289,9 @@ public class FileStorageService {
     }
 
     public record UploadResult(List<String> photoUrls, List<String> videoUrls, List<String> fileUrls) {
+    }
+
+    public record StoredAttachment(byte[] content, String contentType, String originalName) {
     }
 }
 

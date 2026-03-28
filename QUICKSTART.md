@@ -16,6 +16,13 @@
   - `⬇️ Скачать резервную копию (.sql)`
   - `⬆️ Загрузить и восстановить` (полная замена текущих данных)
 
+## 🚢 Релизные документы
+
+- [RELEASE_NOTES_2026-03-28.md](RELEASE_NOTES_2026-03-28.md)
+- [DEPLOY_UPGRADE.md](DEPLOY_UPGRADE.md)
+- [KNOWN_ISSUES.md](KNOWN_ISSUES.md)
+- [SMOKE_TEST_CHECKLIST.md](SMOKE_TEST_CHECKLIST.md)
+
 ## 🆕 Что изменилось в UI
 
 - Логотип загружается из `src/main/resources/static/images/logo.png` и используется на всех страницах.
@@ -206,6 +213,11 @@ mvn compile
 ## 💾 База данных
 
 **По умолчанию:** MariaDB (`localhost:9092`) + переменные из `.env`.
+
+- Вложения заказов (фото/видео/документы/PDF-чек) сохраняются в MariaDB, таблица `order_attachments` (`LONGBLOB`).
+- Для Docker это означает, что отдельный том для папки `uploads` не обязателен: достаточно volume MariaDB.
+- При старте выполняется автоперенос legacy-файлов из `uploads/orders/**` в БД (без дублей).
+- Управление автопереносом: `FIXBYTE_UPLOAD_MIGRATION_ENABLED` и `FIXBYTE_UPLOAD_MIGRATION_DELETE_LEGACY`.
 
 ⚠️ Восстановление через `/admin/restore` перезаписывает текущие данные полностью.
 

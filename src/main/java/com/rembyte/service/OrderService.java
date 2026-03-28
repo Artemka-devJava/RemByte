@@ -2,6 +2,7 @@ package com.rembyte.service;
 
 import com.rembyte.model.Order;
 import com.rembyte.model.RepairService;
+import com.rembyte.repository.OrderAttachmentRepository;
 import com.rembyte.repository.OrderRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,9 +20,12 @@ import java.util.stream.Collectors;
 @Transactional
 public class OrderService {
     private final OrderRepository orderRepository;
+    private final OrderAttachmentRepository orderAttachmentRepository;
 
-    public OrderService(OrderRepository orderRepository) {
+    public OrderService(OrderRepository orderRepository,
+                        OrderAttachmentRepository orderAttachmentRepository) {
         this.orderRepository = orderRepository;
+        this.orderAttachmentRepository = orderAttachmentRepository;
     }
 
     /**
@@ -187,6 +191,7 @@ public class OrderService {
      * Удалить заказ
      */
     public void deleteOrder(Long id) {
+        orderAttachmentRepository.deleteByOrderId(id);
         orderRepository.deleteById(id);
     }
 
@@ -209,6 +214,4 @@ public class OrderService {
                 .sum();
     }
 }
-
-
 

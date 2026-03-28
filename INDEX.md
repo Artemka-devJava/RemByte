@@ -5,6 +5,7 @@
 - Логотип стандартизирован: используется `src/main/resources/static/images/logo.png` во всех шаблонах.
 - Добавлен выбор темы интерфейса: системная, светлая, темная.
 - Конфигурация логинов/паролей и MariaDB вынесена в `.env`.
+- Добавлен релизный пакет документации: release notes, deploy/upgrade, known issues, smoke checklist.
 
 **Дата создания:** 27 марта 2026 г.  
 **Версия проекта:** 1.0.0  
@@ -55,6 +56,26 @@
 - Исправление ошибок сборки
 - Альтернативные способы
 
+### 6️⃣ Релизная документация:
+
+📄 **[RELEASE_NOTES_2026-03-28.md](RELEASE_NOTES_2026-03-28.md)**
+- Что вошло в релиз
+- Изменения по вложениям и миграции
+- Проверки и рекомендации
+
+📄 **[DEPLOY_UPGRADE.md](DEPLOY_UPGRADE.md)**
+- Обновление через Docker и локально
+- Параметры миграции
+- План отката
+
+📄 **[KNOWN_ISSUES.md](KNOWN_ISSUES.md)**
+- Известные ограничения
+- Диагностика типовых проблем
+
+📄 **[SMOKE_TEST_CHECKLIST.md](SMOKE_TEST_CHECKLIST.md)**
+- Чек-лист пострелизной проверки
+- Критические бизнес-сценарии
+
 ---
 
 ## 📊 Структура документации
@@ -67,6 +88,10 @@
 ├── 🟡 COMPLETE_README.md         ← Полная документация
 ├── 🔵 PROJECT_REPORT.md          ← Отчет о проекте
 ├── 🔴 FIX_LOMBOK_ISSUE.md        ← Решение проблем
+├── 🟣 RELEASE_NOTES_2026-03-28.md ← Заметки релиза
+├── 🟣 DEPLOY_UPGRADE.md           ← Инструкция деплоя/обновления
+├── 🟣 KNOWN_ISSUES.md             ← Известные ограничения
+├── 🟣 SMOKE_TEST_CHECKLIST.md     ← Смоук-чеклист
 └── 📋 INDEX.md                   ← Этот файл
 ```
 
@@ -82,6 +107,9 @@
 | 🎓 Узнать об архитектуре | [COMPLETE_README.md](COMPLETE_README.md) |
 | 💻 Запустить в IntelliJ IDEA | [RUN_IN_INTELLIJ.md](RUN_IN_INTELLIJ.md) |
 | 🐛 Исправить ошибку сборки | [FIX_LOMBOK_ISSUE.md](FIX_LOMBOK_ISSUE.md) |
+| 🚢 Подготовить/выполнить релиз | [DEPLOY_UPGRADE.md](DEPLOY_UPGRADE.md) |
+| ✅ Пройти пострелизную проверку | [SMOKE_TEST_CHECKLIST.md](SMOKE_TEST_CHECKLIST.md) |
+| ⚠️ Проверить известные ограничения | [KNOWN_ISSUES.md](KNOWN_ISSUES.md) |
 | 📊 Узнать статистику проекта | [PROJECT_REPORT.md](PROJECT_REPORT.md) |
 | 📖 Прочитать полную документацию | [COMPLETE_README.md](COMPLETE_README.md) |
 

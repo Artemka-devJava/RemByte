@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru" xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
@@ -70,6 +70,15 @@
 
     .danger-box  { background: var(--c-danger-bg); border-left: 4px solid var(--c-danger);  border-radius: 7px; padding: 10px 14px; font-size: 12.5px; color: var(--c-danger); }
     .backup-info { background: var(--c-info-bg);   border-left: 4px solid var(--c-info);    border-radius: 7px; padding: 10px 14px; font-size: 12.5px; color: var(--c-info); }
+
+    /* ── Плагины ── */
+    .plugin-list { display: flex; flex-direction: column; gap: 10px; }
+    .plugin-item { border: 1px solid var(--c-border); border-radius: 8px; padding: 10px 12px; background: var(--c-card); }
+    .plugin-item-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .plugin-item-name { font-size: 14px; font-weight: 600; }
+    .plugin-item-meta { font-size: 11.5px; color: var(--c-muted); margin-top: 3px; }
+    .plugin-item-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .plugin-empty { color: var(--c-muted); font-size: 13px; padding: 10px 0; }
   </style>
 </head>
 <body>
@@ -122,6 +131,7 @@
       <div class="admin-tabs">
         <button class="admin-tab-btn active" data-tab="tabReceipt"  onclick="switchTab('tabReceipt')">🧾 Настройки чека</button>
         <button class="admin-tab-btn"        data-tab="tabDatabase" onclick="switchTab('tabDatabase')">🗄️ База данных</button>
+        <button class="admin-tab-btn"        data-tab="tabPlugins"  onclick="switchTab('tabPlugins')">🧩 Плагины</button>
         <button class="admin-tab-btn"        data-tab="tabUsers"    onclick="switchTab('tabUsers')">🔑 Пользователи</button>
       </div>
 
@@ -178,6 +188,41 @@
             </div>
           </div>
 
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════════════
+           ВКЛАДКА: Плагины
+      ════════════════════════════════════════════════ -->
+      <div id="tabPlugins" class="admin-tab-panel">
+        <div class="settings-grid">
+          <div class="card">
+            <div class="card-header"><h2>📦 Установить плагин</h2></div>
+            <div class="card-body">
+              <div class="settings-section">
+                <div class="backup-info">
+                  Загружайте локальные HTML-плагины. Плагин запускается в изолированном sandbox iframe
+                  и не получает доступа к DOM/сессии основной CRM.
+                </div>
+                <div class="setting-row">
+                  <label for="pluginName">Название плагина</label>
+                  <input id="pluginName" type="text" placeholder="Текстовый редактор">
+                </div>
+                <div class="setting-row">
+                  <label for="pluginFile">Файл плагина (.html/.htm)</label>
+                  <input id="pluginFile" type="file" accept=".html,.htm">
+                </div>
+                <button class="btn btn-primary" onclick="installPlugin()">➕ Установить плагин</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><h2>🧩 Установленные плагины</h2></div>
+            <div class="card-body">
+              <div id="pluginList" class="plugin-list"></div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -318,6 +363,7 @@
 
 <div id="toast-container"></div>
 <script src="/js/theme.js"></script>
+<script src="/js/plugin-host.js"></script>
 <script src="/js/api.js"></script>
 <script src="/js/users.js"></script>
 <script>
@@ -330,6 +376,128 @@ function switchTab(tabId) {
     document.querySelectorAll('.admin-tab-panel').forEach(p =>
         p.classList.toggle('active', p.id === tabId));
     if (tabId === 'tabUsers') loadUsers();
+    if (tabId === 'tabPlugins') renderPluginList();
+}
+
+// ════════════════════════════════════════════════════════
+//  ПЛАГИНЫ (localStorage)
+// ════════════════════════════════════════════════════════
+const PLUGINS_STORAGE_KEY = 'rembyte_plugins_registry';
+
+function loadPlugins() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(PLUGINS_STORAGE_KEY) || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
+function savePlugins(list) {
+    localStorage.setItem(PLUGINS_STORAGE_KEY, JSON.stringify(list));
+    // Триггер для обновления меню во всех вкладках браузера
+    localStorage.setItem(PLUGINS_STORAGE_KEY + '_ts', String(Date.now()));
+}
+
+async function installPlugin() {
+    const nameInput = document.getElementById('pluginName');
+    const fileInput = document.getElementById('pluginFile');
+    const file = fileInput?.files?.[0];
+
+    if (!file) {
+        showNotification('Выберите файл плагина (.html/.htm)', 'warning');
+        return;
+    }
+
+    const lower = (file.name || '').toLowerCase();
+    if (!(lower.endsWith('.html') || lower.endsWith('.htm'))) {
+        showNotification('Допустимы только HTML-файлы плагинов', 'error');
+        return;
+    }
+
+    const html = await file.text();
+    if (!html.trim()) {
+        showNotification('Файл плагина пустой', 'error');
+        return;
+    }
+
+    const name = (nameInput?.value || '').trim() || file.name.replace(/\.html?$/i, '');
+    const id = `plg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    const plugins = loadPlugins();
+    plugins.push({
+        id,
+        name,
+        description: 'Локально установленный HTML-плагин',
+        html,
+        enabled: true,
+        installedAt: new Date().toISOString()
+    });
+    savePlugins(plugins);
+
+    if (nameInput) nameInput.value = '';
+    if (fileInput) fileInput.value = '';
+    renderPluginList();
+    showNotification(`Плагин «${name}» установлен`, 'success');
+}
+
+function togglePlugin(pluginId, enabled) {
+    const plugins = loadPlugins().map(p => p.id === pluginId ? ({ ...p, enabled }) : p);
+    savePlugins(plugins);
+    renderPluginList();
+}
+
+function removePlugin(pluginId) {
+    const plugin = loadPlugins().find(p => p.id === pluginId);
+    if (!plugin) return;
+    if (!confirm(`Удалить плагин «${plugin.name}»?`)) return;
+
+    const plugins = loadPlugins().filter(p => p.id !== pluginId);
+    savePlugins(plugins);
+    renderPluginList();
+    showNotification('Плагин удалён', 'info');
+}
+
+function openPlugin(pluginId) {
+    window.location.href = `/plugins?pluginId=${encodeURIComponent(pluginId)}`;
+}
+
+function renderPluginList() {
+    const box = document.getElementById('pluginList');
+    if (!box) return;
+
+    const plugins = loadPlugins();
+    if (!plugins.length) {
+        box.innerHTML = '<div class="plugin-empty">Плагины не установлены</div>';
+        return;
+    }
+
+    box.innerHTML = plugins.map(p => `
+      <div class="plugin-item">
+        <div class="plugin-item-head">
+          <div>
+            <div class="plugin-item-name">🧩 ${escapeHtml(p.name || 'Плагин')}</div>
+            <div class="plugin-item-meta">ID: ${escapeHtml(p.id)} · ${p.enabled ? 'Включен' : 'Выключен'}</div>
+          </div>
+          <div class="plugin-item-actions">
+            <button class="btn btn-sm btn-secondary" onclick="openPlugin('${p.id}')">Открыть</button>
+            <button class="btn btn-sm ${p.enabled ? 'btn-accent' : 'btn-success'}" onclick="togglePlugin('${p.id}', ${!p.enabled})">
+              ${p.enabled ? 'Отключить' : 'Включить'}
+            </button>
+            <button class="btn btn-sm btn-danger" onclick="removePlugin('${p.id}')">Удалить</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+}
+
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 // ════════════════════════════════════════════════════════
@@ -465,6 +633,7 @@ async function restoreDatabase() {
 // ════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
     applySettingsToForm();
+    renderPluginList();
 
     // Открыть вкладку из URL-хеша (#tabUsers, #tabDatabase, ...)
     const hash = location.hash.replace('#', '');

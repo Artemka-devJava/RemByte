@@ -48,5 +48,10 @@ public class WebController {
     public String users() {
         return "users";
     }
-}
 
+
+    @GetMapping("/plugins")
+    public String plugins() {
+        return "plugins";
+    }
+}

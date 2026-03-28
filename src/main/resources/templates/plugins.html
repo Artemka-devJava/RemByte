@@ -1,16 +1,25 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru" xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Панель управления — FixByte CRM</title>
+  <title>Плагины — FixByte CRM</title>
   <link rel="stylesheet" href="/css/style.css">
   <style>
     .sidebar-user{padding:12px 14px;border-top:1px solid rgba(255,255,255,.07);margin-top:auto;}
     .sidebar-user-name{font-size:12px;color:#64748b;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .btn-sidebar-logout{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);border-radius:7px;color:#fca5a5;font-size:12.5px;font-family:inherit;cursor:pointer;transition:all .2s;text-decoration:none;}
+    .btn-sidebar-logout{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);border-radius:7px;color:#fca5a5;font-size:12.5px;font-family:inherit;cursor:pointer;transition:all .2s;}
     .btn-sidebar-logout:hover{background:rgba(239,68,68,.2);color:#fff;}
+
+    .plugin-shell { height: calc(100vh - 210px); min-height: 460px; display: flex; flex-direction: column; gap: 10px; }
+    .plugin-info { background: var(--c-primary-l); border-left: 4px solid var(--c-primary); border-radius: 8px; padding: 12px 14px; }
+    .plugin-info h3 { margin: 0 0 4px 0; font-size: 15px; }
+    .plugin-info p  { margin: 0; font-size: 13px; color: var(--c-muted); }
+
+    .plugin-frame-wrap { flex: 1; border: 1px solid var(--c-border); border-radius: 10px; overflow: hidden; background: #fff; }
+    #pluginFrame { width: 100%; height: 100%; border: none; display: none; background: #fff; }
+    #pluginEmpty { display: grid; place-items: center; height: 100%; color: var(--c-muted); font-size: 14px; }
   </style>
 </head>
 <body>
@@ -22,17 +31,16 @@
     </div>
     <nav class="sidebar-nav">
       <a href="/"           class="nav-item"><span class="nav-icon">🏠</span>Главная</a>
-      <a href="/dashboard"  class="nav-item active"><span class="nav-icon">📊</span>Панель</a>
+      <a href="/dashboard"  class="nav-item"><span class="nav-icon">📊</span>Панель</a>
       <a href="/clients"    class="nav-item"><span class="nav-icon">👥</span>Клиенты</a>
       <a href="/orders"     class="nav-item"><span class="nav-icon">📋</span>Заказы</a>
       <a href="/services"   class="nav-item"><span class="nav-icon">🔧</span>Услуги</a>
       <a href="/calculator" class="nav-item"><span class="nav-icon">💰</span>Калькулятор</a>
-
       <a href="/admin"      class="nav-item" sec:authorize="hasRole('ADMIN')"><span class="nav-icon">⚙️</span>Настройки</a>
     </nav>
     <div class="theme-switcher">
-      <label for="themeSelectDashboard">Тема</label>
-      <select id="themeSelectDashboard" class="theme-select" data-theme-select>
+      <label for="themeSelectPlugins">Тема</label>
+      <select id="themeSelectPlugins" class="theme-select" data-theme-select>
         <option value="system">🔄 Системная</option>
         <option value="light">☀️ Светлая</option>
         <option value="dark">🌙 Тёмная</option>
@@ -54,42 +62,31 @@
   </aside>
 
   <div class="main-area">
-    <header class="top-bar"><h1>📊 Панель управления</h1></header>
-    <main class="content">
-      <div class="stats-grid">
-        <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-label">Всего клиентов</div><div class="number" id="totalClients">—</div></div>
-        <div class="stat-card"><div class="stat-icon">⚙️</div><div class="stat-label">Активные заказы</div><div class="number" id="activeOrders">—</div></div>
-        <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-label">Выручка за месяц</div><div class="number" id="monthlyRevenue">—</div></div>
-        <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-label">Оплачено</div><div class="number" id="totalPaid">—</div></div>
-      </div>
+    <header class="top-bar">
+      <h1>🧩 Плагины</h1>
+      <a class="btn btn-secondary" href="/admin#tabPlugins" sec:authorize="hasRole('ADMIN')">⚙️ Управление плагинами</a>
+    </header>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
-        <div class="card">
-          <div class="card-header"><h2>📋 Последние заказы</h2><a href="/orders" class="btn btn-sm btn-secondary">Все →</a></div>
-          <div style="overflow-x:auto;">
-            <table class="data-table" id="recentOrders">
-              <thead><tr><th>№</th><th>Клиент</th><th>Статус</th><th>Сумма</th><th>Оплачено</th></tr></thead>
-              <tbody><tr><td colspan="5" class="empty">Нет заказов</td></tr></tbody>
-            </table>
-          </div>
+    <main class="content">
+      <div class="plugin-shell">
+        <div class="plugin-info">
+          <h3 id="pluginTitle">Плагин не выбран</h3>
+          <p id="pluginDescription">Откройте плагин через левое меню.</p>
         </div>
-        <div class="card">
-          <div class="card-header"><h2>🏆 Популярные услуги</h2></div>
-          <div class="card-body">
-            <ul id="popularServices" style="list-style:none;display:flex;flex-direction:column;gap:8px;font-size:13.5px;">
-              <li style="color:var(--c-muted)">Загрузка...</li>
-            </ul>
-          </div>
+
+        <div class="plugin-frame-wrap">
+          <div id="pluginEmpty">Здесь будет открыт выбранный плагин</div>
+          <iframe id="pluginFrame" title="Плагин"></iframe>
         </div>
       </div>
     </main>
-    <footer class="page-footer">FixByte CRM © 2026 — Система управления сервисом ремонта ПК</footer>
+    <footer class="page-footer">FixByte CRM © 2026</footer>
   </div>
 </div>
-<div id="toast-container"></div>
+
 <script src="/js/theme.js"></script>
 <script src="/js/plugin-host.js"></script>
-<script src="/js/api.js"></script>
-<script src="/js/dashboard.js"></script>
+<script src="/js/plugins.js"></script>
 </body>
 </html>
+
