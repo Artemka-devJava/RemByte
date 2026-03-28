@@ -348,6 +348,86 @@ const OrderAPI = {
     }
 };
 
+// ====== NOTES PLUGIN API ======
+const NotesPluginAPI = {
+    getFolders: async () => {
+        try {
+            const response = await fetch(`${API_BASE}/notes-plugin/folders`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching note folders:', error);
+            return [];
+        }
+    },
+
+    createFolder: async (folderData) => {
+        try {
+            const response = await fetch(`${API_BASE}/notes-plugin/folders`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(folderData)
+            });
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error creating note folder:', error);
+            return null;
+        }
+    },
+
+    getNotesByFolder: async (folderId) => {
+        try {
+            const response = await fetch(`${API_BASE}/notes-plugin/folders/${folderId}/notes`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching notes:', error);
+            return [];
+        }
+    },
+
+    createNote: async (folderId, noteData) => {
+        try {
+            const response = await fetch(`${API_BASE}/notes-plugin/folders/${folderId}/notes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(noteData)
+            });
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error creating note:', error);
+            return null;
+        }
+    },
+
+    updateNote: async (noteId, noteData) => {
+        try {
+            const response = await fetch(`${API_BASE}/notes-plugin/notes/${noteId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(noteData)
+            });
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error updating note:', error);
+            return null;
+        }
+    },
+
+    deleteNote: async (noteId) => {
+        try {
+            const response = await fetch(`${API_BASE}/notes-plugin/notes/${noteId}`, {
+                method: 'DELETE'
+            });
+            return response.ok;
+        } catch (error) {
+            console.error('Error deleting note:', error);
+            return false;
+        }
+    }
+};
+
 // ====== UTILITY FUNCTIONS ======
 function formatCurrency(amount) {
     return Math.round(amount) + '₽';

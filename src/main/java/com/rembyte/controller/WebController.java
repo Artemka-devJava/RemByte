@@ -1,5 +1,6 @@
 package com.rembyte.controller;
 
+import com.rembyte.service.PluginSettingsService;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 
@@ -8,6 +9,12 @@ import org.springframework.web.bind.annotation.GetMapping;
  */
 @Controller
 public class WebController {
+
+    private final PluginSettingsService pluginSettingsService;
+
+    public WebController(PluginSettingsService pluginSettingsService) {
+        this.pluginSettingsService = pluginSettingsService;
+    }
 
     @GetMapping("/login")
     public String login() {
@@ -53,5 +60,13 @@ public class WebController {
     @GetMapping("/plugins")
     public String plugins() {
         return "plugins";
+    }
+
+    @GetMapping("/notes")
+    public String notes() {
+        if (!pluginSettingsService.isNotesPluginEnabled()) {
+            return "redirect:/dashboard?notesDisabled=true";
+        }
+        return "notes";
     }
 }

@@ -29,6 +29,11 @@
 - На рабочих экранах добавлен переключатель темы: `Системная`, `Светлая`, `Темная`.
 - Выбор темы сохраняется в браузере (`localStorage`, ключ `fixbyte-theme`).
 - Авторизация использует значения из `.env` (`FIXBYTE_ADMIN_USERNAME`, `FIXBYTE_ADMIN_PASSWORD`, `FIXBYTE_OPERATOR_USERNAME`, `FIXBYTE_OPERATOR_PASSWORD`).
+- Добавлен встроенный плагин `🧩 Заметки` (`/notes`) с хранением данных в БД.
+- В заметках доступны 2 режима работы с Markdown:
+  - `✍️ Редактирование`
+  - `👁️ Превью`
+- В `Настройки -> Плагины` администратор может полностью отключить встроенный плагин заметок.
 
 ## ✅ Что было создано
 
@@ -176,6 +181,17 @@ POST   /api/orders/{id}/attachments # Прикрепить фото/видео/�
 
 GET    /api/services             # Все услуги
 POST   /api/services             # Создать услугу
+
+GET    /api/notes-plugin/folders                   # Папки заметок
+POST   /api/notes-plugin/folders                   # Создать папку
+GET    /api/notes-plugin/folders/{folderId}/notes  # Заметки папки
+POST   /api/notes-plugin/folders/{folderId}/notes  # Создать заметку
+PUT    /api/notes-plugin/notes/{noteId}            # Обновить заметку
+DELETE /api/notes-plugin/notes/{noteId}            # Удалить заметку
+GET    /api/notes-plugin/notes/{noteId}/download   # Скачать заметку .txt
+
+GET    /api/plugin-settings/notes   # Статус встроенного плагина заметок
+PUT    /api/plugin-settings/notes   # Вкл/выкл плагин заметок (ADMIN)
 
 GET    /admin/backup             # Скачать SQL-бэкап (ADMIN)
 POST   /admin/restore            # Восстановить БД из SQL (ADMIN)

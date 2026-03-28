@@ -5,6 +5,11 @@
 
 (function initPluginHost() {
     const STORAGE_KEY = 'rembyte_plugins_registry';
+    const BUILTIN_NOTES_LINK = {
+        href: '/notes',
+        label: 'Заметки',
+        icon: '🧩'
+    };
     const PLUGIN_NAME_LOCALIZATION = {
         'text-editor-plugin': 'Текстовый редактор',
         'text-editor': 'Текстовый редактор',
@@ -31,12 +36,36 @@
         }
     }
 
-    function renderPluginLinks() {
+    async function isNotesPluginEnabled() {
+        try {
+            const response = await fetch('/api/plugin-settings/notes', { cache: 'no-store' });
+            if (!response.ok) return true;
+            const data = await response.json();
+            return data && data.enabled !== false;
+        } catch {
+            return true;
+        }
+    }
+
+    async function renderPluginLinks() {
         const nav = document.querySelector('.sidebar-nav');
         if (!nav) return;
 
         // Чистим старые кнопки плагинов
         nav.querySelectorAll('.plugin-nav-item').forEach(el => el.remove());
+
+        const notesEnabled = await isNotesPluginEnabled();
+        if (notesEnabled) {
+            const notesLink = document.createElement('a');
+            notesLink.className = 'nav-item plugin-nav-item plugin-nav-builtin';
+            if (window.location.pathname === BUILTIN_NOTES_LINK.href) {
+                notesLink.classList.add('active');
+            }
+            notesLink.href = BUILTIN_NOTES_LINK.href;
+            notesLink.title = `Плагин: ${BUILTIN_NOTES_LINK.label}`;
+            notesLink.innerHTML = `<span class="nav-icon">${BUILTIN_NOTES_LINK.icon}</span>${escapeHtml(BUILTIN_NOTES_LINK.label)}`;
+            nav.appendChild(notesLink);
+        }
 
         const plugins = loadRegistry().filter(p => p && p.enabled !== false);
         if (!plugins.length) return;
