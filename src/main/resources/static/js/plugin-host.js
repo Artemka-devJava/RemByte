@@ -8,7 +8,7 @@
     const BUILTIN_NOTES_LINK = {
         href: '/notes',
         label: 'Заметки',
-        icon: '🧩'
+        icon: '📝'
     };
     const PLUGIN_NAME_LOCALIZATION = {
         'text-editor-plugin': 'Текстовый редактор',
