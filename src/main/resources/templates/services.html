@@ -4,7 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Услуги — FixByte CRM</title>
+  
+  <link rel='icon' type='image/x-icon' href='/images/favicon.ico'>
   <link rel="stylesheet" href="/css/style.css">
   <style>
     .sidebar-user{padding:12px 14px;border-top:1px solid rgba(255,255,255,.07);margin-top:auto;}
@@ -149,7 +150,7 @@
 
 <!-- Модал: добавить/редактировать категорию (только ADMIN) -->
 <div id="categoryModal" class="modal" style="display:none;">
-  <div class="modal-content" style="max-width:400px;">
+  <div class="modal-content" style="max-width:520px; width:95%;">
     <div class="modal-header">
       <h2 id="categoryModalTitle">Новая категория</h2>
       <button class="close" onclick="closeCategoryModal()">&times;</button>
@@ -158,7 +159,7 @@
       <form id="categoryForm" onsubmit="submitCategory(event)">
         <div class="form-group">
           <label>Название категории:</label>
-          <input type="text" id="catName" required placeholder="Клавиатуры">
+          <input type="text" id="catName" required placeholder="Клавиатуры" style="width:100%;height:40px;font-size:14px;">
         </div>
         <div class="form-group">
           <label>Иконка (эмодзи):</label>
@@ -177,4 +178,5 @@
 <script src="/js/services.js"></script>
 </body>
 </html>
+
 

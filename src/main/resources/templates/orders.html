@@ -4,7 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Заказы — FixByte CRM</title>
+  
+  <link rel='icon' type='image/x-icon' href='/images/favicon.ico'>
   <link rel="stylesheet" href="/css/style.css">
   <style>
     .sidebar-user{padding:12px 14px;border-top:1px solid rgba(255,255,255,.07);margin-top:auto;}
@@ -237,6 +238,19 @@
           <label>Услуги:</label>
           <div id="servicesCheckbox"></div>
         </div>
+        <div class="form-group quick-service-box">
+          <label>Быстро добавить новую услугу:</label>
+          <div class="quick-service-grid">
+            <input type="text" id="quickServiceName" placeholder="Название услуги" maxlength="120">
+            <input type="number" id="quickServicePrice" placeholder="Цена, ₽" min="0" step="100">
+          </div>
+          <div class="quick-service-grid quick-service-grid-bottom">
+            <input type="text" id="quickServiceCategory" placeholder="Категория (например: BGA)" list="serviceCategoryOptions" maxlength="80">
+            <input type="text" id="quickServiceDescription" placeholder="Короткое описание (необязательно)" maxlength="255">
+          </div>
+          <datalist id="serviceCategoryOptions"></datalist>
+          <button class="btn btn-secondary" type="button" onclick="createServiceFromOrderForm()">➕ Добавить услугу в справочник и заказ</button>
+        </div>
         <div class="form-group">
           <label>Заметки:</label>
           <textarea id="orderNotes" placeholder="Дополнительная информация..."></textarea>
@@ -405,3 +419,4 @@
 <script src="/js/orders.js"></script>
 </body>
 </html>
+

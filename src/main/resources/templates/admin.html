@@ -4,7 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Настройки — FixByte CRM</title>
+  
+  <link rel='icon' type='image/x-icon' href='/images/favicon.ico'>
   <link rel="stylesheet" href="/css/style.css">
   <style>
     .sidebar-user{padding:12px 14px;border-top:1px solid rgba(255,255,255,.07);margin-top:auto;}
@@ -197,6 +198,21 @@
       <div id="tabPlugins" class="admin-tab-panel">
         <div class="settings-grid">
           <div class="card">
+            <div class="card-header"><h2>🧩 Встроенные плагины</h2></div>
+            <div class="card-body">
+              <div class="settings-section">
+                <label style="display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--c-border);border-radius:8px;padding:10px 12px;cursor:pointer;">
+                  <span>
+                    <strong>Плагин «Заметки»</strong><br>
+                    <small style="color:var(--c-muted);">При отключении пункт исчезает из меню, API и страница /notes блокируются.</small>
+                  </span>
+                  <input type="checkbox" id="notesPluginEnabledToggle" style="width:18px;height:18px;accent-color:var(--c-primary);">
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
             <div class="card-header"><h2>📦 Установить плагин</h2></div>
             <div class="card-body">
               <div class="settings-section">
@@ -212,7 +228,9 @@
                   <label for="pluginFile">Файл плагина (.html/.htm)</label>
                   <input id="pluginFile" type="file" accept=".html,.htm">
                 </div>
-                <button class="btn btn-primary" onclick="installPlugin()">➕ Установить плагин</button>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <button class="btn btn-primary" onclick="installPlugin()">➕ Установить плагин</button>
+                </div>
               </div>
             </div>
           </div>
@@ -376,7 +394,49 @@ function switchTab(tabId) {
     document.querySelectorAll('.admin-tab-panel').forEach(p =>
         p.classList.toggle('active', p.id === tabId));
     if (tabId === 'tabUsers') loadUsers();
-    if (tabId === 'tabPlugins') renderPluginList();
+    if (tabId === 'tabPlugins') {
+        renderPluginList();
+        loadBuiltInPluginSettings();
+    }
+}
+
+// ════════════════════════════════════════════════════════
+//  ВСТРОЕННЫЕ ПЛАГИНЫ
+// ════════════════════════════════════════════════════════
+async function loadBuiltInPluginSettings() {
+    const toggle = document.getElementById('notesPluginEnabledToggle');
+    if (!toggle) return;
+
+    try {
+        const response = await fetch('/api/plugin-settings/notes', { cache: 'no-store' });
+        if (!response.ok) return;
+        const data = await response.json();
+        toggle.checked = data?.enabled !== false;
+    } catch (e) {
+        console.error('Failed to load plugin settings', e);
+    }
+}
+
+async function updateNotesPluginSetting(enabled) {
+    try {
+        const response = await fetch('/api/plugin-settings/notes', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: !!enabled })
+        });
+
+        if (!response.ok) {
+            showNotification('Не удалось обновить настройку плагина заметок', 'error');
+            await loadBuiltInPluginSettings();
+            return;
+        }
+
+        showNotification(enabled ? 'Плагин «Заметки» включен' : 'Плагин «Заметки» отключен', 'success');
+    } catch (e) {
+        console.error('Failed to update plugin settings', e);
+        showNotification('Ошибка сети при обновлении настройки плагина', 'error');
+        await loadBuiltInPluginSettings();
+    }
 }
 
 // ════════════════════════════════════════════════════════
@@ -384,10 +444,45 @@ function switchTab(tabId) {
 // ════════════════════════════════════════════════════════
 const PLUGINS_STORAGE_KEY = 'rembyte_plugins_registry';
 
+const PLUGIN_NAME_LOCALIZATION = {
+    'text-editor-plugin': 'Текстовый редактор',
+    'text-editor': 'Текстовый редактор',
+    'snake-game-plugin': 'Змейка',
+    'snake-game': 'Змейка',
+    'tetris-game-plugin': 'Тетрис',
+    'tetris-game': 'Тетрис'
+};
+
+function normalizePluginName(name) {
+    const raw = String(name || '').trim();
+    if (!raw) return 'Плагин';
+
+    const key = raw.toLowerCase().replace(/\.html?$/i, '');
+    if (PLUGIN_NAME_LOCALIZATION[key]) return PLUGIN_NAME_LOCALIZATION[key];
+
+    return raw;
+}
+
+function extractPluginTitleFromHtml(html) {
+    try {
+        const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+        const title = (doc.querySelector('title')?.textContent || '').trim();
+        return title || '';
+    } catch {
+        return '';
+    }
+}
+
 function loadPlugins() {
     try {
         const parsed = JSON.parse(localStorage.getItem(PLUGINS_STORAGE_KEY) || '[]');
-        return Array.isArray(parsed) ? parsed : [];
+        if (!Array.isArray(parsed)) return [];
+
+        // Мягкая миграция старых slug-имен в читаемые русские названия.
+        return parsed.map(p => ({
+            ...p,
+            name: normalizePluginName(p?.name)
+        }));
     } catch {
         return [];
     }
@@ -421,7 +516,10 @@ async function installPlugin() {
         return;
     }
 
-    const name = (nameInput?.value || '').trim() || file.name.replace(/\.html?$/i, '');
+    const typedName = (nameInput?.value || '').trim();
+    const titleName = extractPluginTitleFromHtml(html);
+    const fileName = file.name.replace(/\.html?$/i, '');
+    const name = normalizePluginName(typedName || titleName || fileName);
     const id = `plg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
     const plugins = loadPlugins();
@@ -440,6 +538,7 @@ async function installPlugin() {
     renderPluginList();
     showNotification(`Плагин «${name}» установлен`, 'success');
 }
+
 
 function togglePlugin(pluginId, enabled) {
     const plugins = loadPlugins().map(p => p.id === pluginId ? ({ ...p, enabled }) : p);
@@ -634,6 +733,12 @@ async function restoreDatabase() {
 document.addEventListener('DOMContentLoaded', () => {
     applySettingsToForm();
     renderPluginList();
+    loadBuiltInPluginSettings();
+
+    const notesToggle = document.getElementById('notesPluginEnabledToggle');
+    notesToggle?.addEventListener('change', (e) => {
+        updateNotesPluginSetting(e.target.checked);
+    });
 
     // Открыть вкладку из URL-хеша (#tabUsers, #tabDatabase, ...)
     const hash = location.hash.replace('#', '');
@@ -646,4 +751,5 @@ window.onclick = e => {
 </script>
 </body>
 </html>
+
 

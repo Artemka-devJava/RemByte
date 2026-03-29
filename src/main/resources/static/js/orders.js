@@ -81,6 +81,7 @@ async function loadServicesForSelect() {
         const services = await ServiceAPI.getActive();
         allServices = services;
         renderServicesCheckbox(services);
+        refreshServiceCategoryOptions();
         applyCalculatorPreSelection();  // предзаполнить из калькулятора, если пришли оттуда
     } catch (error) {
         console.error('Error loading services:', error);
@@ -265,6 +266,7 @@ function openCreateOrderForm() {
     clearPendingFiles('createAttachmentFiles');
     renderSelectedFileList('createAttachmentFiles', 'createAttachmentFilesList');
     resetUploadProgress('create');
+    resetQuickServiceForm();
     document.getElementById('createOrderForm').onsubmit = submitOrder;
     updateOrderPrice();
 }
@@ -274,6 +276,7 @@ function closeCreateOrderForm() {
     clearPendingFiles('createAttachmentFiles');
     renderSelectedFileList('createAttachmentFiles', 'createAttachmentFilesList');
     resetUploadProgress('create');
+    resetQuickServiceForm();
 }
 
 async function submitOrder(event) {
@@ -398,7 +401,7 @@ function detectCategory(service) {
     return 'Прочее';
 }
 
-function renderServicesCheckbox(services) {
+function renderServicesCheckbox(services, selectedIds = []) {
     const container = document.getElementById('servicesCheckbox');
     if (!container) return;
 
@@ -420,19 +423,102 @@ function renderServicesCheckbox(services) {
         const items = groups[cat].map(service => `
             <div class="service-item" onclick="toggleService(this)">
                 <input type="checkbox" id="svc_${service.id}" value="${service.id}"
-                       data-price="${service.basePrice}" onchange="updateOrderPrice()">
+                       data-price="${service.basePrice}" ${selectedIds.includes(Number(service.id)) ? 'checked' : ''} onchange="updateOrderPrice()">
                 <label for="svc_${service.id}">${service.name}</label>
                 <span class="service-price">${formatCurrency(service.basePrice)}</span>
             </div>`).join('');
 
         return `
-            <div class="services-group">
+            <div class="services-group collapsed">
                 <div class="services-group-header" onclick="toggleGroup(this.parentElement)">
                     ${icon} ${cat} <small style="opacity:.75;font-weight:400;">(${groups[cat].length})</small>
                 </div>
                 <div class="services-group-body">${items}</div>
             </div>`;
     }).join('');
+}
+
+function getSelectedServiceIds() {
+    return Array.from(document.querySelectorAll('#servicesCheckbox input[type="checkbox"]:checked'))
+        .map(cb => Number(cb.value));
+}
+
+function refreshServiceCategoryOptions() {
+    const datalist = document.getElementById('serviceCategoryOptions');
+    if (!datalist) return;
+
+    const categories = [...new Set(allServices
+        .map(service => (service.category || '').trim())
+        .filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, 'ru'));
+
+    datalist.innerHTML = categories.map(category => `<option value="${category}"></option>`).join('');
+}
+
+function resetQuickServiceForm() {
+    const nameEl = document.getElementById('quickServiceName');
+    const priceEl = document.getElementById('quickServicePrice');
+    const categoryEl = document.getElementById('quickServiceCategory');
+    const descriptionEl = document.getElementById('quickServiceDescription');
+
+    if (nameEl) nameEl.value = '';
+    if (priceEl) priceEl.value = '';
+    if (categoryEl) categoryEl.value = '';
+    if (descriptionEl) descriptionEl.value = '';
+}
+
+async function createServiceFromOrderForm() {
+    const nameEl = document.getElementById('quickServiceName');
+    const priceEl = document.getElementById('quickServicePrice');
+    const categoryEl = document.getElementById('quickServiceCategory');
+    const descriptionEl = document.getElementById('quickServiceDescription');
+
+    const name = (nameEl?.value || '').trim();
+    const price = Number(priceEl?.value || 0);
+    const category = (categoryEl?.value || '').trim() || 'Прочее';
+    const description = (descriptionEl?.value || '').trim();
+
+    if (!name) {
+        showNotification('Введите название услуги', 'warning');
+        nameEl?.focus();
+        return;
+    }
+
+    if (!Number.isFinite(price) || price <= 0) {
+        showNotification('Укажите корректную цену услуги', 'warning');
+        priceEl?.focus();
+        return;
+    }
+
+    const selectedBefore = getSelectedServiceIds();
+
+    try {
+        const created = await ServiceAPI.create({
+            name,
+            basePrice: price,
+            category,
+            description: description || null,
+            isActive: true
+        });
+
+        if (!created || !created.id) {
+            showNotification('Не удалось добавить услугу', 'error');
+            return;
+        }
+
+        allServices = [...allServices, created].sort((a, b) =>
+            (a.name || '').localeCompare((b.name || ''), 'ru'));
+
+        renderServicesCheckbox(allServices, [...selectedBefore, Number(created.id)]);
+        refreshServiceCategoryOptions();
+        updateOrderPrice();
+        resetQuickServiceForm();
+
+        showNotification(`Услуга "${created.name}" добавлена`, 'success');
+    } catch (error) {
+        console.error('Error creating service from order form:', error);
+        showNotification('Ошибка при создании услуги', 'error');
+    }
 }
 
 function toggleGroup(groupEl) { groupEl.classList.toggle('collapsed'); }
