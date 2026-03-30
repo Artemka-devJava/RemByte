@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+<th:block th:fragment="mainNav" th:with="uri=${#httpServletRequest != null ? #httpServletRequest.requestURI : ''}">
+  <nav class="sidebar-nav">
+    <a href="/" class="nav-item" th:classappend="${uri == '/'} ? ' active'">
+      <span class="nav-icon">🏠</span>Главная
+    </a>
+    <a href="/dashboard" class="nav-item" th:classappend="${uri == '/dashboard'} ? ' active'">
+      <span class="nav-icon">📊</span>Панель
+    </a>
+    <a href="/clients" class="nav-item" th:classappend="${uri == '/clients'} ? ' active'">
+      <span class="nav-icon">👥</span>Клиенты
+    </a>
+    <a href="/orders" class="nav-item" th:classappend="${uri == '/orders'} ? ' active'">
+      <span class="nav-icon">📋</span>Заказы
+    </a>
+    <a href="/services" class="nav-item" th:classappend="${uri == '/services'} ? ' active'">
+      <span class="nav-icon">🔧</span>Услуги
+    </a>
+    <a href="/calculator" class="nav-item" th:classappend="${uri == '/calculator'} ? ' active'">
+      <span class="nav-icon">💰</span>Калькулятор
+    </a>
+    <a href="/chat" class="nav-item" th:classappend="${uri != null and uri.startsWith('/chat')} ? ' active'">
+      <span class="nav-icon">💬</span>Чат
+    </a>
+    <a href="/kanban" class="nav-item" th:classappend="${uri != null and uri.startsWith('/kanban')} ? ' active'">
+      <span class="nav-icon">🗂️</span>Канбан
+    </a>
+    <a href="/admin" class="nav-item"
+       sec:authorize="hasRole('ADMIN')"
+       th:classappend="${uri != null and (uri.startsWith('/admin') or uri.startsWith('/users') or uri.startsWith('/plugins'))} ? ' active'">
+      <span class="nav-icon">⚙️</span>Настройки
+    </a>
+  </nav>
+</th:block>
+</body>
+</html>
+

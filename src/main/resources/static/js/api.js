@@ -523,6 +523,163 @@ const ChatAPI = {
     }
 };
 
+// ====== KANBAN API ======
+const KanbanAPI = {
+    getBoards: async () => {
+        try {
+            const response = await fetch(`${API_BASE}/kanban/boards`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching kanban boards:', error);
+            return [];
+        }
+    },
+
+    createBoard: async (payload) => {
+        try {
+            const response = await fetch(`${API_BASE}/kanban/boards`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Error creating kanban board:', error);
+            return null;
+        }
+    },
+
+    renameBoard: async (boardId, payload) => {
+        try {
+            const response = await fetch(`${API_BASE}/kanban/boards/${boardId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Error renaming kanban board:', error);
+            return null;
+        }
+    },
+
+    getBoard: async (boardId) => {
+        try {
+            const suffix = Number.isFinite(Number(boardId)) ? `?boardId=${encodeURIComponent(boardId)}` : '';
+            const response = await fetch(`${API_BASE}/kanban/board${suffix}`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching kanban board:', error);
+            return null;
+        }
+    },
+
+    renameColumn: async (columnId, payload) => {
+        try {
+            const response = await fetch(`${API_BASE}/kanban/columns/${columnId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Error renaming kanban column:', error);
+            return null;
+        }
+    },
+
+    createCard: async (columnId, payload) => {
+        try {
+            const response = await fetch(`${API_BASE}/kanban/columns/${columnId}/cards`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Error creating kanban card:', error);
+            return null;
+        }
+    },
+
+    updateCard: async (cardId, payload) => {
+        try {
+            const response = await fetch(`${API_BASE}/kanban/cards/${cardId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Error updating kanban card:', error);
+            return null;
+        }
+    },
+
+    moveCard: async (cardId, payload) => {
+        try {
+            const response = await fetch(`${API_BASE}/kanban/cards/${cardId}/move`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Error moving kanban card:', error);
+            return null;
+        }
+    },
+
+    deleteCard: async (cardId) => {
+        try {
+            const response = await fetch(`${API_BASE}/kanban/cards/${cardId}`, {
+                method: 'DELETE'
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Error deleting kanban card:', error);
+            return null;
+        }
+    },
+
+    uploadAttachments: async (cardId, files) => {
+        try {
+            const formData = new FormData();
+            Array.from(files || []).forEach(file => formData.append('files', file));
+            const response = await fetch(`${API_BASE}/kanban/cards/${cardId}/attachments`, {
+                method: 'POST',
+                body: formData
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Error uploading kanban attachments:', error);
+            return null;
+        }
+    },
+
+    getAttachments: async (cardId) => {
+        try {
+            const response = await fetch(`${API_BASE}/kanban/cards/${cardId}/attachments`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching kanban attachments:', error);
+            return [];
+        }
+    },
+
+    deleteAttachment: async (cardId, url) => {
+        try {
+            const response = await fetch(`${API_BASE}/kanban/cards/${cardId}/attachments?url=${encodeURIComponent(url)}`, {
+                method: 'DELETE'
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Error deleting kanban attachment:', error);
+            return null;
+        }
+    }
+};
+
 // ====== UTILITY FUNCTIONS ======
 function formatCurrency(amount) {
     return Math.round(amount) + '₽';
@@ -555,4 +712,3 @@ function showNotification(message, type = 'success') {
 
     setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity .4s'; setTimeout(() => toast.remove(), 400); }, 3500);
 }
-

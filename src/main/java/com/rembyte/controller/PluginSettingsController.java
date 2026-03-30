@@ -26,14 +26,6 @@ public class PluginSettingsController {
         ));
     }
 
-    @GetMapping("/chat")
-    public ResponseEntity<Map<String, Object>> getChatPluginSetting() {
-        return ResponseEntity.ok(Map.of(
-                "pluginKey", PluginSettingsService.CHAT_PLUGIN_KEY,
-                "enabled", pluginSettingsService.isChatPluginEnabled()
-        ));
-    }
-
     @PutMapping("/notes")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> updateNotesPluginSetting(@RequestBody Map<String, Object> request) {
@@ -45,17 +37,4 @@ public class PluginSettingsController {
                 "enabled", result
         ));
     }
-
-    @PutMapping("/chat")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Object>> updateChatPluginSetting(@RequestBody Map<String, Object> request) {
-        boolean enabled = Boolean.TRUE.equals(request.get("enabled"));
-        boolean result = pluginSettingsService.setChatPluginEnabled(enabled);
-
-        return ResponseEntity.ok(Map.of(
-                "pluginKey", PluginSettingsService.CHAT_PLUGIN_KEY,
-                "enabled", result
-        ));
-    }
 }
-

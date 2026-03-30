@@ -5,11 +5,12 @@
 
 (function initPluginHost() {
     const STORAGE_KEY = 'rembyte_plugins_registry';
-    const BUILTIN_CHAT_LINK = {
-        href: '/chat',
-        label: 'Чат',
-        icon: '💬',
-        settingUrl: '/api/plugin-settings/chat'
+    const CHAT_BADGE_REFRESH_MS = 5000;
+    let chatBadgeTimerId = null;
+    const BUILTIN_KANBAN_LINK = {
+        href: '/kanban',
+        label: 'Канбан',
+        icon: '🗂️'
     };
     const BUILTIN_NOTES_LINK = {
         href: '/notes',
@@ -95,11 +96,11 @@
         // Чистим старые кнопки плагинов
         nav.querySelectorAll('.plugin-nav-item').forEach(el => el.remove());
 
-        const chatEnabled = await isBuiltInPluginEnabled(BUILTIN_CHAT_LINK.settingUrl);
-        if (chatEnabled) {
-            const chatLink = ensureBuiltinLink(nav, BUILTIN_CHAT_LINK);
-            await decorateChatBadge(chatLink);
-        }
+        // Чат теперь системный раздел: только обновляем бейдж, не создаем/скрываем пункт меню
+        await decorateChatBadge(nav.querySelector('a[href="/chat"]'));
+
+        // Нативный раздел канбана всегда доступен для внутренних пользователей
+        ensureBuiltinLink(nav, BUILTIN_KANBAN_LINK);
 
         const notesEnabled = await isBuiltInPluginEnabled(BUILTIN_NOTES_LINK.settingUrl);
         if (notesEnabled) {
@@ -133,10 +134,34 @@
         if (event.key === STORAGE_KEY) renderPluginLinks();
     });
 
+    window.fixbyteRefreshChatBadge = async function fixbyteRefreshChatBadge() {
+        const nav = document.querySelector('.sidebar-nav');
+        if (!nav) return;
+        await decorateChatBadge(nav.querySelector('a[href="/chat"]'));
+    };
+
+    function startChatBadgeAutoRefresh() {
+        if (chatBadgeTimerId) return;
+        chatBadgeTimerId = window.setInterval(async () => {
+            // Не дергаем API, когда вкладка неактивна.
+            if (document.hidden) return;
+            await window.fixbyteRefreshChatBadge();
+        }, CHAT_BADGE_REFRESH_MS);
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            window.fixbyteRefreshChatBadge();
+        }
+    });
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', renderPluginLinks);
+        document.addEventListener('DOMContentLoaded', async () => {
+            await renderPluginLinks();
+            startChatBadgeAutoRefresh();
+        });
     } else {
         renderPluginLinks();
+        startChatBadgeAutoRefresh();
     }
 })();
-

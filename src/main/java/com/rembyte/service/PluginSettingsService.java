@@ -11,7 +11,6 @@ import java.time.LocalDateTime;
 public class PluginSettingsService {
 
     public static final String NOTES_PLUGIN_KEY = "notes";
-    public static final String CHAT_PLUGIN_KEY = "chat";
 
     private final PluginSettingRepository pluginSettingRepository;
 
@@ -21,10 +20,6 @@ public class PluginSettingsService {
 
     public boolean isNotesPluginEnabled() {
         return isPluginEnabled(NOTES_PLUGIN_KEY);
-    }
-
-    public boolean isChatPluginEnabled() {
-        return isPluginEnabled(CHAT_PLUGIN_KEY);
     }
 
     public boolean isPluginEnabled(String pluginKey) {
@@ -39,11 +34,6 @@ public class PluginSettingsService {
     }
 
     @Transactional
-    public boolean setChatPluginEnabled(boolean enabled) {
-        return setPluginEnabled(CHAT_PLUGIN_KEY, enabled);
-    }
-
-    @Transactional
     public boolean setPluginEnabled(String pluginKey, boolean enabled) {
         PluginSetting setting = pluginSettingRepository.findByPluginKey(pluginKey)
                 .orElseGet(() -> new PluginSetting(pluginKey, true));
@@ -54,4 +44,3 @@ public class PluginSettingsService {
         return enabled;
     }
 }
-

@@ -1,0 +1,185 @@
+﻿<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+  <th:block th:replace="~{fragments/head-common :: commonHead('FixByte CRM — Канбан')}"></th:block>
+  <style>
+    .sidebar-user{padding:12px 14px;border-top:1px solid rgba(255,255,255,.07);margin-top:auto;}
+    .sidebar-user-name{font-size:12px;color:#64748b;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .btn-sidebar-logout{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);border-radius:7px;color:#fca5a5;font-size:12.5px;font-family:inherit;cursor:pointer;transition:all .2s;}
+    .btn-sidebar-logout:hover{background:rgba(239,68,68,.2);color:#fff;}
+
+    .kanban-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+    .kanban-board-title { font-size:13px; color:var(--c-muted); }
+    .kanban-board-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .kanban-board-actions select, .kanban-board-actions input { min-height:34px; padding:6px 10px; border-radius:8px; border:1px solid var(--c-border); background:var(--c-bg); color:var(--c-text); }
+
+    .kanban-columns {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+      align-items: start;
+    }
+
+    .kanban-column {
+      background: var(--c-card);
+      border: 1px solid var(--c-border);
+      border-radius: 10px;
+      min-height: 320px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .kanban-column.drag-over {
+      border-color: var(--c-primary);
+      box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--c-primary-l) 45%, transparent);
+    }
+
+    .kanban-column-head {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--c-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .kanban-column-head-main { display:flex; align-items:center; gap:8px; }
+    .kanban-column-title { font-size: 14px; font-weight: 700; margin: 0; }
+    .kanban-column-count { font-size: 12px; color: var(--c-muted); }
+
+    .kanban-cards {
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 120px;
+    }
+
+    .kanban-empty {
+      border: 1px dashed var(--c-border);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+      color: var(--c-muted);
+      font-size: 13px;
+      background: color-mix(in srgb, var(--c-primary-l) 18%, var(--c-card) 82%);
+    }
+
+    .kanban-card {
+      border: 1px solid var(--c-border);
+      border-radius: 8px;
+      background: var(--c-bg);
+      padding: 10px;
+      cursor: grab;
+      transition: border-color .15s, box-shadow .15s;
+    }
+
+    .kanban-card-preview { width:100%; height:120px; object-fit:cover; border-radius:8px; margin-bottom:8px; border:1px solid var(--c-border); }
+    .kanban-attach-hint { margin-top:6px; font-size:12px; color:var(--c-muted); }
+    .kanban-card:active { cursor: grabbing; }
+    .kanban-card:hover { border-color: var(--c-primary); }
+    .kanban-card.dragging { opacity: 0.5; }
+
+    .kanban-card-title { margin: 0 0 4px; font-size: 13.5px; font-weight: 700; }
+    .kanban-card-desc {
+      margin: 0;
+      color: var(--c-muted);
+      font-size: 12.5px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .kanban-card-actions { display: flex; gap: 6px; margin-top: 8px; }
+    .kanban-card-actions .btn { padding: 5px 8px; font-size: 12px; }
+
+    .kanban-attachments-wrap { margin-top:12px; border-top:1px solid var(--c-border); padding-top:10px; }
+    .kanban-attach-block { margin-top:8px; }
+    .kanban-attach-row { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:6px; font-size:12.5px; word-break:break-word; }
+    .kanban-attach-empty { color:var(--c-muted); font-size:12.5px; }
+    .kanban-mini-preview { width:28px; height:28px; object-fit:cover; border-radius:6px; border:1px solid var(--c-border); vertical-align:middle; margin-right:6px; }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" th:replace="~{fragments/sidebar-shell :: sidebar('themeSelectKanban')}"></aside>
+
+  <div class="main-area">
+    <header class="top-bar">
+      <h1>🗂️ Канбан-доска</h1>
+      <button class="btn btn-secondary" type="button" onclick="loadKanbanBoard()">⟳ Обновить</button>
+    </header>
+
+    <main class="content">
+      <div class="kanban-toolbar">
+        <div class="kanban-board-actions">
+          <select id="boardSelect" onchange="onBoardChange(this.value)"></select>
+          <button class="btn btn-primary" type="button" onclick="createBoard()">+ Новая доска</button>
+          <input id="boardNameInput" type="text" maxlength="120" disabled>
+          <button class="btn btn-secondary" type="button" onclick="enableRenameBoard()">Переименовать доску</button>
+          <div id="boardNameActions" style="display:none;gap:6px;">
+            <button class="btn btn-primary" type="button" onclick="submitRenameBoard()">Сохранить</button>
+            <button class="btn btn-secondary" type="button" onclick="cancelRenameBoard()">Отмена</button>
+          </div>
+        </div>
+        <div id="kanbanBoardTitle" class="kanban-board-title">Загрузка доски...</div>
+      </div>
+
+      <div id="kanbanColumns" class="kanban-columns">
+        <div class="kanban-empty">Загрузка...</div>
+      </div>
+    </main>
+
+    <footer class="page-footer">FixByte CRM © 2026</footer>
+  </div>
+</div>
+
+<div id="cardModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:620px;">
+    <div class="modal-header">
+      <h2 id="cardModalTitle">Новая карточка</h2>
+      <button class="close" type="button" onclick="closeCardModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="cardForm" onsubmit="submitCard(event)">
+        <input type="hidden" id="cardId">
+        <input type="hidden" id="cardColumnId">
+
+        <div class="form-group">
+          <label for="cardTitle">Название:</label>
+          <input type="text" id="cardTitle" required maxlength="200" placeholder="Например: Проверить ноутбук клиента">
+        </div>
+
+        <div class="form-group">
+          <label for="cardDescription">Описание:</label>
+          <textarea id="cardDescription" placeholder="Детали задачи..."></textarea>
+        </div>
+
+        <div class="kanban-attachments-wrap">
+          <div class="form-group">
+            <label for="cardAttachmentsInput">Добавить фото и текстовые файлы:</label>
+            <input id="cardAttachmentsInput" type="file" multiple accept="image/*,.txt,.md,.csv,.log" onchange="onAttachmentsSelected(this)">
+          </div>
+
+          <div class="kanban-attach-block">
+            <strong>Новые вложения:</strong>
+            <div id="pendingAttachments" class="kanban-attach-empty">Новые вложения не выбраны</div>
+          </div>
+
+          <div class="kanban-attach-block">
+            <strong>Текущие вложения:</strong>
+            <div id="currentCardAttachments" class="kanban-attach-empty">Вложений нет</div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">💾 Сохранить</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<th:block th:replace="~{fragments/common-scripts :: uiBase}"></th:block>
+<script src="/js/api.js"></script>
+<script src="/js/kanban.js"></script>
+</body>
+</html>

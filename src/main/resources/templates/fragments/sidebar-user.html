@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="userPanel">
+  <div class="sidebar-user">
+    <div class="sidebar-user-name" th:text="'👤 ' + ${#authentication?.name ?: ''}">👤 admin</div>
+    <form th:action="@{/logout}" method="post">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf}">
+      <button type="submit" class="btn-sidebar-logout">🚪 Выйти</button>
+    </form>
+  </div>
+</th:block>
+</body>
+</html>
+

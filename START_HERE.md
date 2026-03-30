@@ -2,6 +2,9 @@
 
 ## 🆕 Последние обновления (30.03.2026)
 
+- 🗂️ **Нативный Канбан** (`/kanban`) — персональные доски, drag-and-drop, вложения карточек
+- 🧱 **Шаблонные фрагменты** (`templates/fragments/`) — единые head/sidebar/scripts для всех страниц
+- 🛠️ Исправлены edge-case рендеры `/dashboard` и `/login` после унификации шаблонов
 - 🖥️ **Десктопный клиент для Windows** (`desktop-client/`) — Electron 35, NSIS + Portable .exe
 - База данных: MariaDB (`localhost:9092`) с настройками через `.env`.
 - Учетные записи: `FIXBYTE_ADMIN_*` и `FIXBYTE_OPERATOR_*` из `.env`.
@@ -56,7 +59,7 @@
 | **README.md** | Основная документация |
 | **COMPLETE_README.md** | Полная документация |
 | **PROJECT_REPORT.md** | Отчет о проекте |
-| **FIX_LOMBOK_ISSUE.md** | Решение проблем |
+| **KNOWN_ISSUES.md** | Известные ограничения и диагностика |
 
 ---
 
@@ -74,7 +77,7 @@ mvn spring-boot:run
 
 ```powershell
 cd C:\JavaProject\RemByte
-docker-compose up -d
+docker compose up -d --build
 # Открыть: http://localhost:9087
 ```
 
@@ -177,10 +180,10 @@ mvn clean package -DskipTests
 java -jar target/rembyte-crm-3.0.jar
 
 # Docker (запуск)
-docker-compose up -d
+docker compose up -d --build
 
 # Docker (остановка)
-docker-compose down
+docker compose down
 
 # Десктопный клиент (dev-запуск)
 cd desktop-client ; npm start

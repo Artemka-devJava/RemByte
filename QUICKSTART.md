@@ -2,6 +2,12 @@
 
 ## 🆕 Актуальные изменения (30.03.2026)
 
+- Добавлен нативный модуль `🗂️ Канбан` (`/kanban`) с персональными досками по пользователям.
+- В канбане поддерживаются: мульти-доски, переименование доски/колонок, drag-and-drop карточек.
+- Для карточек доступны вложения (фото + текстовые файлы), фото выводится как превью.
+- Шаблоны UI переведены на общие Thymeleaf fragments (`head`, `sidebar`, `scripts`).
+- Sidebar-меню централизовано и автоматически подсвечивает активный пункт.
+- Исправлены проблемы рендера `/dashboard` и `/login` после шаблонного рефакторинга.
 - Создан десктопный клиент для Windows (`desktop-client/`) на Electron 35.
 - Собраны дистрибутивы: NSIS-установщик и Portable .exe (~88 МБ).
 - Иконка генерируется автоматически скриптом `make-icon.js` (sharp + to-ico).
@@ -44,6 +50,7 @@
   - `👁️ Превью`
 - В `Настройки -> Плагины` администратор может полностью отключить встроенный плагин заметок.
 - Добавлен встроенный модуль `💬 Чат` с историей диалогов в MariaDB и внешним iframe-виджетом для сайта.
+- Добавлен встроенный раздел `🗂️ Канбан` с селектором досок и карточками по колонкам.
 
 ## ✅ Что было создано
 
@@ -89,7 +96,7 @@ C:\JavaProject\RemByte/
 ├── pom.xml                               ✅ Maven конфигурация
 ├── README.md                             ✅ Основная документация
 ├── COMPLETE_README.md                    ✅ Полная документация
-└── FIX_LOMBOK_ISSUE.md                   ✅ Инструкция по решению проблем
+└── KNOWN_ISSUES.md                       ✅ Известные ограничения и решения
 ```
 
 ---
@@ -127,9 +134,28 @@ java -jar target/rembyte-crm-3.0.jar
 4. Build → Rebuild Project
 5. Run → Run 'RemByteApplication'
 
+### Способ 4: Docker (app + MariaDB)
+
+```powershell
+cd C:\JavaProject\RemByte
+docker compose up -d --build
+```
+
+Проверка логов приложения:
+
+```powershell
+docker compose logs -f app
+```
+
+Остановка:
+
+```powershell
+docker compose down
+```
+
 ---
 
-## 🖥️ Способ 4: Десктопный клиент (Windows)
+## 🖥️ Способ 5: Десктопный клиент (Windows)
 
 Запустить CRM как нативное Windows-приложение (открывает `https://crm.fix-byte.ru`):
 
@@ -210,6 +236,14 @@ npm run build:win
 - 🔒 Белый список разрешенных `origin` для безопасного встраивания виджета
 - ⚙️ Генерация готового script-кода в `Настройки -> Плагины`
 
+### 7. Канбан (🗂️ Канбан)
+- 🗂️ Несколько досок на одного пользователя (персональные доски)
+- ✏️ Переименование доски и колонок
+- 🧲 Drag-and-drop перемещение карточек между колонками
+- 📎 Вложения карточек: изображения и текстовые файлы (`.txt`, `.md`, `.csv`, `.log`)
+- 🖼️ Превью первого изображения прямо на карточке
+- 💾 Хранение данных в MariaDB (`kanban_boards`, `kanban_columns`, `kanban_cards`, `kanban_card_attachments`)
+
 ---
 
 ## 📡 REST API
@@ -239,8 +273,19 @@ GET    /api/notes-plugin/notes/{noteId}/download   # Скачать заметк
 
 GET    /api/plugin-settings/notes   # Статус встроенного плагина заметок
 PUT    /api/plugin-settings/notes   # Вкл/выкл плагин заметок (ADMIN)
-GET    /api/plugin-settings/chat    # Статус встроенного модуля чата
-PUT    /api/plugin-settings/chat    # Вкл/выкл модуль чата (ADMIN)
+
+GET    /api/kanban/boards                         # Список досок текущего пользователя
+POST   /api/kanban/boards                         # Создать доску
+PUT    /api/kanban/boards/{boardId}               # Переименовать доску
+GET    /api/kanban/board?boardId={boardId}        # Получить доску с колонками/карточками
+PUT    /api/kanban/columns/{columnId}             # Переименовать колонку
+POST   /api/kanban/columns/{columnId}/cards       # Создать карточку
+PUT    /api/kanban/cards/{cardId}                 # Обновить карточку
+PUT    /api/kanban/cards/{cardId}/move            # Переместить карточку
+DELETE /api/kanban/cards/{cardId}                 # Удалить карточку
+POST   /api/kanban/cards/{cardId}/attachments     # Загрузить вложения карточки
+GET    /api/kanban/cards/{cardId}/attachments     # Получить вложения карточки
+DELETE /api/kanban/cards/{cardId}/attachments     # Удалить вложение карточки
 
 GET    /api/chat/conversations             # Все диалоги чата
 GET    /api/chat/conversations/{id}        # Диалог и сообщения
@@ -284,7 +329,21 @@ rmdir %USERPROFILE%\.m2\repository\org\projectlombok /s
 mvn compile
 ```
 
-Подробнее см. **FIX_LOMBOK_ISSUE.md**
+Если проблема сохраняется, проверьте раздел ограничений и диагностики в **KNOWN_ISSUES.md**.
+
+---
+
+## ✅ Проверка тестов (рекомендуется перед коммитом)
+
+```bash
+cd C:\JavaProject\RemByte
+mvn test
+```
+
+На текущем состоянии проекта проходят:
+- `com.rembyte.controller.WebRouteUniquenessTest`
+- `com.rembyte.service.ChatServiceTest`
+- `com.rembyte.service.LegacyAttachmentMigrationServiceTest`
 
 ---
 
@@ -382,7 +441,7 @@ FIXBYTE_OPERATOR_PASSWORD=***
 
 - 📖 **README.md** - Основная документация
 - 📖 **COMPLETE_README.md** - Полная документация со всеми деталями
-- 📖 **FIX_LOMBOK_ISSUE.md** - Решение проблем с Lombok
+- 📖 **KNOWN_ISSUES.md** - Известные ограничения и диагностика
 
 ---
 

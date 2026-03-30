@@ -6,6 +6,7 @@ import com.rembyte.service.AppUserService;
 import com.rembyte.service.ChatService;
 import com.rembyte.service.LegacyAttachmentMigrationService;
 import com.rembyte.service.RepairServiceService;
+import com.rembyte.service.KanbanService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
@@ -22,6 +23,7 @@ public class ApplicationConfiguration {
     private final CategoryRepository categoryRepository;
     private final LegacyAttachmentMigrationService legacyAttachmentMigrationService;
     private final ChatService chatService;
+    private final KanbanService kanbanService;
 
     @Value("${fixbyte.admin.username}")
     private String adminUsername;
@@ -36,12 +38,14 @@ public class ApplicationConfiguration {
                                      AppUserService userService,
                                      CategoryRepository categoryRepository,
                                      LegacyAttachmentMigrationService legacyAttachmentMigrationService,
-                                     ChatService chatService) {
+                                     ChatService chatService,
+                                     KanbanService kanbanService) {
         this.serviceService    = serviceService;
         this.userService       = userService;
         this.categoryRepository = categoryRepository;
         this.legacyAttachmentMigrationService = legacyAttachmentMigrationService;
         this.chatService = chatService;
+        this.kanbanService = kanbanService;
     }
 
     /**
@@ -69,6 +73,10 @@ public class ApplicationConfiguration {
 
             // Конфигурация встроенного чата
             chatService.initializeDefaultWidgetSite();
+
+            // Персональные канбан-доски для системных пользователей
+            kanbanService.initializeDefaultBoardForUser(adminUsername);
+            kanbanService.initializeDefaultBoardForUser(operatorUsername);
         };
     }
 

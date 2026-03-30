@@ -4,6 +4,8 @@ import com.rembyte.service.PluginSettingsService;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 /**
  * Контроллер для веб-интерфейса FixByte CRM
  */
@@ -17,7 +19,10 @@ public class WebController {
     }
 
     @GetMapping("/login")
-    public String login() {
+    public String login(HttpServletRequest request) {
+        // Предсоздаем сессию до рендера шаблона, чтобы избежать
+        // "Cannot create a session after the response has been committed"
+        request.getSession(true);
         return "login";
     }
 
@@ -62,6 +67,11 @@ public class WebController {
         return "plugins";
     }
 
+    @GetMapping("/kanban")
+    public String kanban() {
+        return "kanban";
+    }
+
     @GetMapping("/notes")
     public String notes() {
         if (!pluginSettingsService.isNotesPluginEnabled()) {
@@ -72,9 +82,6 @@ public class WebController {
 
     @GetMapping("/chat")
     public String chat() {
-        if (!pluginSettingsService.isChatPluginEnabled()) {
-            return "redirect:/dashboard?chatDisabled=true";
-        }
         return "chat";
     }
 }

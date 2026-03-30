@@ -209,8 +209,8 @@ function clearCurrentConversation() {
 
 async function refreshSidebarChatBadge() {
     try {
-        if (typeof window.dispatchEvent === 'function') {
-            window.dispatchEvent(new StorageEvent('storage', { key: 'rembyte_plugins_registry' }));
+        if (typeof window.fixbyteRefreshChatBadge === 'function') {
+            await window.fixbyteRefreshChatBadge();
         }
     } catch {
         // ignore
@@ -237,4 +237,3 @@ function escapeHtml(value) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 }
-

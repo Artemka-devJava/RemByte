@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="themeSwitcher(selectId)">
+  <div class="theme-switcher">
+    <label th:for="${selectId}">Тема</label>
+    <select th:id="${selectId}" class="theme-select" data-theme-select>
+      <option value="system">🔄 Системная</option>
+      <option value="light">☀️ Светлая</option>
+      <option value="dark">🌙 Тёмная</option>
+      <option value="fixbyte">⚡ FixByte</option>
+      <option value="green">🌿 Зелёная</option>
+      <option value="purple">💜 Фиолетовая</option>
+      <option value="ocean">🌊 Океан</option>
+      <option value="sunset">🌅 Закат</option>
+    </select>
+  </div>
+</th:block>
+</body>
+</html>
+
