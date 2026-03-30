@@ -1,26 +1,30 @@
-# 🔧 RemByte CRM - Система управления сервисом ремонта ПК
+# 🔧 FixByte CRM — Полная документация
 
-## 🆕 Актуальные изменения (27.03.2026)
+## 🆕 Актуальные изменения (30.03.2026)
 
-- Единый логотип: `/images/logo.png` на всех страницах интерфейса.
-- Переключение внешнего вида: `Системная / Светлая / Темная`.
-- Тема сохраняется в браузере (`localStorage`, ключ `fixbyte-theme`).
-- Авторизация и доступ к БД берутся из `.env` (`MARIADB_*`, `FIXBYTE_*`).
+- Создан десктопный клиент для Windows (`desktop-client/`) на Electron 35.
+- Иконка генерируется автоматически скриптом `make-icon.js` (sharp + to-ico).
 - В заказах группы услуг по умолчанию свёрнуты для компактного отображения.
-- В форме заказа доступно быстрое добавление новой услуги (без перехода в раздел `Услуги`).
+- В форме заказа доступно быстрое добавление новой услуги.
+- Авторизация и доступ к БД берутся из `.env`.
+- Единый логотип на всех страницах: `static/images/logo.png`.
 
 ## 📋 Описание проекта
 
-**RemByte CRM** - это веб-приложение для управления бизнесом по ремонту персональных компьютеров и ноутбуков, разработанное на **Spring Boot** с использованием **React-подобного** веб-интерфейса.
+**FixByte CRM** — веб-приложение для управления бизнесом по ремонту ПК и ноутбуков на **Spring Boot 3.2.0**.
 
 ### Основные функции:
 
-✅ **CRM система** - управление клиентами, контакты, история заказов  
-✅ **Учет заказов** - создание, отслеживание статуса, управление платежами  
-✅ **Калькулятор стоимости** - автоматический расчет с учетом скидок и дополнений  
-✅ **Каталог услуг** - управление услугами и ценами  
-✅ **Финансовая статистика** - анализ доходов и производительности  
-✅ **REST API** - полный REST API для интеграции с другими системами  
+✅ **CRM система** — управление клиентами, контакты, история заказов  
+✅ **Учет заказов** — создание, статусы, платежи, вложения (фото/видео/PDF)  
+✅ **Калькулятор стоимости** — расчёт с учётом скидок и дополнений  
+✅ **Каталог услуг** — управление услугами и ценами по категориям  
+✅ **Настройки** — чек/квитанция, пользователи, бэкап и восстановление БД  
+✅ **Плагины** — загрузка из файла, изоляция в iframe sandbox  
+✅ **Заметки** — встроенный плагин с папками и Markdown-редактором  
+✅ **Чат** — онлайн-виджет для сайта + операторский интерфейс  
+✅ **REST API** — 50+ endpoints для интеграции  
+✅ **Десктоп** — Windows-клиент на Electron 35  
 
 ---
 
@@ -33,52 +37,97 @@ RemByte/
 │   │   ├── java/com/rembyte/
 │   │   │   ├── RemByteApplication.java          # Точка входа
 │   │   │   ├── config/
-│   │   │   │   └── ApplicationConfiguration.java # Конфигурация
-│   │   │   ├── model/                           # JPA сущности
+│   │   │   │   └── SecurityConfig.java           # Spring Security
+│   │   │   ├── model/                            # JPA сущности (13)
 │   │   │   │   ├── Client.java
 │   │   │   │   ├── Order.java
 │   │   │   │   ├── RepairService.java
 │   │   │   │   ├── Payment.java
-│   │   │   │   ├── OrderStatus.java
-│   │   │   │   └── PaymentMethod.java
-│   │   │   ├── repository/                      # JPA репозитории
-│   │   │   │   ├── ClientRepository.java
-│   │   │   │   ├── OrderRepository.java
-│   │   │   │   ├── RepairServiceRepository.java
-│   │   │   │   └── PaymentRepository.java
-│   │   │   ├── service/                         # Бизнес-логика
+│   │   │   │   ├── OrderAttachment.java
+│   │   │   │   ├── NoteFolder.java
+│   │   │   │   ├── NoteItem.java
+│   │   │   │   ├── ChatConversation.java
+│   │   │   │   ├── ChatMessage.java
+│   │   │   │   ├── Plugin.java
+│   │   │   │   ├── PluginSetting.java
+│   │   │   │   ├── ReceiptSettings.java
+│   │   │   │   └── User.java
+│   │   │   ├── repository/                       # JPA репозитории (12)
+│   │   │   ├── service/                          # Бизнес-логика (12)
 │   │   │   │   ├── ClientService.java
 │   │   │   │   ├── OrderService.java
 │   │   │   │   ├── RepairServiceService.java
 │   │   │   │   ├── PaymentService.java
-│   │   │   │   └── OrderStatistics.java
-│   │   │   └── controller/                      # REST контроллеры
+│   │   │   │   ├── FileStorageService.java
+│   │   │   │   ├── NoteService.java
+│   │   │   │   ├── ChatService.java
+│   │   │   │   ├── PluginService.java
+│   │   │   │   ├── ReceiptSettingsService.java
+│   │   │   │   ├── UserService.java
+│   │   │   │   ├── OrderStatistics.java
+│   │   │   │   └── BackupService.java
+│   │   │   └── controller/                       # REST + Web контроллеры (10)
 │   │   │       ├── ClientController.java
 │   │   │       ├── OrderController.java
 │   │   │       ├── RepairServiceController.java
+│   │   │       ├── AdminController.java
+│   │   │       ├── PluginController.java
+│   │   │       ├── NotePluginController.java
+│   │   │       ├── ChatController.java
+│   │   │       ├── ChatWidgetController.java
+│   │   │       ├── FileController.java
 │   │   │       └── WebController.java
-│   │   ├── resources/
-│   │   │   ├── application.properties
-│   │   │   ├── static/
-│   │   │   │   ├── css/
-│   │   │   │   │   └── style.css
-│   │   │   │   └── js/
-│   │   │   │       ├── api.js
-│   │   │   │       ├── clients.js
-│   │   │   │       ├── orders.js
-│   │   │   │       ├── services.js
-│   │   │   │       ├── dashboard.js
-│   │   │   │       └── calculator.js
-│   │   │   └── templates/
-│   │   │       ├── index.html
-│   │   │       ├── dashboard.html
-│   │   │       ├── clients.html
-│   │   │       ├── orders.html
-│   │   │       ├── services.html
-│   │   │       └── calculator.html
+│   │   └── resources/
+│   │       ├── application.properties
+│   │       ├── application-dev.properties
+│   │       ├── application-prod.properties
+│   │       ├── application-docker.properties
+│   │       ├── static/
+│   │       │   ├── css/style.css               # Стили + темы
+│   │       │   ├── js/                         # 11+ JS модулей
+│   │       │   │   ├── plugin-host.js
+│   │       │   │   ├── notes.js
+│   │       │   │   ├── chat.js
+│   │       │   │   └── ...
+│   │       │   └── images/
+│   │       │       ├── logo.png
+│   │       │       └── favicon.ico
+│   │       └── templates/                      # 13 Thymeleaf шаблонов
+│   │           ├── index.html
+│   │           ├── dashboard.html
+│   │           ├── clients.html
+│   │           ├── orders.html
+│   │           ├── services.html
+│   │           ├── calculator.html
+│   │           ├── admin.html
+│   │           ├── plugins.html
+│   │           ├── notes.html
+│   │           ├── chat.html
+│   │           ├── chat-widget-frame.html
+│   │           ├── login.html
+│   │           └── users.html
 │   └── test/
-├── pom.xml                                      # Конфигурация Maven
-└── README.md                                    # Документация
+│       └── java/com/rembyte/
+│           └── RouteUniquenessTest.java          # Авто-тест уникальности маршрутов
+├── desktop-client/                               # Electron Windows-клиент
+│   ├── main.js
+│   ├── preload.js
+│   ├── splash.html
+│   ├── make-icon.js
+│   ├── package.json
+│   └── build/
+│       ├── icon.ico                              # Генерируется make-icon.js
+│       └── logo.png
+├── docker/
+│   └── mariadb/init/01_init.sql
+├── plugin-samples/
+│   ├── snake-game-plugin.html
+│   ├── tetris-game-plugin.html
+│   └── text-editor-plugin.html
+├── docker-compose.yml
+├── Dockerfile
+├── .env
+└── pom.xml
 ```
 
 ---
@@ -101,7 +150,7 @@ cd C:\JavaProject\RemByte
 mvn clean package -DskipTests
 
 # 3. Запустить приложение
-java -jar target/rembyte-crm-1.0.0.jar
+java -jar target/rembyte-crm-3.0.jar
 
 # Или используй spring-boot:run для разработки
 mvn spring-boot:run
@@ -355,16 +404,16 @@ MARIADB_PASSWORD=***
 
 ### На локальной машине
 ```bash
-java -jar target/rembyte-crm-1.0.0.jar
+java -jar target/rembyte-crm-3.0.jar
 ```
 
 ### На сервере Linux/Mac
 ```bash
 # Предоставить права на выполнение
-chmod +x rembyte-crm-1.0.0.jar
+chmod +x rembyte-crm-3.0.jar
 
 # Запустить в фоновом режиме
-nohup java -jar rembyte-crm-1.0.0.jar &
+nohup java -jar rembyte-crm-3.0.jar &
 
 # Или через systemd
 sudo nano /etc/systemd/system/rembyte.service
@@ -373,20 +422,20 @@ sudo nano /etc/systemd/system/rembyte.service
 # After=network.target
 # [Service]
 # Type=simple
-# ExecStart=/usr/bin/java -jar /path/to/rembyte-crm-1.0.0.jar
+# ExecStart=/usr/bin/java -jar /path/to/rembyte-crm-3.0.jar
 # Restart=on-failure
 ```
 
 ### Через Docker
 ```dockerfile
 FROM openjdk:17-jdk-slim
-COPY target/rembyte-crm-1.0.0.jar app.jar
+COPY target/rembyte-crm-3.0.jar app.jar
 ENTRYPOINT ["java","-jar","/app.jar"]
 ```
 
 ```bash
-docker build -t rembyte:1.0.0 .
-docker run -p 9087:9087 rembyte:1.0.0
+docker build -t rembyte:3.0 .
+docker run -p 9087:9087 rembyte:3.0
 ```
 
 ---
@@ -395,14 +444,48 @@ docker run -p 9087:9087 rembyte:1.0.0
 
 | Компонент | Версия | Назначение |
 |-----------|--------|-----------|
-| Java | 17 | Язык программирования |
+| Java | 17 LTS | Язык программирования |
 | Spring Boot | 3.2.0 | Web framework |
 | Spring Data JPA | 3.2.0 | ORM |
-| MariaDB | 10.5+ | БД |
-| Lombok | 1.18.30 | Code generation |
-| Maven | 3.8+ | Build tool |
-| HTML5/CSS3 | Latest | Frontend |
-| JavaScript (ES6) | Latest | Frontend logic |
+| Spring Security | 3.2.0 | Аутентификация / авторизация |
+| Lombok | 1.18.30 | Генерация кода |
+| MariaDB | 10.5+ / 11.4 Docker | База данных |
+| Maven | 3.8+ | Сборка |
+| Thymeleaf | 3.2.0 | Server-side шаблонизация |
+| HTML5/CSS3/JS | ES6+ | Frontend |
+| Electron | 35.x | Windows десктопный клиент |
+| electron-builder | 26.x | Сборка .exe установщика |
+| sharp + to-ico | latest | Генерация иконки ICO |
+
+---
+
+## 🖥️ Десктопный клиент (Windows)
+
+Папка `desktop-client/` содержит Electron-приложение для Windows.
+
+**Возможности:**
+- Splash-экран при запуске
+- Открывает `https://crm.fix-byte.ru` в нативном окне 1440×900
+- Трей-иконка, single instance
+- Сохранение сессии между запусками (`persist:fixbyte-crm`)
+- Страница «Нет соединения» при недоступности сервера
+
+**Сборка:**
+```powershell
+cd desktop-client
+npm install
+node make-icon.js      # сгенерировать иконку из logo.png
+npm run build:win      # собрать .exe
+```
+
+**Результат:**
+```
+dist/
+  FixByte CRM Setup 3.0.0.exe      ← NSIS установщик (88.3 МБ)
+  FixByte-CRM-Portable-3.0.0.exe   ← Portable (88.1 МБ)
+```
+
+Подробнее: [`desktop-client/README.md`](desktop-client/README.md)
 
 ---
 
@@ -412,12 +495,6 @@ docker run -p 9087:9087 rembyte:1.0.0
 
 ---
 
-## 📄 Лицензия
-
-Проект RemByte CRM создан для образовательных и коммерческих целей.
-
----
-
-**RemByte CRM v1.0.0** ✨  
+**FixByte CRM v3.0** ✨  
 *Система управления сервисом по ремонту ПК и ноутбуков*
 

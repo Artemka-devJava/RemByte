@@ -1,6 +1,18 @@
-# 🚀 БЫСТРЫЙ СТАРТ RemByte CRM
+# 🚀 БЫСТРЫЙ СТАРТ FixByte CRM
 
-## 🆕 Актуальные изменения (28.03.2026)
+## 🆕 Актуальные изменения (30.03.2026)
+
+- Создан десктопный клиент для Windows (`desktop-client/`) на Electron 35.
+- Собраны дистрибутивы: NSIS-установщик и Portable .exe (~88 МБ).
+- Иконка генерируется автоматически скриптом `make-icon.js` (sharp + to-ico).
+
+## Изменения (29.03.2026)
+
+- Поменяна иконка плагина Заметок: `📝` (блокнот вместо пазла).
+- Проведена чистка кода и удалены устаревшие файлы.
+- Оптимизирована сборка (jar: 52.72 MB).
+
+## Изменения (28.03.2026)
 
 - Раздел `Пользователи` перенесен в `Настройки` (`/admin#tabUsers`).
 - Добавлена страница `Настройки` (`/admin`) с вкладками:
@@ -8,22 +20,17 @@
   - `🗄️ База данных`
   - `🔑 Пользователи`
 - В заказах при статусе `COMPLETED` появилась кнопка `🧾 Напечатать чек`.
-- Кнопка `📎 Сохранить PDF и прикрепить` в чеке:
-  - генерирует PDF
-  - прикрепляет его к текущему заказу
-  - не выполняет автоматическую загрузку файла на локальный ПК
-- В `Настройки → База данных` добавлены:
-  - `⬇️ Скачать резервную копию (.sql)`
-  - `⬆️ Загрузить и восстановить` (полная замена текущих данных)
-- В форме создания/редактирования заказа добавлен блок быстрого добавления услуги.
-- Группы услуг в форме заказа отображаются свёрнутыми по умолчанию (раскрытие по клику).
+- Кнопка `📎 Сохранить PDF и прикрепить` в чеке прикрепляет PDF к заказу.
+- В `Настройки → База данных`: резервная копия + восстановление.
+- Группы услуг в форме заказа свёрнуты по умолчанию.
+- Добавлен встроенный модуль `Чат` (`/chat`).
 
 ## 🚢 Релизные документы
 
+- [RELEASE_NOTES_2026-03-30.md](RELEASE_NOTES_2026-03-30.md) ← новый
+- [RELEASE_NOTES_2026-03-29.md](RELEASE_NOTES_2026-03-29.md)
 - [RELEASE_NOTES_2026-03-28.md](RELEASE_NOTES_2026-03-28.md)
-- [DEPLOY_UPGRADE.md](DEPLOY_UPGRADE.md)
 - [KNOWN_ISSUES.md](KNOWN_ISSUES.md)
-- [SMOKE_TEST_CHECKLIST.md](SMOKE_TEST_CHECKLIST.md)
 
 ## 🆕 Что изменилось в UI
 
@@ -36,6 +43,7 @@
   - `✍️ Редактирование`
   - `👁️ Превью`
 - В `Настройки -> Плагины` администратор может полностью отключить встроенный плагин заметок.
+- Добавлен встроенный модуль `💬 Чат` с историей диалогов в MariaDB и внешним iframe-виджетом для сайта.
 
 ## ✅ Что было создано
 
@@ -108,7 +116,7 @@ mvn spring-boot:run
 ```bash
 cd C:\JavaProject\RemByte
 mvn clean package -DskipTests
-java -jar target/rembyte-crm-1.0.0.jar
+java -jar target/rembyte-crm-3.0.jar
 ```
 
 ### Способ 3: Из IntelliJ IDEA
@@ -118,6 +126,34 @@ java -jar target/rembyte-crm-1.0.0.jar
 3. File → Settings → Build → Compiler → Annotation Processors → ✅ Enable
 4. Build → Rebuild Project
 5. Run → Run 'RemByteApplication'
+
+---
+
+## 🖥️ Способ 4: Десктопный клиент (Windows)
+
+Запустить CRM как нативное Windows-приложение (открывает `https://crm.fix-byte.ru`):
+
+```powershell
+cd C:\JavaProject\RemByte\desktop-client
+
+# Установить зависимости (один раз)
+npm install
+
+# Сгенерировать иконку (один раз, если build/icon.ico отсутствует)
+node make-icon.js
+
+# Запустить
+npm start
+```
+
+Собрать .exe установщик:
+```powershell
+npm run build:win
+# Результат: dist/FixByte CRM Setup 3.0.0.exe  (88.3 МБ)
+#            dist/FixByte-CRM-Portable-3.0.0.exe (88.1 МБ)
+```
+
+Подробнее: [`desktop-client/README.md`](desktop-client/README.md)
 
 ---
 
@@ -167,6 +203,13 @@ java -jar target/rembyte-crm-1.0.0.jar
 - 🏆 Популярные услуги
 - 💹 Финансовая статистика
 
+### 6. Онлайн-чат (💬 Чат)
+- 💬 Прием сообщений с внешнего сайта прямо в CRM
+- 👨‍🔧 Ответы оператора из CRM в реальном времени через polling
+- 🔔 Счетчик непрочитанных диалогов в левом меню
+- 🔒 Белый список разрешенных `origin` для безопасного встраивания виджета
+- ⚙️ Генерация готового script-кода в `Настройки -> Плагины`
+
 ---
 
 ## 📡 REST API
@@ -196,6 +239,21 @@ GET    /api/notes-plugin/notes/{noteId}/download   # Скачать заметк
 
 GET    /api/plugin-settings/notes   # Статус встроенного плагина заметок
 PUT    /api/plugin-settings/notes   # Вкл/выкл плагин заметок (ADMIN)
+GET    /api/plugin-settings/chat    # Статус встроенного модуля чата
+PUT    /api/plugin-settings/chat    # Вкл/выкл модуль чата (ADMIN)
+
+GET    /api/chat/conversations             # Все диалоги чата
+GET    /api/chat/conversations/{id}        # Диалог и сообщения
+POST   /api/chat/conversations/{id}/messages # Ответ оператора
+PUT    /api/chat/conversations/{id}/status # Открыть/закрыть диалог
+GET    /api/chat/summary                   # Сводка по непрочитанным диалогам
+GET    /api/chat/widget-site               # Настройки виджета чата (ADMIN)
+PUT    /api/chat/widget-site               # Сохранить настройки виджета (ADMIN)
+
+GET    /public/chat/site/{siteKey}                    # Публичная конфигурация виджета
+POST   /public/chat/conversations                     # Создать новый диалог с сайта
+GET    /public/chat/conversations/{publicToken}       # Получить диалог по токену
+POST   /public/chat/conversations/{publicToken}/messages # Сообщение посетителя
 
 GET    /admin/backup             # Скачать SQL-бэкап (ADMIN)
 POST   /admin/restore            # Восстановить БД из SQL (ADMIN)
@@ -238,6 +296,21 @@ mvn compile
 - Для Docker это означает, что отдельный том для папки `uploads` не обязателен: достаточно volume MariaDB.
 - При старте выполняется автоперенос legacy-файлов из `uploads/orders/**` в БД (без дублей).
 - Управление автопереносом: `FIXBYTE_UPLOAD_MIGRATION_ENABLED` и `FIXBYTE_UPLOAD_MIGRATION_DELETE_LEGACY`.
+- Диалоги чата и сообщения виджета тоже сохраняются в MariaDB.
+
+### Вставка виджета чата на сайт
+
+Готовый код можно скопировать в `Настройки -> Плагины -> Код вставки на сайт`.
+
+Пример:
+
+```html
+<script
+  src="https://ваш-домен/js/chat-widget-loader.js"
+  data-chat-site-key="main-site"
+  data-chat-base-url="https://ваш-домен">
+</script>
+```
 
 ⚠️ Восстановление через `/admin/restore` перезаписывает текущие данные полностью.
 

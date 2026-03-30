@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FixByte CRM</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #2d3d50 0%, #3699d9 100%);
+      color: #fff;
+      width: 400px;
+      height: 300px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border-radius: 16px;
+      user-select: none;
+    }
+
+    .logo-wrap {
+      width: 90px;
+      height: 90px;
+      background: rgba(255,255,255,0.12);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 18px;
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.18);
+    }
+
+    .logo-wrap img {
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+    }
+
+    .logo-fallback {
+      font-size: 42px;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .sub {
+      font-size: 13px;
+      opacity: 0.65;
+      margin-bottom: 28px;
+    }
+
+    .loader {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      background: rgba(255,255,255,0.8);
+      border-radius: 50%;
+      animation: bounce 1.2s infinite ease-in-out;
+    }
+
+    .dot:nth-child(1) { animation-delay: 0s; }
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+
+    .version {
+      position: absolute;
+      bottom: 10px;
+      right: 14px;
+      font-size: 11px;
+      opacity: 0.35;
+    }
+  </style>
+</head>
+<body>
+  <div class="logo-wrap">
+    <img src="build/logo.png" alt="FixByte" onerror="this.style.display='none';document.querySelector('.logo-fallback').style.display='block'">
+    <span class="logo-fallback" style="display:none">🔧</span>
+  </div>
+  <h1>FixByte CRM</h1>
+  <p class="sub">Система управления сервисом</p>
+  <div class="loader">
+    <div class="dot"></div>
+    <div class="dot"></div>
+    <div class="dot"></div>
+  </div>
+  <span class="version">v3.0.0</span>
+</body>
+</html>
+

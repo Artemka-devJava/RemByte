@@ -4,7 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
+  <title>FixByte CRM — Настройки</title>
+
   <link rel='icon' type='image/x-icon' href='/images/favicon.ico'>
   <link rel="stylesheet" href="/css/style.css">
   <style>
@@ -208,6 +209,71 @@
                   </span>
                   <input type="checkbox" id="notesPluginEnabledToggle" style="width:18px;height:18px;accent-color:var(--c-primary);">
                 </label>
+                <label style="display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--c-border);border-radius:8px;padding:10px 12px;cursor:pointer;">
+                  <span>
+                    <strong>Модуль «Чат»</strong><br>
+                    <small style="color:var(--c-muted);">При отключении скрывается пункт меню /chat, а внешний виджет перестаёт принимать новые диалоги.</small>
+                  </span>
+                  <input type="checkbox" id="chatPluginEnabledToggle" style="width:18px;height:18px;accent-color:var(--c-primary);">
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2>💬 Настройки виджета чата</h2>
+              <button class="btn btn-sm btn-primary" onclick="saveChatWidgetSettings()">💾 Сохранить</button>
+            </div>
+            <div class="card-body">
+              <div class="settings-section">
+                <div class="backup-info">
+                  Вставьте generated script-код на сайт — виджет откроется как всплывающее окно, а диалоги будут приходить в CRM.
+                </div>
+                <div class="setting-row">
+                  <label for="chatSiteKey">Site key</label>
+                  <input id="chatSiteKey" type="text" placeholder="main-site">
+                </div>
+                <div class="setting-row">
+                  <label for="chatDisplayName">Название сайта / проекта</label>
+                  <input id="chatDisplayName" type="text" placeholder="Основной сайт">
+                </div>
+                <div class="setting-row">
+                  <label for="chatWidgetTitle">Заголовок виджета</label>
+                  <input id="chatWidgetTitle" type="text" placeholder="FixByte — онлайн чат">
+                </div>
+                <div class="setting-row">
+                  <label for="chatAccentColor">Акцентный цвет</label>
+                  <input id="chatAccentColor" type="text" placeholder="#3699d9">
+                </div>
+                <div class="setting-row">
+                  <label for="chatWelcomeMessage">Приветственное сообщение</label>
+                  <textarea id="chatWelcomeMessage" rows="4" style="width:100%;padding:9px 12px;border:1.5px solid var(--c-border);border-radius:7px;font-size:13.5px;font-family:inherit;color:var(--c-text);background:var(--c-card);"></textarea>
+                </div>
+                <div class="setting-row">
+                  <label for="chatAllowedOriginsText">Разрешённые origins</label>
+                  <textarea id="chatAllowedOriginsText" rows="4" placeholder="https://fix-byte.ru&#10;https://www.fix-byte.ru" style="width:100%;padding:9px 12px;border:1.5px solid var(--c-border);border-radius:7px;font-size:13.5px;font-family:inherit;color:var(--c-text);background:var(--c-card);"></textarea>
+                </div>
+                <label style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--c-text);cursor:pointer;">
+                  <input id="chatWidgetEnabled" type="checkbox" style="width:16px;height:16px;accent-color:var(--c-primary);">
+                  Виджет активен
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2>🧩 Код вставки на сайт</h2>
+              <button class="btn btn-sm btn-secondary" onclick="copyChatEmbedCode()">📋 Скопировать</button>
+            </div>
+            <div class="card-body">
+              <div class="settings-section">
+                <div class="backup-info">
+                  Разместите этот код перед <code>&lt;/body&gt;</code> на вашем сайте.
+                </div>
+                <label for="chatEmbedCode">Готовый script-код</label>
+                <textarea id="chatEmbedCode" rows="7" readonly style="width:100%;padding:9px 12px;border:1.5px solid var(--c-border);border-radius:7px;font-size:12.5px;font-family:Consolas,monospace;color:var(--c-text);background:var(--c-card);"></textarea>
               </div>
             </div>
           </div>
@@ -397,6 +463,7 @@ function switchTab(tabId) {
     if (tabId === 'tabPlugins') {
         renderPluginList();
         loadBuiltInPluginSettings();
+        loadChatWidgetSettings();
     }
 }
 
@@ -404,14 +471,23 @@ function switchTab(tabId) {
 //  ВСТРОЕННЫЕ ПЛАГИНЫ
 // ════════════════════════════════════════════════════════
 async function loadBuiltInPluginSettings() {
-    const toggle = document.getElementById('notesPluginEnabledToggle');
-    if (!toggle) return;
-
     try {
-        const response = await fetch('/api/plugin-settings/notes', { cache: 'no-store' });
-        if (!response.ok) return;
-        const data = await response.json();
-        toggle.checked = data?.enabled !== false;
+        const [notesResponse, chatResponse] = await Promise.all([
+            fetch('/api/plugin-settings/notes', { cache: 'no-store' }),
+            fetch('/api/plugin-settings/chat', { cache: 'no-store' })
+        ]);
+
+        if (notesResponse.ok) {
+            const notesData = await notesResponse.json();
+            const notesToggle = document.getElementById('notesPluginEnabledToggle');
+            if (notesToggle) notesToggle.checked = notesData?.enabled !== false;
+        }
+
+        if (chatResponse.ok) {
+            const chatData = await chatResponse.json();
+            const chatToggle = document.getElementById('chatPluginEnabledToggle');
+            if (chatToggle) chatToggle.checked = chatData?.enabled !== false;
+        }
     } catch (e) {
         console.error('Failed to load plugin settings', e);
     }
@@ -436,6 +512,92 @@ async function updateNotesPluginSetting(enabled) {
         console.error('Failed to update plugin settings', e);
         showNotification('Ошибка сети при обновлении настройки плагина', 'error');
         await loadBuiltInPluginSettings();
+    }
+}
+
+async function updateChatPluginSetting(enabled) {
+    try {
+        const response = await fetch('/api/plugin-settings/chat', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: !!enabled })
+        });
+
+        if (!response.ok) {
+            showNotification('Не удалось обновить настройку модуля чата', 'error');
+            await loadBuiltInPluginSettings();
+            return;
+        }
+
+        showNotification(enabled ? 'Модуль «Чат» включен' : 'Модуль «Чат» отключен', 'success');
+    } catch (e) {
+        console.error('Failed to update chat plugin settings', e);
+        showNotification('Ошибка сети при обновлении настройки модуля чата', 'error');
+        await loadBuiltInPluginSettings();
+    }
+}
+
+async function loadChatWidgetSettings() {
+    try {
+        const data = await ChatAPI.getWidgetSite();
+        if (!data || data.error) return;
+
+        document.getElementById('chatSiteKey').value = data.siteKey || 'main-site';
+        document.getElementById('chatDisplayName').value = data.displayName || '';
+        document.getElementById('chatWidgetTitle').value = data.widgetTitle || '';
+        document.getElementById('chatAccentColor').value = data.accentColor || '#3699d9';
+        document.getElementById('chatWelcomeMessage').value = data.welcomeMessage || '';
+        document.getElementById('chatAllowedOriginsText').value = data.allowedOriginsText || '';
+        document.getElementById('chatWidgetEnabled').checked = data.enabled !== false;
+        renderChatEmbedCode();
+    } catch (e) {
+        console.error('Failed to load chat widget settings', e);
+    }
+}
+
+function renderChatEmbedCode() {
+    const origin = window.location.origin.replace(/\/$/, '');
+    const siteKey = (document.getElementById('chatSiteKey')?.value || 'main-site').trim() || 'main-site';
+    document.getElementById('chatEmbedCode').value = [
+        '<script',
+        `  src="${origin}/js/chat-widget-loader.js"`,
+        `  data-chat-site-key="${siteKey}"`,
+        `  data-chat-base-url="${origin}">`,
+        '<\\/script>'
+    ].join('\n');
+}
+
+async function saveChatWidgetSettings() {
+    const payload = {
+        siteKey: document.getElementById('chatSiteKey').value.trim(),
+        displayName: document.getElementById('chatDisplayName').value.trim(),
+        widgetTitle: document.getElementById('chatWidgetTitle').value.trim(),
+        welcomeMessage: document.getElementById('chatWelcomeMessage').value.trim(),
+        accentColor: document.getElementById('chatAccentColor').value.trim(),
+        allowedOriginsText: document.getElementById('chatAllowedOriginsText').value,
+        enabled: document.getElementById('chatWidgetEnabled').checked
+    };
+
+    const result = await ChatAPI.saveWidgetSite(payload);
+    if (!result || result.error) {
+        showNotification(result?.error || 'Не удалось сохранить настройки чата', 'error');
+        return;
+    }
+
+    showNotification('Настройки виджета чата сохранены', 'success');
+    await loadChatWidgetSettings();
+}
+
+async function copyChatEmbedCode() {
+    renderChatEmbedCode();
+    const textarea = document.getElementById('chatEmbedCode');
+    try {
+        await navigator.clipboard.writeText(textarea.value);
+        showNotification('Код вставки скопирован', 'success');
+    } catch {
+        textarea.select();
+        document.execCommand('copy');
+        showNotification('Код вставки скопирован', 'success');
     }
 }
 
@@ -571,23 +733,56 @@ function renderPluginList() {
         return;
     }
 
-    box.innerHTML = plugins.map(p => `
-      <div class="plugin-item">
-        <div class="plugin-item-head">
-          <div>
-            <div class="plugin-item-name">🧩 ${escapeHtml(p.name || 'Плагин')}</div>
-            <div class="plugin-item-meta">ID: ${escapeHtml(p.id)} · ${p.enabled ? 'Включен' : 'Выключен'}</div>
-          </div>
-          <div class="plugin-item-actions">
-            <button class="btn btn-sm btn-secondary" onclick="openPlugin('${p.id}')">Открыть</button>
-            <button class="btn btn-sm ${p.enabled ? 'btn-accent' : 'btn-success'}" onclick="togglePlugin('${p.id}', ${!p.enabled})">
-              ${p.enabled ? 'Отключить' : 'Включить'}
-            </button>
-            <button class="btn btn-sm btn-danger" onclick="removePlugin('${p.id}')">Удалить</button>
-          </div>
-        </div>
-      </div>
-    `).join('');
+    box.innerHTML = '';
+    plugins.forEach(p => {
+        const item = document.createElement('div');
+        item.className = 'plugin-item';
+
+        const head = document.createElement('div');
+        head.className = 'plugin-item-head';
+
+        const left = document.createElement('div');
+        const name = document.createElement('div');
+        name.className = 'plugin-item-name';
+        name.textContent = `🧩 ${p.name || 'Плагин'}`;
+
+        const meta = document.createElement('div');
+        meta.className = 'plugin-item-meta';
+        meta.textContent = `ID: ${p.id} · ${p.enabled ? 'Включен' : 'Выключен'}`;
+
+        left.appendChild(name);
+        left.appendChild(meta);
+
+        const actions = document.createElement('div');
+        actions.className = 'plugin-item-actions';
+
+        const openBtn = document.createElement('button');
+        openBtn.className = 'btn btn-sm btn-secondary';
+        openBtn.type = 'button';
+        openBtn.textContent = 'Открыть';
+        openBtn.addEventListener('click', () => openPlugin(p.id));
+
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = `btn btn-sm ${p.enabled ? 'btn-accent' : 'btn-success'}`;
+        toggleBtn.type = 'button';
+        toggleBtn.textContent = p.enabled ? 'Отключить' : 'Включить';
+        toggleBtn.addEventListener('click', () => togglePlugin(p.id, !p.enabled));
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'btn btn-sm btn-danger';
+        removeBtn.type = 'button';
+        removeBtn.textContent = 'Удалить';
+        removeBtn.addEventListener('click', () => removePlugin(p.id));
+
+        actions.appendChild(openBtn);
+        actions.appendChild(toggleBtn);
+        actions.appendChild(removeBtn);
+
+        head.appendChild(left);
+        head.appendChild(actions);
+        item.appendChild(head);
+        box.appendChild(item);
+    });
 }
 
 function escapeHtml(str) {
@@ -626,11 +821,21 @@ function buildFieldToggles() {
     const hidden = new Set(s.hiddenFields || []);
     const container = document.getElementById('fieldTogglesAdmin');
     if (!container) return;
-    container.innerHTML = RECEIPT_FIELDS.map(f => `
-      <label class="field-chip">
-        <input type="checkbox" id="ftog_${f.id}" ${hidden.has(f.id) ? '' : 'checked'}>
-        ${f.label}
-      </label>`).join('');
+    container.innerHTML = '';
+
+    RECEIPT_FIELDS.forEach(f => {
+        const label = document.createElement('label');
+        label.className = 'field-chip';
+
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.id = 'ftog_' + f.id;
+        input.checked = !hidden.has(f.id);
+
+        label.appendChild(input);
+        label.appendChild(document.createTextNode(' ' + f.label));
+        container.appendChild(label);
+    });
 }
 
 function applySettingsToForm() {
@@ -734,11 +939,21 @@ document.addEventListener('DOMContentLoaded', () => {
     applySettingsToForm();
     renderPluginList();
     loadBuiltInPluginSettings();
+    loadChatWidgetSettings();
+    renderChatEmbedCode();
 
     const notesToggle = document.getElementById('notesPluginEnabledToggle');
     notesToggle?.addEventListener('change', (e) => {
         updateNotesPluginSetting(e.target.checked);
     });
+
+    const chatToggle = document.getElementById('chatPluginEnabledToggle');
+    chatToggle?.addEventListener('change', (e) => {
+        updateChatPluginSetting(e.target.checked);
+    });
+
+    ['chatSiteKey', 'chatDisplayName', 'chatWidgetTitle', 'chatAccentColor', 'chatWelcomeMessage', 'chatAllowedOriginsText']
+        .forEach(id => document.getElementById(id)?.addEventListener('input', renderChatEmbedCode));
 
     // Открыть вкладку из URL-хеша (#tabUsers, #tabDatabase, ...)
     const hash = location.hash.replace('#', '');

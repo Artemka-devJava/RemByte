@@ -3,6 +3,7 @@ package com.rembyte.config;
 import com.rembyte.model.ServiceCategory;
 import com.rembyte.repository.CategoryRepository;
 import com.rembyte.service.AppUserService;
+import com.rembyte.service.ChatService;
 import com.rembyte.service.LegacyAttachmentMigrationService;
 import com.rembyte.service.RepairServiceService;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +21,7 @@ public class ApplicationConfiguration {
     private final AppUserService userService;
     private final CategoryRepository categoryRepository;
     private final LegacyAttachmentMigrationService legacyAttachmentMigrationService;
+    private final ChatService chatService;
 
     @Value("${fixbyte.admin.username}")
     private String adminUsername;
@@ -33,11 +35,13 @@ public class ApplicationConfiguration {
     public ApplicationConfiguration(RepairServiceService serviceService,
                                      AppUserService userService,
                                      CategoryRepository categoryRepository,
-                                     LegacyAttachmentMigrationService legacyAttachmentMigrationService) {
+                                     LegacyAttachmentMigrationService legacyAttachmentMigrationService,
+                                     ChatService chatService) {
         this.serviceService    = serviceService;
         this.userService       = userService;
         this.categoryRepository = categoryRepository;
         this.legacyAttachmentMigrationService = legacyAttachmentMigrationService;
+        this.chatService = chatService;
     }
 
     /**
@@ -62,6 +66,9 @@ public class ApplicationConfiguration {
 
             // Миграция старых файлов-вложений в БД
             legacyAttachmentMigrationService.migrateOnStartup();
+
+            // Конфигурация встроенного чата
+            chatService.initializeDefaultWidgetSite();
         };
     }
 

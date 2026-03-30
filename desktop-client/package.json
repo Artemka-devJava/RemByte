@@ -1,0 +1,66 @@
+{
+  "name": "fixbyte-crm-desktop",
+  "version": "3.0.0",
+  "description": "FixByte CRM — Десктопный клиент",
+  "author": "FixByte",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "make-icon": "node make-icon.js",
+    "build:win": "electron-builder --win --x64",
+    "build:win32": "electron-builder --win --ia32"
+  },
+  "build": {
+    "appId": "ru.fixbyte.crm",
+    "productName": "FixByte CRM",
+    "copyright": "© 2026 FixByte",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "splash.html",
+      "build/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "FixByte CRM",
+      "license": null
+    },
+    "portable": {
+      "artifactName": "FixByte-CRM-Portable-${version}.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "^35.7.5",
+    "electron-builder": "^26.8.1",
+    "png-to-ico": "^3.0.1",
+    "to-ico": "^1.1.5"
+  },
+  "dependencies": {
+    "sharp": "^0.34.5"
+  }
+}

@@ -29,6 +29,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Публичные ресурсы
                 .requestMatchers("/login", "/css/**", "/js/**", "/images/**", "/favicon.ico", "/error").permitAll()
+                .requestMatchers("/widget/chat/**", "/public/chat/**").permitAll()
                 // H2 консоль
                 .requestMatchers("/h2-console/**").permitAll()
                 // Админские страницы
@@ -53,11 +54,11 @@ public class SecurityConfig {
             )
             // Отключить CSRF для API и H2 консоли
             .csrf(csrf -> csrf
-                .ignoringRequestMatchers("/api/**", "/h2-console/**", "/admin/restore")
+                .ignoringRequestMatchers("/api/**", "/public/chat/**", "/h2-console/**", "/admin/restore")
             )
-            // Разрешить iframe для H2 консоли
+            // Разрешить iframe, чтобы внешний чат-виджет можно было встроить на сайт
             .headers(headers -> headers
-                .frameOptions(frame -> frame.sameOrigin())
+                .frameOptions(frame -> frame.disable())
             );
 
         return http.build();

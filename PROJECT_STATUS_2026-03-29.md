@@ -171,7 +171,7 @@ docker-compose up -d
 
 ### Standalone JAR
 ```bash
-java -jar target/rembyte-crm-1.0.0.jar
+java -jar target/rembyte-crm-3.0.jar
 ```
 
 ## 📚 Документация

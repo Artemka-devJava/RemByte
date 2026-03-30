@@ -1,0 +1,62 @@
+:root {
+  --widget-accent: #3699d9;
+  --widget-bg: #f8fbff;
+  --widget-text: #223246;
+  --widget-muted: #6b7f92;
+  --widget-border: #d9e5ef;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; width: 100%; height: 100%; font-family: 'Segoe UI', system-ui, sans-serif; background: #fff; color: var(--widget-text); }
+body { display: flex; }
+
+.widget-shell { display: flex; flex-direction: column; width: 100%; height: 100%; background: linear-gradient(180deg, #fff 0%, var(--widget-bg) 100%); }
+.widget-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; color: #fff;
+  background: linear-gradient(135deg, #2d3d50 0%, var(--widget-accent) 100%);
+}
+.widget-title { font-size: 16px; font-weight: 700; }
+.widget-subtitle { font-size: 12px; opacity: .9; margin-top: 2px; }
+.widget-close {
+  width: 34px; height: 34px; border-radius: 50%; border: 0;
+  background: rgba(255,255,255,.15); color: #fff; font-size: 24px; cursor: pointer;
+}
+.widget-body { flex: 1; display: flex; flex-direction: column; padding: 12px; min-height: 0; }
+.widget-contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.widget-contact-grid input:nth-child(3) { grid-column: span 2; }
+.widget-contact-grid input, .widget-form textarea {
+  width: 100%; border: 1px solid var(--widget-border); border-radius: 10px; padding: 10px 12px; font: inherit;
+}
+.widget-welcome {
+  background: rgba(54,153,217,.08); border: 1px solid rgba(54,153,217,.18); color: var(--widget-text);
+  padding: 10px 12px; border-radius: 10px; font-size: 13px; margin-bottom: 10px;
+}
+.widget-messages {
+  flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;
+  padding-right: 4px;
+}
+.widget-message {
+  max-width: 88%; padding: 10px 12px; border-radius: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.05);
+}
+.widget-message.visitor { align-self: flex-start; background: #fff; border: 1px solid var(--widget-border); }
+.widget-message.operator { align-self: flex-end; background: linear-gradient(135deg, #2d3d50 0%, var(--widget-accent) 100%); color: #fff; }
+.widget-message.system { align-self: center; background: #eef5fb; color: var(--widget-muted); max-width: 100%; }
+.widget-message-author { font-size: 11px; font-weight: 700; margin-bottom: 4px; opacity: .9; }
+.widget-message-text { font-size: 13px; line-height: 1.45; word-break: break-word; }
+.widget-message-time { margin-top: 6px; font-size: 10px; opacity: .75; }
+.widget-form { padding: 12px; border-top: 1px solid var(--widget-border); display: flex; flex-direction: column; gap: 8px; background: #fff; }
+.widget-form button {
+  align-self: flex-end; border: 0; border-radius: 10px; padding: 10px 16px; cursor: pointer;
+  color: #fff; font: 600 14px 'Segoe UI', sans-serif; background: linear-gradient(135deg, #2d3d50 0%, var(--widget-accent) 100%);
+}
+.widget-empty, .widget-disabled {
+  margin: auto 0; text-align: center; color: var(--widget-muted); font-size: 13px; padding: 18px;
+}
+.widget-disabled { display: flex; align-items: center; justify-content: center; min-height: 180px; }
+
+@media (max-width: 480px) {
+  .widget-contact-grid { grid-template-columns: 1fr; }
+  .widget-contact-grid input:nth-child(3) { grid-column: span 1; }
+}
+

@@ -29,7 +29,7 @@ WORKDIR /app
 RUN addgroup -S fixbyte && adduser -S fixbyte -G fixbyte
 
 # Копируем JAR из build-стадии
-COPY --from=build /build/target/rembyte-crm-1.0.0.jar app.jar
+COPY --from=build /build/target/rembyte-crm-3.0.jar app.jar
 
 # Назначаем владельца
 RUN chown fixbyte:fixbyte app.jar

@@ -428,6 +428,101 @@ const NotesPluginAPI = {
     }
 };
 
+// ====== CHAT API ======
+const ChatAPI = {
+    getConversations: async () => {
+        try {
+            const response = await fetch(`${API_BASE}/chat/conversations`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching chat conversations:', error);
+            return [];
+        }
+    },
+
+    getConversation: async (id) => {
+        try {
+            const response = await fetch(`${API_BASE}/chat/conversations/${id}`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching chat conversation:', error);
+            return null;
+        }
+    },
+
+    sendMessage: async (id, message) => {
+        try {
+            const response = await fetch(`${API_BASE}/chat/conversations/${id}/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message })
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Error sending operator message:', error);
+            return null;
+        }
+    },
+
+    updateStatus: async (id, status) => {
+        try {
+            const response = await fetch(`${API_BASE}/chat/conversations/${id}/status?status=${encodeURIComponent(status)}`, {
+                method: 'PUT'
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Error updating chat status:', error);
+            return null;
+        }
+    },
+
+    markRead: async (id) => {
+        try {
+            const response = await fetch(`${API_BASE}/chat/conversations/${id}/read`, {
+                method: 'POST'
+            });
+            return response.ok;
+        } catch (error) {
+            console.error('Error marking chat as read:', error);
+            return false;
+        }
+    },
+
+    getSummary: async () => {
+        try {
+            const response = await fetch(`${API_BASE}/chat/summary`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching chat summary:', error);
+            return { unreadConversations: 0, openConversations: 0, totalConversations: 0 };
+        }
+    },
+
+    getWidgetSite: async () => {
+        try {
+            const response = await fetch(`${API_BASE}/chat/widget-site`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching chat widget settings:', error);
+            return null;
+        }
+    },
+
+    saveWidgetSite: async (payload) => {
+        try {
+            const response = await fetch(`${API_BASE}/chat/widget-site`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Error saving chat widget settings:', error);
+            return null;
+        }
+    }
+};
+
 // ====== UTILITY FUNCTIONS ======
 function formatCurrency(amount) {
     return Math.round(amount) + '₽';

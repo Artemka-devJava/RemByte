@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FixByte Chat Widget</title>
+  <link rel="stylesheet" href="/css/chat-widget.css">
+</head>
+<body>
+<div class="widget-shell" id="widgetShell" th:attr="data-site-key=${siteKey},data-parent-origin=${parentOrigin}">
+  <div class="widget-header">
+    <div>
+      <div class="widget-title" id="widgetTitle">FixByte — чат</div>
+      <div class="widget-subtitle" id="widgetSubtitle">Мы на связи</div>
+    </div>
+    <button class="widget-close" type="button" onclick="closeEmbeddedChat()">×</button>
+  </div>
+
+  <div id="widgetDisabledState" class="widget-disabled" style="display:none;"></div>
+
+  <div class="widget-body" id="widgetBody">
+    <div class="widget-contact-grid">
+      <input type="text" id="widgetVisitorName" placeholder="Ваше имя">
+      <input type="text" id="widgetVisitorPhone" placeholder="Телефон">
+      <input type="email" id="widgetVisitorEmail" placeholder="E-mail (необязательно)">
+    </div>
+    <div id="widgetWelcomeMessage" class="widget-welcome"></div>
+    <div id="widgetMessages" class="widget-messages"></div>
+  </div>
+
+  <form id="widgetForm" class="widget-form" onsubmit="sendWidgetMessage(event)">
+    <textarea id="widgetMessageInput" placeholder="Напишите сообщение..." rows="3"></textarea>
+    <button type="submit" id="widgetSendBtn">Отправить</button>
+  </form>
+</div>
+<script th:inline="javascript">
+  window.FIXBYTE_CHAT_SITE_KEY = /*[[${siteKey}]]*/ 'main-site';
+  window.FIXBYTE_CHAT_PARENT_ORIGIN = /*[[${parentOrigin}]]*/ '';
+</script>
+<script src="/js/chat-widget.js"></script>
+</body>
+</html>
+

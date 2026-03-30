@@ -69,4 +69,12 @@ public class WebController {
         }
         return "notes";
     }
+
+    @GetMapping("/chat")
+    public String chat() {
+        if (!pluginSettingsService.isChatPluginEnabled()) {
+            return "redirect:/dashboard?chatDisabled=true";
+        }
+        return "chat";
+    }
 }

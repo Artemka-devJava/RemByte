@@ -1,3 +1,19 @@
 .env
 
 !/.env
+
+# Maven
+target/
+
+# Desktop client — бинарные/генерируемые файлы
+desktop-client/node_modules/
+desktop-client/dist/
+desktop-client/build/icon.ico
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
