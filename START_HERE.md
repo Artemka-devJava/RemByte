@@ -96,7 +96,7 @@ npm start           # открывает локальный сервер по н
 Собрать .exe:
 ```powershell
 npm run build:win
-# dist/FixByte CRM Setup 1.0.0.exe
+# dist/FixByte CRM Setup 1.0.3.exe
 ```
 
 ---
@@ -180,7 +180,7 @@ mvn spring-boot:run
 mvn clean package -DskipTests
 
 # Запустить JAR напрямую
-java -jar target/rembyte-crm-1.0.0.jar
+java -jar target/rembyte-crm-1.0.3.jar
 
 # Docker (запуск)
 docker compose up -d --build
@@ -210,7 +210,7 @@ cd desktop-client ; npm run build:win
 
 ## 🎉 ИТОГО
 
-**FixByte CRM v1.0.0** — готовое к продакшену веб-приложение для управления сервисом ремонта ПК:
+**FixByte CRM v1.0.3** — готовое к продакшену веб-приложение для управления сервисом ремонта ПК:
 
 ✅ Spring Boot 3.2.0 + MariaDB + Docker  
 ✅ Авторизация (ADMIN / OPERATOR)  
@@ -233,5 +233,5 @@ C:\JavaProject\RemByte\QUICKSTART.md
 
 ---
 
-**FixByte CRM v1.0.0 — Удачи в работе! 🔧**
+**FixByte CRM v1.0.3 — Удачи в работе! 🔧**
 

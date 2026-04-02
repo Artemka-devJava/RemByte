@@ -123,7 +123,7 @@ mvn spring-boot:run
 ```bash
 cd C:\JavaProject\RemByte
 mvn clean package -DskipTests
-java -jar target/rembyte-crm-1.0.0.jar
+java -jar target/rembyte-crm-1.0.3.jar
 ```
 
 ### Способ 3: Из IntelliJ IDEA
@@ -175,8 +175,8 @@ npm start
 Собрать .exe установщик:
 ```powershell
 npm run build:win
-# Результат: dist/FixByte CRM Setup 1.0.0.exe
-#            dist/FixByte-CRM-Portable-1.0.0.exe
+# Результат: dist/FixByte CRM Setup 1.0.3.exe
+#            dist/FixByte-CRM-Portable-1.0.3.exe
 ```
 
 Подробнее: [`desktop-client/README.md`](desktop-client/README.md)

@@ -1,7 +1,7 @@
 # Release Notes — 2026-03-30
 
 ## Версия
-- Приложение: `1.0.0` (по `pom.xml`)
+- Приложение: `1.0.3` (по `pom.xml`)
 - Тип релиза: Desktop-клиент
 
 ---
@@ -71,8 +71,8 @@ desktop-client/
 #### Результаты сборки (`npm run build:win`):
 ```
 dist/
-├── FixByte CRM Setup 1.0.0.exe      — NSIS-установщик
-└── FixByte-CRM-Portable-1.0.0.exe   — Portable-версия
+├── FixByte CRM Setup 1.0.3.exe      — NSIS-установщик
+└── FixByte-CRM-Portable-1.0.3.exe   — Portable-версия
 ```
 
 ### 3) Генерация иконки

@@ -52,8 +52,8 @@ npm run build:win
 
 ```
 dist/
-  FixByte CRM Setup 1.0.0.exe     ← установщик NSIS
-  FixByte-CRM-Portable-1.0.0.exe  ← portable версия
+  FixByte CRM Setup 1.0.3.exe     ← установщик NSIS
+  FixByte-CRM-Portable-1.0.3.exe  ← portable версия
 ```
 
 ## Возможности приложения

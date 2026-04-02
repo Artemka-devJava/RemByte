@@ -1,6 +1,6 @@
 # 🔧 FixByte CRM — Система управления сервисом ремонта ПК
 
-**Версия**: 1.0.0  
+**Версия**: 1.0.3
 **Статус**: ✅ Стабильная (30.03.2026)
 
 ## ✨ Последние улучшения (30.03.2026)
@@ -80,7 +80,7 @@ docker compose up -d --build
 Или запустить JAR файл после сборки:
 
 ```bash
-java -jar target/rembyte-crm-1.0.0.jar
+java -jar target/rembyte-crm-1.0.3.jar
 ```
 
 ### Доступ к приложению
@@ -340,8 +340,8 @@ npm run build:win
 
 Готовые файлы появятся в `desktop-client/dist/`:
 ```
-FixByte CRM Setup 1.0.0.exe      ← NSIS-установщик
-FixByte-CRM-Portable-1.0.0.exe   ← Portable
+FixByte CRM Setup 1.0.3.exe      ← NSIS-установщик
+FixByte-CRM-Portable-1.0.3.exe   ← Portable
 ```
 
 Подробнее: [desktop-client/README.md](desktop-client/README.md)
@@ -355,5 +355,5 @@ FixByte-CRM-Portable-1.0.0.exe   ← Portable
 
 ---
 
-**RemByte CRM v1.0.0** - Система управления сервисом по ремонту ПК
+**RemByte CRM v1.0.3** - Система управления сервисом по ремонту ПК
 
