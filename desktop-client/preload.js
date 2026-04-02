@@ -7,7 +7,7 @@ contextBridge.exposeInMainWorld('crmApp', {
   // Навигация по CRM
   navigate: (path) => ipcRenderer.send('navigate', path),
   // Версия приложения
-  version: process.env.npm_package_version || '3.0.0',
+  version: process.env.npm_package_version || '1.0.0',
 });
 
 window.addEventListener('DOMContentLoaded', () => {

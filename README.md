@@ -1,6 +1,6 @@
 # 🔧 FixByte CRM — Система управления сервисом ремонта ПК
 
-**Версия**: 3.0  
+**Версия**: 1.0.0  
 **Статус**: ✅ Стабильная (30.03.2026)
 
 ## ✨ Последние улучшения (30.03.2026)
@@ -80,7 +80,7 @@ docker compose up -d --build
 Или запустить JAR файл после сборки:
 
 ```bash
-java -jar target/rembyte-crm-3.0.jar
+java -jar target/rembyte-crm-1.0.0.jar
 ```
 
 ### Доступ к приложению
@@ -279,8 +279,9 @@ FIXBYTE_UPLOAD_MIGRATION_DELETE_LEGACY=false
 ```
 
 Также для администратора доступны:
-- `GET /admin/backup` — скачать SQL-резервную копию
-- `POST /admin/restore` — восстановить БД из SQL-файла (полная замена текущих данных)
+- `GET /admin/backup?mode=full` — скачать полный бэкап `.zip` (дамп БД + legacy `uploads/**`, если есть)
+- `GET /admin/backup?mode=db` — скачать бэкап только БД `.zip`
+- `POST /admin/restore` — восстановить из `.zip` или legacy `.sql` (полная замена данных)
 
 Минимально необходимые переменные:
 
@@ -339,8 +340,8 @@ npm run build:win
 
 Готовые файлы появятся в `desktop-client/dist/`:
 ```
-FixByte CRM Setup 3.0.0.exe      ← NSIS-установщик (88.3 МБ)
-FixByte-CRM-Portable-3.0.0.exe   ← Portable (88.1 МБ)
+FixByte CRM Setup 1.0.0.exe      ← NSIS-установщик
+FixByte-CRM-Portable-1.0.0.exe   ← Portable
 ```
 
 Подробнее: [desktop-client/README.md](desktop-client/README.md)
@@ -354,5 +355,5 @@ FixByte-CRM-Portable-3.0.0.exe   ← Portable (88.1 МБ)
 
 ---
 
-**RemByte CRM v3.0** - Система управления сервисом по ремонту ПК
+**RemByte CRM v1.0.0** - Система управления сервисом по ремонту ПК
 

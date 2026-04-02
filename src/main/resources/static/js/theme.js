@@ -18,33 +18,31 @@
     document.documentElement.setAttribute('data-theme', effective);
   }
 
-  function syncSelectors(mode) {
-    document.querySelectorAll('[data-theme-select]').forEach((select) => {
-      if (select.value !== mode) select.value = mode;
-    });
-  }
-
   function setMode(mode) {
-    localStorage.setItem(STORAGE_KEY, mode);
-    applyTheme(mode);
-    syncSelectors(mode);
+    const normalized = VALID_THEMES.includes(mode) ? mode : 'system';
+    localStorage.setItem(STORAGE_KEY, normalized);
+    applyTheme(normalized);
   }
 
-  function initSelectors() {
+  function initAdminThemeControl() {
+    const select = document.querySelector('[data-theme-admin-select]');
+    if (!select) return;
+
     const mode = getMode();
-    document.querySelectorAll('[data-theme-select]').forEach((select) => {
-      select.value = mode;
-      select.addEventListener('change', function () {
-        setMode(this.value);
-      });
-    });
+    select.value = mode;
+    select.style.visibility = 'visible';
+
   }
 
   // Public API for optional manual usage.
   window.ThemeManager = {
+    getValidThemes: function () {
+      return VALID_THEMES.slice();
+    },
     getMode,
     setMode,
-    applyTheme
+    applyTheme,
+    initAdminThemeControl
   };
 
   applyTheme(getMode());
@@ -58,6 +56,6 @@
     });
   }
 
-  document.addEventListener('DOMContentLoaded', initSelectors);
+  document.addEventListener('DOMContentLoaded', initAdminThemeControl);
 })();
 

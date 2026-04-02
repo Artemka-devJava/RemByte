@@ -1,14 +1,21 @@
 package com.rembyte.service;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 /**
  * Сервис резервного копирования и восстановления базы данных FixByte CRM.
@@ -19,6 +26,9 @@ public class DatabaseBackupService {
 
     private final DataSource dataSource;
 
+    @Value("${fixbyte.upload.dir:uploads}")
+    private String uploadDir;
+
     public DatabaseBackupService(DataSource dataSource) {
         this.dataSource = dataSource;
     }
@@ -26,8 +36,36 @@ public class DatabaseBackupService {
     // ===== РЕЗЕРВНОЕ КОПИРОВАНИЕ =====
 
     public void backupToStream(OutputStream outputStream) throws Exception {
+        backupToStream(outputStream, true);
+    }
+
+    public void backupToStream(OutputStream outputStream, boolean includeLegacyUploads) throws Exception {
+        byte[] sqlBytes = buildDatabaseDump();
+
+        try (ZipOutputStream zip = new ZipOutputStream(new BufferedOutputStream(outputStream), StandardCharsets.UTF_8)) {
+            ZipEntry sqlEntry = new ZipEntry("database.sql");
+            zip.putNextEntry(sqlEntry);
+            zip.write(sqlBytes);
+            zip.closeEntry();
+
+            ZipEntry meta = new ZipEntry("backup-info.txt");
+            zip.putNextEntry(meta);
+            String metaText = "createdAt=" + LocalDateTime.now() + "\n"
+                    + "format=fixbyte-backup-v2\n"
+                    + "includesLegacyUploads=" + includeLegacyUploads + "\n";
+            zip.write(metaText.getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+
+            if (includeLegacyUploads) {
+                addUploadsToZip(zip);
+            }
+        }
+    }
+
+    private byte[] buildDatabaseDump() throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(32 * 1024);
         try (Connection conn = dataSource.getConnection();
-             PrintWriter w = new PrintWriter(new OutputStreamWriter(outputStream, StandardCharsets.UTF_8), true)) {
+             PrintWriter w = new PrintWriter(new OutputStreamWriter(baos, StandardCharsets.UTF_8))) {
 
             w.println("-- FixByte CRM — Резервная копия базы данных");
             w.println("-- Создана: " + LocalDateTime.now());
@@ -42,14 +80,14 @@ public class DatabaseBackupService {
                 w.println("-- ── Таблица: `" + table + "` ──");
                 w.println("DROP TABLE IF EXISTS `" + table + "`;");
 
-                // Схема таблицы
                 try (Statement st = conn.createStatement();
                      ResultSet rs = st.executeQuery("SHOW CREATE TABLE `" + table + "`")) {
-                    if (rs.next()) w.println(rs.getString(2) + ";");
+                    if (rs.next()) {
+                        w.println(rs.getString(2) + ";");
+                    }
                 }
                 w.println();
 
-                // Данные таблицы
                 try (Statement st = conn.createStatement();
                      ResultSet rs = st.executeQuery("SELECT * FROM `" + table + "`")) {
 
@@ -63,29 +101,85 @@ public class DatabaseBackupService {
                     String colList = String.join(", ", columns);
 
                     while (rs.next()) {
-                        List<String> values = new ArrayList<>();
+                        List<String> values = new ArrayList<>(cols);
                         for (int i = 1; i <= cols; i++) {
                             Object val = rs.getObject(i);
-                            if (val == null) {
-                                values.add("NULL");
-                            } else if (val instanceof Number || val instanceof Boolean) {
-                                values.add(val.toString());
-                            } else {
-                                values.add("'" + val.toString()
-                                        .replace("\\", "\\\\")
-                                        .replace("'",  "\\'")
-                                        .replace("\n", "\\n")
-                                        .replace("\r", "\\r") + "'");
-                            }
+                            values.add(toSqlValue(val));
                         }
-                        w.println("INSERT INTO `" + table + "` (" + colList + ") VALUES (" +
-                                String.join(", ", values) + ");");
+                        w.println("INSERT INTO `" + table + "` (" + colList + ") VALUES (" + String.join(", ", values) + ");");
                     }
                 }
                 w.println();
             }
 
             w.println("SET FOREIGN_KEY_CHECKS = 1;");
+            w.flush();
+            return baos.toByteArray();
+        }
+    }
+
+    private String toSqlValue(Object val) throws SQLException {
+        if (val == null) {
+            return "NULL";
+        }
+        if (val instanceof Boolean b) {
+            return b ? "1" : "0";
+        }
+        if (val instanceof Number) {
+            return val.toString();
+        }
+        if (val instanceof byte[] bytes) {
+            return "0x" + toHex(bytes);
+        }
+        if (val instanceof Blob blob) {
+            long len = blob.length();
+            if (len <= 0) {
+                return "0x";
+            }
+            if (len > Integer.MAX_VALUE) {
+                throw new SQLException("Слишком большой BLOB для дампа: " + len);
+            }
+            return "0x" + toHex(blob.getBytes(1, (int) len));
+        }
+        return "'" + escapeSql(val.toString()) + "'";
+    }
+
+    private String escapeSql(String value) {
+        return value
+                .replace("\\", "\\\\")
+                .replace("'", "\\'")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r");
+    }
+
+    private String toHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) {
+            sb.append(String.format(Locale.ROOT, "%02x", b));
+        }
+        return sb.toString();
+    }
+
+    private void addUploadsToZip(ZipOutputStream zip) throws IOException {
+        Path uploadRoot = Paths.get(uploadDir).toAbsolutePath().normalize();
+        if (!Files.exists(uploadRoot) || !Files.isDirectory(uploadRoot)) {
+            return;
+        }
+
+        try (Stream<Path> paths = Files.walk(uploadRoot)) {
+            paths.filter(Files::isRegularFile).forEach(path -> {
+                String relative = uploadRoot.relativize(path).toString().replace('\\', '/');
+                String entryName = "uploads/" + relative;
+                try {
+                    zip.putNextEntry(new ZipEntry(entryName));
+                    Files.copy(path, zip);
+                    zip.closeEntry();
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            });
+        } catch (UncheckedIOException ex) {
+            throw ex.getCause();
         }
     }
 
@@ -101,6 +195,95 @@ public class DatabaseBackupService {
     // ===== ВОССТАНОВЛЕНИЕ =====
 
     public void restoreFromStream(InputStream inputStream) throws Exception {
+        try (PushbackInputStream pb = new PushbackInputStream(new BufferedInputStream(inputStream), 4)) {
+            byte[] signature = pb.readNBytes(4);
+            if (signature.length > 0) {
+                pb.unread(signature);
+            }
+
+            if (isZipSignature(signature)) {
+                restoreFromZip(pb);
+            } else {
+                restoreSql(pb);
+            }
+        }
+    }
+
+    private boolean isZipSignature(byte[] signature) {
+        return signature.length >= 4
+                && signature[0] == 'P'
+                && signature[1] == 'K'
+                && signature[2] == 3
+                && signature[3] == 4;
+    }
+
+    private void restoreFromZip(InputStream inputStream) throws Exception {
+        byte[] sqlBytes = null;
+        boolean uploadDirCleaned = false;
+        Path uploadRoot = Paths.get(uploadDir).toAbsolutePath().normalize();
+
+        try (ZipInputStream zip = new ZipInputStream(new BufferedInputStream(inputStream), StandardCharsets.UTF_8)) {
+            ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) {
+                if (entry.isDirectory()) {
+                    zip.closeEntry();
+                    continue;
+                }
+
+                String entryName = entry.getName();
+                if ("database.sql".equals(entryName)) {
+                    sqlBytes = zip.readAllBytes();
+                    zip.closeEntry();
+                    continue;
+                }
+
+                if (entryName.startsWith("uploads/")) {
+                    if (!uploadDirCleaned) {
+                        cleanDirectory(uploadRoot);
+                        uploadDirCleaned = true;
+                    }
+
+                    String relativeName = entryName.substring("uploads/".length());
+                    Path target = uploadRoot.resolve(relativeName).normalize();
+                    if (!target.startsWith(uploadRoot)) {
+                        throw new IOException("Недопустимый путь в архиве: " + entryName);
+                    }
+                    Files.createDirectories(target.getParent());
+                    Files.copy(zip, target, StandardCopyOption.REPLACE_EXISTING);
+                }
+
+                zip.closeEntry();
+            }
+        }
+
+        if (sqlBytes == null || sqlBytes.length == 0) {
+            throw new IllegalArgumentException("В архиве не найден файл database.sql");
+        }
+        restoreSql(new ByteArrayInputStream(sqlBytes));
+    }
+
+    private void cleanDirectory(Path dir) throws IOException {
+        if (!Files.exists(dir)) {
+            Files.createDirectories(dir);
+            return;
+        }
+
+        try (Stream<Path> walk = Files.walk(dir)) {
+            walk.sorted((a, b) -> b.getNameCount() - a.getNameCount())
+                    .filter(path -> !path.equals(dir))
+                    .forEach(path -> {
+                        try {
+                            Files.deleteIfExists(path);
+                        } catch (IOException e) {
+                            throw new UncheckedIOException(e);
+                        }
+                    });
+        } catch (UncheckedIOException ex) {
+            throw ex.getCause();
+        }
+    }
+
+    private void restoreSql(InputStream inputStream) throws Exception {
         String sql = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
 
         try (Connection conn = dataSource.getConnection()) {

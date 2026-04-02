@@ -7,7 +7,7 @@
 
     <groupId>com.rembyte</groupId>
     <artifactId>rembyte-crm</artifactId>
-    <version>3.0</version>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
 
     <name>RemByte CRM - Сервис управления ремонтом ПК</name>

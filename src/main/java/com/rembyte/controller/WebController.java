@@ -61,6 +61,11 @@ public class WebController {
         return "users";
     }
 
+    @GetMapping("/chat")
+    public String chat() {
+        return "chat";
+    }
+
 
     @GetMapping("/plugins")
     public String plugins() {
@@ -78,10 +83,5 @@ public class WebController {
             return "redirect:/dashboard?notesDisabled=true";
         }
         return "notes";
-    }
-
-    @GetMapping("/chat")
-    public String chat() {
-        return "chat";
     }
 }

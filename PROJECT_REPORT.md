@@ -256,7 +256,7 @@ mvn spring-boot:run
 ### Полная сборка:
 ```bash
 mvn clean package -DskipTests
-java -jar target/rembyte-crm-3.0.jar
+java -jar target/rembyte-crm-1.0.0.jar
 ```
 
 ### URL приложения:
@@ -417,6 +417,6 @@ curl http://localhost:9087/api/orders/statistics?from=2026-01-01T00:00:00&to=202
 ---
 
 *Создано: 27 марта 2026 г.*  
-*Версия: 3.0*
+*Версия: 1.0.0*
 *Статус: Production Ready* ✅
 

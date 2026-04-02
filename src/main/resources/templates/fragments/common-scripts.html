@@ -3,8 +3,64 @@
 <body>
 <th:block th:fragment="uiBase">
   <div id="toast-container"></div>
+  <!-- Мобильный оверлей для сайдбара -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
   <script src="/js/theme.js"></script>
   <script src="/js/plugin-host.js"></script>
+  <script>
+    (function () {
+      // Вставляем кнопку-бургер в top-bar для мобильных
+      var topBar = document.querySelector('.top-bar');
+      if (topBar) {
+        var burger = document.createElement('button');
+        burger.className = 'burger-btn';
+        burger.id = 'burgerBtn';
+        burger.setAttribute('aria-label', 'Открыть меню');
+        burger.innerHTML = '<svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">'
+          + '<rect y="4" width="22" height="2.2" rx="1.1" fill="currentColor"/>'
+          + '<rect y="10" width="22" height="2.2" rx="1.1" fill="currentColor"/>'
+          + '<rect y="16" width="22" height="2.2" rx="1.1" fill="currentColor"/>'
+          + '</svg>';
+        burger.style.color = 'var(--c-text)';
+        topBar.insertBefore(burger, topBar.firstChild);
+      }
+
+      var sidebar = document.querySelector('.sidebar');
+      var overlay = document.getElementById('sidebarOverlay');
+      var closeBtn = document.getElementById('sidebarCloseBtn');
+
+      function openSidebar() {
+        if (sidebar) sidebar.classList.add('sidebar-mobile-open');
+        if (overlay) overlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeSidebar() {
+        if (sidebar) sidebar.classList.remove('sidebar-mobile-open');
+        if (overlay) overlay.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+
+      var burgerBtn = document.getElementById('burgerBtn');
+      if (burgerBtn) burgerBtn.addEventListener('click', openSidebar);
+      if (overlay) overlay.addEventListener('click', closeSidebar);
+      if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+
+      // Закрываем сайдбар при переходе по ссылке на мобильных
+      if (sidebar) {
+        sidebar.querySelectorAll('.nav-item').forEach(function(link) {
+          link.addEventListener('click', function() {
+            if (window.innerWidth <= 768) closeSidebar();
+          });
+        });
+      }
+
+      // Закрываем при изменении размера (если стал десктоп)
+      window.addEventListener('resize', function() {
+        if (window.innerWidth > 768) closeSidebar();
+      });
+    })();
+  </script>
 </th:block>
 </body>
 </html>

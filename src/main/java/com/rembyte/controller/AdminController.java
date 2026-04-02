@@ -36,15 +36,20 @@ public class AdminController {
     // ── Скачать резервную копию ────────────────────────────────────────────
 
     @GetMapping("/backup")
-    public void downloadBackup(HttpServletResponse response) throws Exception {
+    public void downloadBackup(
+            @RequestParam(name = "mode", defaultValue = "full") String mode,
+            HttpServletResponse response
+    ) throws Exception {
+        boolean includeLegacyUploads = !"db".equalsIgnoreCase(mode);
         String filename = "rembyte_backup_"
                 + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
-                + ".sql";
+                + (includeLegacyUploads ? "_full" : "_db")
+                + ".zip";
         response.setContentType("application/octet-stream");
         response.setCharacterEncoding("UTF-8");
         response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
         response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-        backupService.backupToStream(response.getOutputStream());
+        backupService.backupToStream(response.getOutputStream(), includeLegacyUploads);
         response.flushBuffer();
     }
 
@@ -57,12 +62,12 @@ public class AdminController {
             return ResponseEntity.badRequest().body("Файл не выбран");
         }
         String name = file.getOriginalFilename() == null ? "" : file.getOriginalFilename().toLowerCase();
-        if (!name.endsWith(".sql")) {
-            return ResponseEntity.badRequest().body("Допустимы только файлы .sql");
+        if (!name.endsWith(".sql") && !name.endsWith(".zip")) {
+            return ResponseEntity.badRequest().body("Допустимы только файлы .zip или .sql");
         }
         try {
             backupService.restoreFromStream(file.getInputStream());
-            return ResponseEntity.ok("✅ База данных успешно восстановлена");
+            return ResponseEntity.ok("✅ Резервная копия успешно восстановлена");
         } catch (Exception e) {
             return ResponseEntity.status(500)
                     .body("❌ Ошибка восстановления: " + e.getMessage());

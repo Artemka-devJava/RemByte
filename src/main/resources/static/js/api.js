@@ -5,6 +5,79 @@
 
 const API_BASE = '/api';
 
+// Ensure fetch sends cookies (session) by default for same-origin requests.
+// Many API calls require authentication (JSESSIONID cookie). Browsers' fetch
+// doesn't send credentials by default, so we set a default unless explicitly provided.
+(function() {
+    if (typeof window !== 'undefined' && window.fetch) {
+        const _fetch = window.fetch.bind(window);
+        window.fetch = function(input, init) {
+            init = init || {};
+            if (!('credentials' in init)) {
+                init.credentials = 'same-origin';
+            }
+            return _fetch(input, init);
+        };
+    }
+})();
+
+// ====== CSRF PROTECTION ======
+/**
+ * Получить CSRF токен из meta-тага
+ * Spring Security автоматически добавляет токен в HTML
+ */
+function getCsrfToken() {
+    const tokenElement = document.querySelector('meta[name="_csrf"]');
+    if (!tokenElement) {
+        console.warn('⚠️ CSRF meta-тег не найден. CSRF защита может не работать.');
+        return '';
+    }
+    return tokenElement.getAttribute('content') || '';
+}
+
+/**
+ * Получить имя заголовка для CSRF токена (обычно "X-CSRF-TOKEN")
+ */
+function getCsrfHeaderName() {
+    const headerElement = document.querySelector('meta[name="_csrf_header_name"]');
+    return headerElement ? headerElement.getAttribute('content') : 'X-CSRF-TOKEN';
+}
+
+/**
+ * Получить защищённые заголовки с CSRF токеном для POST/PUT/DELETE запросов
+ */
+function getSecureHeaders(contentType = 'application/json') {
+    const headers = {};
+
+    // Добавляем Content-Type только если он явно задан и непустой
+    if (contentType) {
+        headers['Content-Type'] = contentType;
+    }
+
+    // Добавляем CSRF заголовок только если есть токен и имя заголовка
+    const csrf = getCsrfToken();
+    const headerName = getCsrfHeaderName();
+    if (csrf && headerName) {
+        headers[headerName] = csrf;
+    }
+
+    return headers;
+}
+
+/**
+ * Получить только CSRF заголовки (без Content-Type)
+ * Используется для запросов без тела, где не нужно отправлять Content-Type
+ */
+function getCsrfOnlyHeaders() {
+    const headers = {};
+    const csrf = getCsrfToken();
+    const headerName = getCsrfHeaderName();
+    if (csrf && headerName) {
+        headers[headerName] = csrf;
+    }
+    return headers;
+}
+
 // ====== CLIENTS API ======
 const ClientAPI = {
     // Получить всех клиентов
@@ -56,7 +129,7 @@ const ClientAPI = {
         try {
             const response = await fetch(`${API_BASE}/clients`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getSecureHeaders(),
                 body: JSON.stringify(clientData)
             });
             return await response.json();
@@ -71,7 +144,7 @@ const ClientAPI = {
         try {
             const response = await fetch(`${API_BASE}/clients/${id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getSecureHeaders(),
                 body: JSON.stringify(clientData)
             });
             return await response.json();
@@ -84,7 +157,10 @@ const ClientAPI = {
     // Удалить клиента
     delete: async (id) => {
         try {
-            await fetch(`${API_BASE}/clients/${id}`, { method: 'DELETE' });
+            await fetch(`${API_BASE}/clients/${id}`, {
+                method: 'DELETE',
+                headers: getCsrfOnlyHeaders()
+            });
             return true;
         } catch (error) {
             console.error('Error deleting client:', error);
@@ -144,7 +220,7 @@ const ServiceAPI = {
         try {
             const response = await fetch(`${API_BASE}/services`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getSecureHeaders(),
                 body: JSON.stringify(serviceData)
             });
             return await response.json();
@@ -159,7 +235,7 @@ const ServiceAPI = {
         try {
             const response = await fetch(`${API_BASE}/services/${id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getSecureHeaders(),
                 body: JSON.stringify(serviceData)
             });
             return await response.json();
@@ -172,7 +248,10 @@ const ServiceAPI = {
     // Удалить услугу
     delete: async (id) => {
         try {
-            await fetch(`${API_BASE}/services/${id}`, { method: 'DELETE' });
+            await fetch(`${API_BASE}/services/${id}`, {
+                method: 'DELETE',
+                headers: getCsrfOnlyHeaders()
+            });
             return true;
         } catch (error) {
             console.error('Error deleting service:', error);
@@ -232,7 +311,7 @@ const OrderAPI = {
         try {
             const response = await fetch(`${API_BASE}/orders`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getSecureHeaders(),
                 body: JSON.stringify(orderData)
             });
             return await response.json();
@@ -247,7 +326,7 @@ const OrderAPI = {
         try {
             const response = await fetch(`${API_BASE}/orders/${id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getSecureHeaders(),
                 body: JSON.stringify(orderData)
             });
             return await response.json();
@@ -261,7 +340,8 @@ const OrderAPI = {
     updateStatus: async (id, status) => {
         try {
             const response = await fetch(`${API_BASE}/orders/${id}/status?status=${encodeURIComponent(status)}`, {
-                method: 'PUT'
+                method: 'PUT',
+                headers: getCsrfOnlyHeaders()
             });
             return await response.json();
         } catch (error) {
@@ -274,7 +354,8 @@ const OrderAPI = {
     addPayment: async (id, amount) => {
         try {
             const response = await fetch(`${API_BASE}/orders/${id}/payment?amount=${amount}`, {
-                method: 'POST'
+                method: 'POST',
+                headers: getCsrfOnlyHeaders()
             });
             return await response.json();
         } catch (error) {
@@ -289,8 +370,16 @@ const OrderAPI = {
             const formData = new FormData();
             Array.from(files || []).forEach(file => formData.append('files', file));
 
+            const headers = {};
+            const csrf = getCsrfToken();
+            const headerName = getCsrfHeaderName();
+            if (csrf && headerName) {
+                headers[headerName] = csrf;
+            }
+
             const response = await fetch(`${API_BASE}/orders/${id}/attachments`, {
                 method: 'POST',
+                headers: headers,
                 body: formData
             });
 
@@ -310,7 +399,8 @@ const OrderAPI = {
     deleteAttachment: async (id, attachmentUrl) => {
         try {
             const response = await fetch(`${API_BASE}/orders/${id}/attachments?url=${encodeURIComponent(attachmentUrl)}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: getCsrfOnlyHeaders()
             });
 
             if (!response.ok) {
@@ -325,21 +415,13 @@ const OrderAPI = {
         }
     },
 
-    // Получить статистику
-    getStatistics: async (from, to) => {
-        try {
-            const response = await fetch(`${API_BASE}/orders/statistics?from=${from}&to=${to}`);
-            return await response.json();
-        } catch (error) {
-            console.error('Error fetching statistics:', error);
-            return null;
-        }
-    },
-
     // Удалить заказ
     delete: async (id) => {
         try {
-            await fetch(`${API_BASE}/orders/${id}`, { method: 'DELETE' });
+            await fetch(`${API_BASE}/orders/${id}`, {
+                method: 'DELETE',
+                headers: getCsrfOnlyHeaders()
+            });
             return true;
         } catch (error) {
             console.error('Error deleting order:', error);
@@ -364,7 +446,7 @@ const NotesPluginAPI = {
         try {
             const response = await fetch(`${API_BASE}/notes-plugin/folders`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getSecureHeaders(),
                 body: JSON.stringify(folderData)
             });
 
@@ -375,21 +457,13 @@ const NotesPluginAPI = {
         }
     },
 
-    getNotesByFolder: async (folderId) => {
-        try {
-            const response = await fetch(`${API_BASE}/notes-plugin/folders/${folderId}/notes`);
-            return await response.json();
-        } catch (error) {
-            console.error('Error fetching notes:', error);
-            return [];
-        }
-    },
+    // ...existing code...
 
     createNote: async (folderId, noteData) => {
         try {
             const response = await fetch(`${API_BASE}/notes-plugin/folders/${folderId}/notes`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getSecureHeaders(),
                 body: JSON.stringify(noteData)
             });
 
@@ -404,7 +478,7 @@ const NotesPluginAPI = {
         try {
             const response = await fetch(`${API_BASE}/notes-plugin/notes/${noteId}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getSecureHeaders(),
                 body: JSON.stringify(noteData)
             });
 
@@ -418,7 +492,8 @@ const NotesPluginAPI = {
     deleteNote: async (noteId) => {
         try {
             const response = await fetch(`${API_BASE}/notes-plugin/notes/${noteId}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: getCsrfOnlyHeaders()
             });
             return response.ok;
         } catch (error) {
@@ -433,6 +508,10 @@ const ChatAPI = {
     getConversations: async () => {
         try {
             const response = await fetch(`${API_BASE}/chat/conversations`);
+            if (!response.ok) {
+                console.error('Error fetching chat conversations, status=', response.status);
+                return [];
+            }
             return await response.json();
         } catch (error) {
             console.error('Error fetching chat conversations:', error);
@@ -440,9 +519,27 @@ const ChatAPI = {
         }
     },
 
+    getSummary: async () => {
+        try {
+            const response = await fetch(`${API_BASE}/chat/summary`);
+            if (!response.ok) {
+                console.error('Error fetching chat summary, status=', response.status);
+                return { unreadConversations: 0, openConversations: 0, totalConversations: 0 };
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching chat summary:', error);
+            return { unreadConversations: 0, openConversations: 0, totalConversations: 0 };
+        }
+    },
+
     getConversation: async (id) => {
         try {
             const response = await fetch(`${API_BASE}/chat/conversations/${id}`);
+            if (!response.ok) {
+                console.error('Error fetching chat conversation, status=', response.status);
+                return null;
+            }
             return await response.json();
         } catch (error) {
             console.error('Error fetching chat conversation:', error);
@@ -454,9 +551,14 @@ const ChatAPI = {
         try {
             const response = await fetch(`${API_BASE}/chat/conversations/${id}/messages`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getSecureHeaders(),
                 body: JSON.stringify({ message })
             });
+            if (!response.ok) {
+                const txt = await response.text().catch(() => null);
+                console.error('Error sending operator message, status=', response.status, txt);
+                return null;
+            }
             return await response.json();
         } catch (error) {
             console.error('Error sending operator message:', error);
@@ -467,9 +569,16 @@ const ChatAPI = {
     updateStatus: async (id, status) => {
         try {
             const response = await fetch(`${API_BASE}/chat/conversations/${id}/status?status=${encodeURIComponent(status)}`, {
-                method: 'PUT'
+                method: 'PUT',
+                headers: getCsrfOnlyHeaders()
             });
-            return await response.json();
+            if (!response.ok) {
+                console.error('Error updating chat status, status=', response.status);
+                return null;
+            }
+            // Some endpoints return empty body on success
+            const text = await response.text();
+            try { return text ? JSON.parse(text) : {}; } catch (e) { return {}; }
         } catch (error) {
             console.error('Error updating chat status:', error);
             return null;
@@ -479,7 +588,8 @@ const ChatAPI = {
     markRead: async (id) => {
         try {
             const response = await fetch(`${API_BASE}/chat/conversations/${id}/read`, {
-                method: 'POST'
+                method: 'POST',
+                headers: getCsrfOnlyHeaders()
             });
             return response.ok;
         } catch (error) {
@@ -488,31 +598,13 @@ const ChatAPI = {
         }
     },
 
-    getSummary: async () => {
-        try {
-            const response = await fetch(`${API_BASE}/chat/summary`);
-            return await response.json();
-        } catch (error) {
-            console.error('Error fetching chat summary:', error);
-            return { unreadConversations: 0, openConversations: 0, totalConversations: 0 };
-        }
-    },
-
-    getWidgetSite: async () => {
-        try {
-            const response = await fetch(`${API_BASE}/chat/widget-site`);
-            return await response.json();
-        } catch (error) {
-            console.error('Error fetching chat widget settings:', error);
-            return null;
-        }
-    },
+    // ...existing code...
 
     saveWidgetSite: async (payload) => {
         try {
             const response = await fetch(`${API_BASE}/chat/widget-site`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getSecureHeaders(),
                 body: JSON.stringify(payload)
             });
             return await response.json();
@@ -535,11 +627,24 @@ const KanbanAPI = {
         }
     },
 
+    getBoard: async (boardId) => {
+        try {
+            const url = Number.isFinite(Number(boardId))
+                ? `${API_BASE}/kanban/board?boardId=${encodeURIComponent(boardId)}`
+                : `${API_BASE}/kanban/board`;
+            const response = await fetch(url);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching kanban board:', error);
+            return null;
+        }
+    },
+
     createBoard: async (payload) => {
         try {
             const response = await fetch(`${API_BASE}/kanban/boards`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getSecureHeaders(),
                 body: JSON.stringify(payload)
             });
             return await response.json();
@@ -553,7 +658,7 @@ const KanbanAPI = {
         try {
             const response = await fetch(`${API_BASE}/kanban/boards/${boardId}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getSecureHeaders(),
                 body: JSON.stringify(payload)
             });
             return await response.json();
@@ -563,22 +668,13 @@ const KanbanAPI = {
         }
     },
 
-    getBoard: async (boardId) => {
-        try {
-            const suffix = Number.isFinite(Number(boardId)) ? `?boardId=${encodeURIComponent(boardId)}` : '';
-            const response = await fetch(`${API_BASE}/kanban/board${suffix}`);
-            return await response.json();
-        } catch (error) {
-            console.error('Error fetching kanban board:', error);
-            return null;
-        }
-    },
+    // ...existing code...
 
     renameColumn: async (columnId, payload) => {
         try {
             const response = await fetch(`${API_BASE}/kanban/columns/${columnId}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getSecureHeaders(),
                 body: JSON.stringify(payload)
             });
             return await response.json();
@@ -592,7 +688,7 @@ const KanbanAPI = {
         try {
             const response = await fetch(`${API_BASE}/kanban/columns/${columnId}/cards`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getSecureHeaders(),
                 body: JSON.stringify(payload)
             });
             return await response.json();
@@ -606,7 +702,7 @@ const KanbanAPI = {
         try {
             const response = await fetch(`${API_BASE}/kanban/cards/${cardId}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getSecureHeaders(),
                 body: JSON.stringify(payload)
             });
             return await response.json();
@@ -620,7 +716,7 @@ const KanbanAPI = {
         try {
             const response = await fetch(`${API_BASE}/kanban/cards/${cardId}/move`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getSecureHeaders(),
                 body: JSON.stringify(payload)
             });
             return await response.json();
@@ -633,7 +729,8 @@ const KanbanAPI = {
     deleteCard: async (cardId) => {
         try {
             const response = await fetch(`${API_BASE}/kanban/cards/${cardId}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: getSecureHeaders()
             });
             return await response.json();
         } catch (error) {
@@ -646,8 +743,17 @@ const KanbanAPI = {
         try {
             const formData = new FormData();
             Array.from(files || []).forEach(file => formData.append('files', file));
+            
+            const headers = {};
+            const csrf = getCsrfToken();
+            const headerName = getCsrfHeaderName();
+            if (csrf && headerName) {
+                headers[headerName] = csrf;
+            }
+            
             const response = await fetch(`${API_BASE}/kanban/cards/${cardId}/attachments`, {
                 method: 'POST',
+                headers: headers,
                 body: formData
             });
             return await response.json();
@@ -670,7 +776,8 @@ const KanbanAPI = {
     deleteAttachment: async (cardId, url) => {
         try {
             const response = await fetch(`${API_BASE}/kanban/cards/${cardId}/attachments?url=${encodeURIComponent(url)}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: getSecureHeaders()
             });
             return await response.json();
         } catch (error) {

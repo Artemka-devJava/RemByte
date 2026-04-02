@@ -87,13 +87,16 @@ docker compose up -d --build
 cd C:\JavaProject\RemByte\desktop-client
 npm install
 node make-icon.js   # один раз
-npm start           # открывает https://crm.fix-byte.ru
+npm start           # открывает локальный сервер по настройкам клиента
 ```
+
+По умолчанию для локальной разработки используется `http://localhost:9087`.
+Если нужно переключить сервер — откройте `⚙️ Настройки клиента` и выберите режим подключения.
 
 Собрать .exe:
 ```powershell
 npm run build:win
-# dist/FixByte CRM Setup 3.0.0.exe
+# dist/FixByte CRM Setup 1.0.0.exe
 ```
 
 ---
@@ -177,7 +180,7 @@ mvn spring-boot:run
 mvn clean package -DskipTests
 
 # Запустить JAR напрямую
-java -jar target/rembyte-crm-3.0.jar
+java -jar target/rembyte-crm-1.0.0.jar
 
 # Docker (запуск)
 docker compose up -d --build
@@ -207,7 +210,7 @@ cd desktop-client ; npm run build:win
 
 ## 🎉 ИТОГО
 
-**FixByte CRM v3.0** — готовое к продакшену веб-приложение для управления сервисом ремонта ПК:
+**FixByte CRM v1.0.0** — готовое к продакшену веб-приложение для управления сервисом ремонта ПК:
 
 ✅ Spring Boot 3.2.0 + MariaDB + Docker  
 ✅ Авторизация (ADMIN / OPERATOR)  
@@ -230,5 +233,5 @@ C:\JavaProject\RemByte\QUICKSTART.md
 
 ---
 
-**FixByte CRM v3.0 — Удачи в работе! 🔧**
+**FixByte CRM v1.0.0 — Удачи в работе! 🔧**
 

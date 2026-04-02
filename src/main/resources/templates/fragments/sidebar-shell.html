@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <body>
-<th:block th:fragment="sidebar(themeSelectId)">
+<th:block th:fragment="sidebar()">
   <aside class="sidebar">
+    <button class="sidebar-close-btn" id="sidebarCloseBtn" aria-label="Закрыть меню">&#x2715;</button>
     <div class="sidebar-logo">
       <div class="logo-icon"><img src="/images/logo.png" alt="FixByte логотип"></div>
       <div><span class="logo-text">FixByte</span><span class="logo-sub">CRM-система</span></div>
     </div>
 
     <nav class="sidebar-nav" th:replace="~{fragments/sidebar-nav :: mainNav}"></nav>
-    <th:block th:replace="~{fragments/theme-switcher :: themeSwitcher(${themeSelectId})}"></th:block>
 
     <div class="sidebar-footer">FixByte CRM © 2026</div>
     <th:block th:replace="~{fragments/sidebar-user :: userPanel}"></th:block>

@@ -4,6 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FixByte CRM — Главная</title>
+  <script>
+    (function () {
+      var saved = localStorage.getItem('fixbyte-theme') || 'system';
+      var isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var effective = saved === 'system' ? (isDark ? 'dark' : 'light') : saved;
+      document.documentElement.setAttribute('data-theme', effective);
+    })();
+  </script>
   <link rel='icon' type='image/x-icon' href='/images/favicon.ico'>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -37,11 +45,6 @@
     [data-theme='fixbyte'] .stat-num { color: #2d3d50; }
     [data-theme='fixbyte'] .topnav-logo-sub { color: #5a7a96; }
     [data-theme='fixbyte'] .topnav-username { color: #5a7a96; }
-    [data-theme='fixbyte'] .topnav-theme {
-      border-color: rgba(45,61,80,.2);
-      background: rgba(45,61,80,.06);
-      color: #2d3d50;
-    }
     [data-theme='fixbyte'] .hero-desc,
     [data-theme='fixbyte'] .stat-lbl,
     [data-theme='fixbyte'] .quick-nav-item { color: #5a7a96; }
@@ -131,27 +134,8 @@
     }
     .topnav-logo-text { font-size: 18px; font-weight: 800; color: #fff; letter-spacing: -.4px; }
     .topnav-logo-sub  { font-size: 10px; color: #475569; display: block; }
-
-    .topnav-user {
-      display: flex; align-items: center; gap: 12px;
-    }
-    .topnav-username {
-      font-size: 13.5px; color: #94a3b8; font-weight: 500;
-    }
-    .topnav-theme {
-      padding: 7px 10px;
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 8px;
-      background: rgba(255,255,255,.06);
-      color: #e2e8f0;
-      font-family: inherit;
-      font-size: 12.5px;
-    }
-    [data-theme='light'] .topnav-theme {
-      border-color: rgba(15,23,42,.15);
-      background: rgba(15,23,42,.06);
-      color: #0f172a;
-    }
+    .topnav-user { display: flex; align-items: center; gap: 12px; }
+    .topnav-username { color: #94a3b8; font-size: 12.5px; }
     .btn-logout {
       display: flex; align-items: center; gap: 6px;
       padding: 7px 14px; background: rgba(255,255,255,.07);
@@ -313,16 +297,6 @@
       </div>
     </div>
     <div class="topnav-user">
-      <select class="topnav-theme" data-theme-select aria-label="Выбор темы">
-        <option value="system">🔄 Системная</option>
-        <option value="light">☀️ Светлая</option>
-        <option value="dark">🌙 Тёмная</option>
-        <option value="fixbyte">⚡ FixByte</option>
-        <option value="green">🌿 Зелёная</option>
-        <option value="purple">💜 Фиолетовая</option>
-        <option value="ocean">🌊 Океан</option>
-        <option value="sunset">🌅 Закат</option>
-      </select>
       <span class="topnav-username" th:text="'👤 ' + ${#authentication?.name ?: 'Пользователь'}">👤 admin</span>
       <form th:action="@{/logout}" method="post" style="display:inline;">
         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf}"/>

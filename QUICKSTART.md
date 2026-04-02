@@ -123,7 +123,7 @@ mvn spring-boot:run
 ```bash
 cd C:\JavaProject\RemByte
 mvn clean package -DskipTests
-java -jar target/rembyte-crm-3.0.jar
+java -jar target/rembyte-crm-1.0.0.jar
 ```
 
 ### Способ 3: Из IntelliJ IDEA
@@ -175,8 +175,8 @@ npm start
 Собрать .exe установщик:
 ```powershell
 npm run build:win
-# Результат: dist/FixByte CRM Setup 3.0.0.exe  (88.3 МБ)
-#            dist/FixByte-CRM-Portable-3.0.0.exe (88.1 МБ)
+# Результат: dist/FixByte CRM Setup 1.0.0.exe
+#            dist/FixByte-CRM-Portable-1.0.0.exe
 ```
 
 Подробнее: [`desktop-client/README.md`](desktop-client/README.md)
@@ -300,8 +300,9 @@ POST   /public/chat/conversations                     # Создать новы�
 GET    /public/chat/conversations/{publicToken}       # Получить диалог по токену
 POST   /public/chat/conversations/{publicToken}/messages # Сообщение посетителя
 
-GET    /admin/backup             # Скачать SQL-бэкап (ADMIN)
-POST   /admin/restore            # Восстановить БД из SQL (ADMIN)
+GET    /admin/backup?mode=full   # Скачать полный ZIP-бэкап (БД + legacy uploads) (ADMIN)
+GET    /admin/backup?mode=db     # Скачать ZIP-бэкап только БД (ADMIN)
+POST   /admin/restore            # Восстановить из ZIP или SQL (ADMIN)
 ```
 
 ---

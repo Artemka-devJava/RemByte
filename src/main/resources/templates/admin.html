@@ -38,7 +38,12 @@
       font-size: 13.5px; font-family: inherit; color: var(--c-text); background: var(--c-card);
       transition: border-color .2s;
     }
+    .setting-row select {
+      padding: 9px 12px; border: 1.5px solid var(--c-border); border-radius: 7px;
+      font-size: 13.5px; font-family: inherit; color: var(--c-text); background: var(--c-card);
+    }
     .setting-row input[type="text"]:focus { outline: none; border-color: var(--c-primary); box-shadow: 0 0 0 3px rgba(37,99,235,.09); }
+    .setting-hint { font-size: 12px; color: var(--c-muted); }
 
     /* ── Чипы полей чека ── */
     .field-toggles { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
@@ -80,7 +85,7 @@
 </head>
 <body>
 <div class="app-layout">
-  <aside class="sidebar" th:replace="~{fragments/sidebar-shell :: sidebar('themeSelectAdmin')}"></aside>
+  <aside class="sidebar" th:replace="~{fragments/sidebar-shell :: sidebar()}"></aside>
 
   <div class="main-area">
     <header class="top-bar">
@@ -146,6 +151,31 @@
                   Администратор может изменить видимость прямо в модале чека.
                 </p>
                 <button class="btn btn-primary" style="margin-top:8px;" onclick="saveReceiptSettings()">💾 Сохранить настройки чека</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2>🎨 Тема интерфейса</h2>
+              <button class="btn btn-sm btn-primary" type="button" data-theme-admin-save onclick="saveThemeSettings()">💾 Сохранить</button>
+            </div>
+            <div class="card-body">
+              <div class="settings-section">
+                <div class="setting-row">
+                  <label for="adminThemeSelect">Тема CRM</label>
+                  <select id="adminThemeSelect" data-theme-admin-select style="visibility:hidden;">
+                    <option value="system">🔄 Системная</option>
+                    <option value="light">☀️ Светлая</option>
+                    <option value="dark">🌙 Тёмная</option>
+                    <option value="fixbyte">⚡ FixByte</option>
+                    <option value="green">🌿 Зелёная</option>
+                    <option value="purple">💜 Фиолетовая</option>
+                    <option value="ocean">🌊 Океан</option>
+                    <option value="sunset">🌅 Закат</option>
+                  </select>
+                  <span class="setting-hint">Тема применяется после нажатия кнопки «Сохранить» и используется на всех страницах.</span>
+                </div>
               </div>
             </div>
           </div>
@@ -274,12 +304,17 @@
             <div class="card-body">
               <div class="settings-section">
                 <div class="backup-info">
-                  Экспорт всех таблиц базы данных в SQL-файл через JDBC.<br>
-                  Файл можно использовать для полного восстановления.
+                  Полный бэкап выгружается в ZIP и включает дамп базы + legacy-папку uploads (если есть).<br>
+                  Можно скачать облегченный вариант только с БД.
                 </div>
-                <a href="/admin/backup" class="btn btn-primary" style="text-decoration:none;margin-top:4px;">
-                  ⬇️ Скачать резервную копию (.sql)
-                </a>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+                  <a href="/admin/backup?mode=full" class="btn btn-primary" style="text-decoration:none;">
+                    ⬇️ Скачать полный бэкап (.zip)
+                  </a>
+                  <a href="/admin/backup?mode=db" class="btn btn-secondary" style="text-decoration:none;">
+                    ⬇️ Скачать только БД (.zip)
+                  </a>
+                </div>
               </div>
             </div>
           </div>
@@ -295,10 +330,10 @@
                 <div class="restore-zone" id="restoreZone"
                      onclick="document.getElementById('restoreFileInput').click()">
                   <div class="restore-zone-icon">📂</div>
-                  <div class="restore-zone-text">Нажмите или перетащите файл .sql сюда</div>
+                  <div class="restore-zone-text">Нажмите или перетащите файл .zip/.sql сюда</div>
                   <div class="restore-zone-file" id="restoreFileName" style="display:none;"></div>
                 </div>
-                <input type="file" id="restoreFileInput" accept=".sql" style="display:none;">
+                <input type="file" id="restoreFileInput" accept=".zip,.sql" style="display:none;">
                 <button class="btn btn-danger" id="btnRestore" onclick="restoreDatabase()"
                         style="margin-top:4px;" disabled>
                   ⬆️ Загрузить и восстановить
@@ -791,6 +826,13 @@ function resetReceiptSettings() {
     showNotification('↺ Настройки сброшены', 'info');
 }
 
+function saveThemeSettings() {
+    const select = document.querySelector('[data-theme-admin-select]');
+    if (!select || !window.ThemeManager) return;
+    window.ThemeManager.setMode(select.value);
+    showNotification('✅ Тема сохранена', 'success');
+}
+
 // ════════════════════════════════════════════════════════
 //  ВОССТАНОВЛЕНИЕ БД
 // ════════════════════════════════════════════════════════
@@ -808,8 +850,9 @@ restoreZone?.addEventListener('drop', e => {
 
 function handleRestoreFile(file) {
     if (!file) return;
-    if (!file.name.toLowerCase().endsWith('.sql')) {
-        showNotification('Допустимы только файлы .sql', 'error'); return;
+    const lower = file.name.toLowerCase();
+    if (!(lower.endsWith('.sql') || lower.endsWith('.zip'))) {
+        showNotification('Допустимы только файлы .zip или .sql', 'error'); return;
     }
     restoreFile = file;
     const label = document.getElementById('restoreFileName');
@@ -819,7 +862,7 @@ function handleRestoreFile(file) {
 }
 
 async function restoreDatabase() {
-    if (!restoreFile) { showNotification('Выберите файл .sql', 'error'); return; }
+    if (!restoreFile) { showNotification('Выберите файл .zip или .sql', 'error'); return; }
     if (!confirm('⚠️ ВНИМАНИЕ!\n\nВосстановление полностью заменит все текущие данные.\nЭто действие необратимо!\n\nПродолжить?')) return;
 
     const btn = document.getElementById('btnRestore');
@@ -856,6 +899,7 @@ async function restoreDatabase() {
 // ════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
     applySettingsToForm();
+    window.ThemeManager?.initAdminThemeControl?.();
     renderPluginList();
     loadBuiltInPluginSettings();
     loadChatWidgetSettings();
@@ -881,6 +925,7 @@ window.onclick = e => {
 </script>
 </body>
 </html>
+
 
 
 

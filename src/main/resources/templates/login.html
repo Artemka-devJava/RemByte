@@ -4,6 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FixByte CRM — Вход</title>
+  <script>
+    (function () {
+      var saved = localStorage.getItem('fixbyte-theme') || 'system';
+      var isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var effective = saved === 'system' ? (isDark ? 'dark' : 'light') : saved;
+      document.documentElement.setAttribute('data-theme', effective);
+    })();
+  </script>
   <link rel='icon' type='image/x-icon' href='/images/favicon.ico'>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -122,18 +130,6 @@
       align-items: center;
       padding: 48px 52px;
       position: relative;
-    }
-    .login-theme-select {
-      position: absolute;
-      top: 18px;
-      right: 20px;
-      padding: 7px 10px;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      background: #ffffff;
-      color: #0f172a;
-      font-size: 12.5px;
-      font-family: inherit;
     }
 
     .login-form-wrap { width: 100%; max-width: 360px; }
@@ -280,21 +276,11 @@
         </div>
       </div>
     </div>
-    <div class="brand-version">FixByte CRM © 2026 v3.0</div>
+    <div class="brand-version">FixByte CRM © 2026 v1.0.0</div>
   </div>
 
   <!-- ПРАВАЯ ПАНЕЛЬ: форма входа -->
   <div class="login-form-panel">
-    <select class="login-theme-select" data-theme-select aria-label="Выбор темы">
-      <option value="system">🔄 Системная</option>
-      <option value="light">☀️ Светлая</option>
-      <option value="dark">🌙 Тёмная</option>
-      <option value="fixbyte">⚡ FixByte</option>
-      <option value="green">🌿 Зелёная</option>
-      <option value="purple">💜 Фиолетовая</option>
-      <option value="ocean">🌊 Океан</option>
-      <option value="sunset">🌅 Закат</option>
-    </select>
     <div class="login-form-wrap">
 
       <h2 class="login-title">Добро пожаловать</h2>

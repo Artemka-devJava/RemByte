@@ -157,7 +157,7 @@ cd C:\JavaProject\RemByte
 mvn clean package -DskipTests
 
 # 3. Запустить приложение
-java -jar target/rembyte-crm-3.0.jar
+java -jar target/rembyte-crm-1.0.0.jar
 
 # Или используй spring-boot:run для разработки
 mvn spring-boot:run
@@ -411,16 +411,16 @@ MARIADB_PASSWORD=***
 
 ### На локальной машине
 ```bash
-java -jar target/rembyte-crm-3.0.jar
+java -jar target/rembyte-crm-1.0.0.jar
 ```
 
 ### На сервере Linux/Mac
 ```bash
 # Предоставить права на выполнение
-chmod +x rembyte-crm-3.0.jar
+chmod +x rembyte-crm-1.0.0.jar
 
 # Запустить в фоновом режиме
-nohup java -jar rembyte-crm-3.0.jar &
+nohup java -jar rembyte-crm-1.0.0.jar &
 
 # Или через systemd
 sudo nano /etc/systemd/system/rembyte.service
@@ -429,20 +429,20 @@ sudo nano /etc/systemd/system/rembyte.service
 # After=network.target
 # [Service]
 # Type=simple
-# ExecStart=/usr/bin/java -jar /path/to/rembyte-crm-3.0.jar
+# ExecStart=/usr/bin/java -jar /path/to/rembyte-crm-1.0.0.jar
 # Restart=on-failure
 ```
 
 ### Через Docker
 ```dockerfile
 FROM openjdk:17-jdk-slim
-COPY target/rembyte-crm-3.0.jar app.jar
+COPY target/rembyte-crm-1.0.0.jar app.jar
 ENTRYPOINT ["java","-jar","/app.jar"]
 ```
 
 ```bash
-docker build -t rembyte:3.0 .
-docker run -p 9087:9087 rembyte:3.0
+docker build -t rembyte:1.0.0 .
+docker run -p 9087:9087 rembyte:1.0.0
 ```
 
 ---
@@ -488,8 +488,8 @@ npm run build:win      # собрать .exe
 **Результат:**
 ```
 dist/
-  FixByte CRM Setup 3.0.0.exe      ← NSIS установщик (88.3 МБ)
-  FixByte-CRM-Portable-3.0.0.exe   ← Portable (88.1 МБ)
+  FixByte CRM Setup 1.0.0.exe      ← NSIS установщик
+  FixByte-CRM-Portable-1.0.0.exe   ← Portable
 ```
 
 Подробнее: [`desktop-client/README.md`](desktop-client/README.md)
@@ -502,6 +502,6 @@ dist/
 
 ---
 
-**FixByte CRM v3.0** ✨  
+**FixByte CRM v1.0.0** ✨
 *Система управления сервисом по ремонту ПК и ноутбуков*
 

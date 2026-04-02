@@ -3,8 +3,11 @@ let currentBoardId = null;
 let draggingCardId = null;
 let pendingAttachments = [];
 
+const supportsDragAndDrop = () => !window.matchMedia('(pointer: coarse)').matches;
+
 const boardSelectEl = () => document.getElementById('boardSelect');
 const boardTitleEl = () => document.getElementById('kanbanBoardTitle');
+const newBoardNameInputEl = () => document.getElementById('newBoardNameInput');
 const boardNameInputEl = () => document.getElementById('boardNameInput');
 const boardNameActionsEl = () => document.getElementById('boardNameActions');
 
@@ -106,15 +109,17 @@ function renderCardHtml(card) {
     const previewHtml = card.previewImageUrl
         ? `<img class="kanban-card-preview" src="${escapeHtml(card.previewImageUrl)}" alt="Превью карточки">`
         : '';
+    const draggable = supportsDragAndDrop();
 
     return `
-      <article class="kanban-card" draggable="true" data-card-id="${card.id}" ondragstart="handleCardDragStart(event, ${card.id})" ondragend="handleCardDragEnd(event)">
+      <article class="kanban-card" draggable="${draggable}" data-card-id="${card.id}" ${draggable ? `ondragstart="handleCardDragStart(event, ${card.id})" ondragend="handleCardDragEnd(event)"` : ''}>
         ${previewHtml}
         <h3 class="kanban-card-title">${escapeHtml(card.title || 'Без названия')}</h3>
         <p class="kanban-card-desc">${description ? escapeHtml(description) : 'Без описания'}</p>
         ${hasAttachments ? `<div class="kanban-attach-hint">Вложений: ${card.attachments.length}</div>` : ''}
         <div class="kanban-card-actions">
           <button class="btn btn-sm btn-secondary" type="button" onclick="openEditCardModal(${card.id})">Редактировать</button>
+          <button class="btn btn-sm btn-secondary" type="button" onclick="promptMoveCard(${card.id})">Переместить</button>
           <button class="btn btn-sm btn-danger" type="button" onclick="deleteCard(${card.id})">Удалить</button>
         </div>
       </article>`;
@@ -126,17 +131,31 @@ function onBoardChange(value) {
 }
 
 async function createBoard() {
-    const name = prompt('Название новой доски:', 'Новая доска');
-    if (name === null) return;
+    const input = newBoardNameInputEl();
+    const name = (input?.value || '').trim();
 
-    const result = await KanbanAPI.createBoard({ name: (name || '').trim() });
+    if (!name) {
+        showNotification('Введите название новой доски', 'warning');
+        input?.focus();
+        return;
+    }
+
+    const result = await KanbanAPI.createBoard({ name });
     if (!result || result.error) {
         showNotification(result?.error || 'Не удалось создать доску', 'error');
         return;
     }
 
+    if (input) input.value = '';
     await loadBoards(result.id);
     showNotification('Доска создана', 'success');
+}
+
+function handleNewBoardNameKeydown(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        createBoard();
+    }
 }
 
 function enableRenameBoard() {
@@ -200,6 +219,7 @@ async function renameColumn(columnId) {
 }
 
 function handleCardDragStart(event, cardId) {
+    if (!event.dataTransfer) return;
     draggingCardId = cardId;
     event.dataTransfer.effectAllowed = 'move';
     event.currentTarget.classList.add('dragging');
@@ -212,6 +232,7 @@ function handleCardDragEnd(event) {
 }
 
 function handleColumnDragOver(event) {
+    if (!supportsDragAndDrop()) return;
     event.preventDefault();
     event.currentTarget.classList.add('drag-over');
 }
@@ -221,6 +242,7 @@ function handleColumnDragLeave(event) {
 }
 
 async function handleColumnDrop(event, columnId) {
+    if (!supportsDragAndDrop()) return;
     event.preventDefault();
     event.currentTarget.classList.remove('drag-over');
 
@@ -241,6 +263,51 @@ async function handleColumnDrop(event, columnId) {
     }
 
     await loadKanbanBoard();
+}
+
+async function promptMoveCard(cardId) {
+    const cardInfo = findCard(cardId);
+    if (!cardInfo) {
+        showNotification('Карточка не найдена', 'error');
+        return;
+    }
+
+    const columns = Array.isArray(kanbanBoard?.columns)
+        ? kanbanBoard.columns.filter(column => Number(column.id) !== Number(cardInfo.column.id))
+        : [];
+
+    if (!columns.length) {
+        showNotification('Нет доступных колонок для перемещения', 'warning');
+        return;
+    }
+
+    const optionsText = columns
+        .map((column, index) => `${index + 1}. ${column.name || 'Без названия'}`)
+        .join('\n');
+
+    const answer = prompt(`Переместить карточку "${cardInfo.card.title || 'Без названия'}" в колонку:\n${optionsText}`, '1');
+    if (answer === null) return;
+
+    const selectedIndex = Number(answer) - 1;
+    if (!Number.isInteger(selectedIndex) || selectedIndex < 0 || selectedIndex >= columns.length) {
+        showNotification('Неверный номер колонки', 'warning');
+        return;
+    }
+
+    const targetColumn = columns[selectedIndex];
+    const payload = {
+        columnId: Number(targetColumn.id),
+        position: Array.isArray(targetColumn.cards) ? targetColumn.cards.length : 0
+    };
+
+    const result = await KanbanAPI.moveCard(cardId, payload);
+    if (!result || result.error) {
+        showNotification(result?.error || 'Не удалось переместить карточку', 'error');
+        return;
+    }
+
+    await loadKanbanBoard();
+    showNotification(`Карточка перемещена в "${targetColumn.name || 'Без названия'}"`, 'success');
 }
 
 function openCreateCardModal(columnId) {

@@ -14,6 +14,10 @@
     .kanban-board-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
     .kanban-board-actions select, .kanban-board-actions input { min-height:34px; padding:6px 10px; border-radius:8px; border:1px solid var(--c-border); background:var(--c-bg); color:var(--c-text); }
 
+    .top-bar { padding-top: max(10px, env(safe-area-inset-top)); }
+    .content { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+    .page-footer { padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+
     .kanban-columns {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -28,6 +32,8 @@
       min-height: 320px;
       display: flex;
       flex-direction: column;
+      max-height: calc(100dvh - 220px);
+      overflow: hidden;
     }
 
     .kanban-column.drag-over {
@@ -54,7 +60,16 @@
       flex-direction: column;
       gap: 8px;
       min-height: 120px;
+      /* allow cards area to grow and scroll inside the column */
+      flex: 1 1 auto;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
+
+    /* subtle custom scrollbar for modern browsers */
+    .kanban-cards::-webkit-scrollbar { width: 10px; }
+    .kanban-cards::-webkit-scrollbar-track { background: transparent; }
+    .kanban-cards::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--c-muted) 40%, transparent); border-radius: 8px; }
 
     .kanban-empty {
       border: 1px dashed var(--c-border);
@@ -98,11 +113,53 @@
     .kanban-attach-row { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:6px; font-size:12.5px; word-break:break-word; }
     .kanban-attach-empty { color:var(--c-muted); font-size:12.5px; }
     .kanban-mini-preview { width:28px; height:28px; object-fit:cover; border-radius:6px; border:1px solid var(--c-border); vertical-align:middle; margin-right:6px; }
+
+    @media (max-width: 900px) {
+      .kanban-toolbar { align-items: stretch; }
+      .kanban-board-actions { width: 100%; }
+      .kanban-board-actions > * { flex: 1 1 100%; width: 100%; }
+      .kanban-board-actions button,
+      .kanban-board-actions select,
+      .kanban-board-actions input,
+      #boardNameActions button { min-height: 40px; }
+
+      .kanban-columns {
+        display: flex;
+        align-items: stretch;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-snap-type: x mandatory;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 4px;
+      }
+
+      .kanban-column {
+        flex: 0 0 min(88vw, 360px);
+        min-width: min(88vw, 360px);
+        min-height: 280px;
+        max-height: calc(100dvh - 260px);
+        scroll-snap-align: start;
+      }
+
+      .kanban-column-head {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .kanban-column-head-main,
+      .kanban-column-head > div:last-child {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .kanban-card-actions .btn { min-height: 36px; }
+    }
   </style>
 </head>
 <body>
 <div class="app-layout">
-  <aside class="sidebar" th:replace="~{fragments/sidebar-shell :: sidebar('themeSelectKanban')}"></aside>
+  <aside class="sidebar" th:replace="~{fragments/sidebar-shell :: sidebar()}"></aside>
 
   <div class="main-area">
     <header class="top-bar">
@@ -114,7 +171,8 @@
       <div class="kanban-toolbar">
         <div class="kanban-board-actions">
           <select id="boardSelect" onchange="onBoardChange(this.value)"></select>
-          <button class="btn btn-primary" type="button" onclick="createBoard()">+ Новая доска</button>
+          <input id="newBoardNameInput" type="text" maxlength="120" placeholder="Название новой доски" onkeydown="handleNewBoardNameKeydown(event)">
+          <button class="btn btn-primary" type="button" onclick="createBoard()">+ Создать доску</button>
           <input id="boardNameInput" type="text" maxlength="120" disabled>
           <button class="btn btn-secondary" type="button" onclick="enableRenameBoard()">Переименовать доску</button>
           <div id="boardNameActions" style="display:none;gap:6px;">
@@ -183,3 +241,4 @@
 <script src="/js/kanban.js"></script>
 </body>
 </html>
+

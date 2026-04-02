@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Настройки клиента</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #f1f5f9;
+      color: #1e293b;
+      padding: 18px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+      padding: 16px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 18px;
+    }
+    .hint {
+      margin: 0 0 14px;
+      color: #64748b;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #475569;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+    }
+    input {
+      width: 100%;
+      padding: 9px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    input:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+    .limits {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #64748b;
+    }
+    .actions {
+      margin-top: 16px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    button {
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 9px 14px;
+    }
+    .btn-secondary {
+      background: #e2e8f0;
+      color: #334155;
+    }
+    .btn-primary {
+      background: #2563eb;
+      color: #fff;
+    }
+    .btn-primary:hover { background: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>⚙️ Настройки клиента</h1>
+
+    <!-- Раздел: Сервер -->
+    <div style="margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
+      <h2 style="margin: 0 0 8px; font-size: 14px; font-weight: 600; color: #334155;">🖥️ Подключение к серверу</h2>
+      <p class="hint">Выберите или введите адрес CRM сервера. Локальный сервер RemByte работает по HTTP на порту 9087.</p>
+
+      <label for="serverMode">Режим сервера</label>
+      <select id="serverMode" style="width: 100%; padding: 9px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; margin-bottom: 10px; cursor: pointer;">
+        <option value="auto">🔄 Автоматический выбор (разработка: localhost:9087, production: cloud)</option>
+        <option value="local">🏠 Локальный (http://localhost:9087)</option>
+        <option value="cloud">☁️ Облачный (https://crm.fix-byte.ru)</option>
+        <option value="custom">✏️ Пользовательский...</option>
+      </select>
+
+      <div id="customServerDiv" style="display: none;">
+        <label for="customServerUrl">Адрес сервера</label>
+        <input id="customServerUrl" type="text" placeholder="https://example.com или http://localhost:9087" />
+        <div class="limits">Примеры: http://localhost:9087, https://crm.example.com. Для локального сервера используйте только HTTP.</div>
+      </div>
+
+      <div id="serverDisplay" style="margin-top: 10px; padding: 10px; background: #f8fafc; border-left: 3px solid #2563eb; border-radius: 4px; font-size: 12px;">
+        <span style="color: #475569;">Текущий сервер:</span>
+        <span id="serverDisplayValue" style="color: #2563eb; font-weight: 600;">Загрузка...</span>
+      </div>
+    </div>
+
+    <!-- Раздел: Размер окна -->
+    <div style="margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
+      <h2 style="margin: 0 0 8px; font-size: 14px; font-weight: 600; color: #334155;">📏 Размер окна</h2>
+      <p class="hint">Задайте размер главного окна при запуске приложения.</p>
+
+      <div class="grid">
+        <div>
+          <label for="startupWidth">Ширина (px)</label>
+          <input id="startupWidth" type="number" min="900" max="3840" step="1" />
+        </div>
+        <div>
+          <label for="startupHeight">Высота (px)</label>
+          <input id="startupHeight" type="number" min="600" max="2160" step="1" />
+        </div>
+      </div>
+
+      <div class="limits">Допустимый диапазон: ширина 900-3840, высота 600-2160.</div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-secondary" type="button" id="btnCancel">Отмена</button>
+      <button class="btn-primary" type="button" id="btnSave">Сохранить</button>
+    </div>
+  </div>
+
+  <script>
+    const LOCAL_CRM_URL = 'http://localhost:9087';
+    const CLOUD_CRM_URL = 'https://crm.fix-byte.ru';
+    const widthInput = document.getElementById('startupWidth');
+    const heightInput = document.getElementById('startupHeight');
+    const serverModeSelect = document.getElementById('serverMode');
+    const customServerDiv = document.getElementById('customServerDiv');
+    const customServerUrl = document.getElementById('customServerUrl');
+    const serverDisplayValue = document.getElementById('serverDisplayValue');
+
+    function clampNumber(value, min, max) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return min;
+      return Math.min(Math.max(Math.round(n), min), max);
+    }
+
+    function validateServerUrl(url) {
+      if (!url) return false;
+      try {
+        const parsed = new URL(url);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+      } catch {
+        return false;
+      }
+    }
+
+    function normalizeCustomServerUrl(url) {
+      return (url || '')
+        .trim()
+        .replace(/^http:\/\/localhost:8080\/?$/i, LOCAL_CRM_URL)
+        .replace(/^http:\/\/127\.0\.0\.1:8080\/?$/i, 'http://127.0.0.1:9087')
+        .replace(/^https:\/\/(localhost|127\.0\.0\.1):9087\/?$/i, 'http://$1:9087');
+    }
+
+    function isInvalidSecureLocalUrl(url) {
+      return /^https:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/i.test((url || '').trim());
+    }
+
+    function updateServerDisplay() {
+      const mode = serverModeSelect.value;
+      let displayUrl = 'Загрузка...';
+
+      if (mode === 'auto') {
+        displayUrl = `автоматически: ${LOCAL_CRM_URL} (локально) / ${CLOUD_CRM_URL} (production)`;
+      } else if (mode === 'local') {
+        displayUrl = LOCAL_CRM_URL;
+      } else if (mode === 'cloud') {
+        displayUrl = CLOUD_CRM_URL;
+      } else if (mode === 'custom') {
+        displayUrl = normalizeCustomServerUrl(customServerUrl.value) || '⚠️ Не заполнено';
+      }
+
+      serverDisplayValue.textContent = displayUrl;
+    }
+
+    serverModeSelect.addEventListener('change', () => {
+      const showCustom = serverModeSelect.value === 'custom';
+      customServerDiv.style.display = showCustom ? 'block' : 'none';
+      updateServerDisplay();
+    });
+
+    customServerUrl.addEventListener('input', updateServerDisplay);
+
+    async function init() {
+      const current = await window.desktopSettings.load();
+
+      // Загружаем размер окна
+      widthInput.value = String(current.startupWidth || 1440);
+      heightInput.value = String(current.startupHeight || 900);
+
+      // Загружаем настройки сервера
+      const serverMode = current.serverMode || 'auto';
+      const customUrl = normalizeCustomServerUrl(current.customServerUrl || '');
+
+      serverModeSelect.value = serverMode;
+      customServerUrl.value = customUrl;
+
+      // Показываем/скрываем поле пользовательского сервера
+      customServerDiv.style.display = serverMode === 'custom' ? 'block' : 'none';
+
+      updateServerDisplay();
+    }
+
+    async function save() {
+      const mode = serverModeSelect.value;
+
+      // Валидация пользовательского сервера
+      if (mode === 'custom' && !customServerUrl.value) {
+        alert('Пожалуйста, введите адрес сервера для пользовательского режима.');
+        customServerUrl.focus();
+        return;
+      }
+
+      if (mode === 'custom' && !validateServerUrl(customServerUrl.value)) {
+        alert('Пожалуйста, введите корректный URL (например: http://localhost:9087 или https://example.com)');
+        customServerUrl.focus();
+        return;
+      }
+
+      if (mode === 'custom' && isInvalidSecureLocalUrl(customServerUrl.value)) {
+        alert('Локальный сервер RemByte на 9087 порту работает по HTTP. Используйте http://localhost:9087, а не https://localhost:9087.');
+        customServerUrl.focus();
+        return;
+      }
+
+      const payload = {
+        startupWidth: clampNumber(widthInput.value, 900, 3840),
+        startupHeight: clampNumber(heightInput.value, 600, 2160),
+        serverMode: mode,
+        customServerUrl: mode === 'custom' ? normalizeCustomServerUrl(customServerUrl.value) : ''
+      };
+
+      await window.desktopSettings.save(payload);
+      await window.desktopSettings.close();
+    }
+
+    document.getElementById('btnSave').addEventListener('click', save);
+    document.getElementById('btnCancel').addEventListener('click', () => window.desktopSettings.close());
+
+    init();
+  </script>
+</body>
+</html>
+

@@ -3,11 +3,25 @@
 <body>
 <th:block th:fragment="commonHead(pageTitle)">
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title th:text="${pageTitle}">FixByte CRM</title>
+
+  <!-- ===== CSRF PROTECTION ===== -->
+  <!-- Spring Security автоматически генерирует и внедряет CSRF токен -->
+  <meta name="_csrf" th:content="${_csrf.token}" th:if="${_csrf}">
+  <meta name="_csrf_parameter_name" th:content="${_csrf.parameterName}" th:if="${_csrf}">
+  <meta name="_csrf_header_name" content="X-CSRF-TOKEN">
+
+  <script>
+    (function () {
+      var saved = localStorage.getItem('fixbyte-theme') || 'system';
+      var isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var effective = saved === 'system' ? (isDark ? 'dark' : 'light') : saved;
+      document.documentElement.setAttribute('data-theme', effective);
+    })();
+  </script>
   <link rel="icon" type="image/x-icon" href="/images/favicon.ico">
   <link rel="stylesheet" href="/css/style.css">
 </th:block>
 </body>
 </html>
-

@@ -1,6 +1,6 @@
 {
   "name": "fixbyte-crm-desktop",
-  "version": "3.0.0",
+  "version": "1.0.0",
   "description": "FixByte CRM — Десктопный клиент",
   "author": "FixByte",
   "main": "main.js",
@@ -20,6 +20,8 @@
     "files": [
       "main.js",
       "preload.js",
+      "settings-preload.js",
+      "settings.html",
       "splash.html",
       "build/**"
     ],

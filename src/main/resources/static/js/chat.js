@@ -41,7 +41,7 @@ async function refreshChatData(forceReloadCurrent) {
         }
     } catch (error) {
         console.error('Error refreshing chat data:', error);
-        showNotification('Ошибка обновления чата', 'error');
+        showNotification('Ошибка обновления чата: ' + (error && error.message ? error.message : ''), 'error');
     }
 }
 
@@ -116,7 +116,7 @@ async function openConversation(id, silent) {
         }
     } catch (error) {
         console.error('Error opening conversation:', error);
-        showNotification('Ошибка загрузки диалога', 'error');
+        showNotification('Ошибка загрузки диалога: ' + (error && error.message ? error.message : ''), 'error');
     }
 }
 
