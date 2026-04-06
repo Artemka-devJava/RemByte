@@ -22,6 +22,35 @@ let mainWindow = null;
 let splashWindow = null;
 let tray = null;
 let settingsWindow = null;
+let activeDownloads = new Set();
+let titleBeforeDownload = APP_NAME;
+
+const CRM_NAV_ITEMS = [
+  { label: '🏠 Главная', route: '/' },
+  { label: '📊 Панель', route: '/dashboard' },
+  { label: '👥 Клиенты', route: '/clients' },
+  { label: '📋 Заказы', route: '/orders' },
+  { label: '🔧 Услуги', route: '/services' },
+  { label: '💰 Калькулятор', route: '/calculator' },
+  { label: '💬 Чат', route: '/chat' },
+  { label: '🗂️ Канбан', route: '/kanban' },
+  { label: '⚙️ Настройки', route: '/admin' }
+];
+
+function normalizeBaseUrl(url) {
+  return String(url || '').replace(/\/$/, '');
+}
+
+function navigateToRoute(route = '/') {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+    return;
+  }
+
+  const base = normalizeBaseUrl(CRM_URL);
+  const pathPart = route.startsWith('/') ? route : `/${route}`;
+  mainWindow.loadURL(`${base}${pathPart}`);
+}
 
 function quitApplication() {
   app.isQuiting = true;
@@ -45,6 +74,99 @@ function quitApplication() {
   app.exit(0);
 }
 
+function updateDownloadProgressUI() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  const downloads = Array.from(activeDownloads);
+  if (!downloads.length) {
+    mainWindow.setProgressBar(-1);
+    mainWindow.setTitle(titleBeforeDownload || APP_NAME);
+    return;
+  }
+
+  const withKnownSize = downloads.filter(d => d.totalBytes > 0);
+  if (!withKnownSize.length) {
+    mainWindow.setProgressBar(2); // indeterminate
+    mainWindow.setTitle(`Скачивание… — ${APP_NAME}`);
+    return;
+  }
+
+  const totalReceived = withKnownSize.reduce((sum, d) => sum + d.receivedBytes, 0);
+  const totalSize = withKnownSize.reduce((sum, d) => sum + d.totalBytes, 0);
+  const progress = totalSize > 0 ? Math.min(totalReceived / totalSize, 1) : 0;
+  const percent = Math.round(progress * 100);
+
+  mainWindow.setProgressBar(progress);
+  mainWindow.setTitle(`Скачивание ${percent}% — ${APP_NAME}`);
+}
+
+function setupDownloadTracking(windowRef) {
+  const ses = windowRef?.webContents?.session;
+  if (!ses || ses.__fixbyteDownloadTrackingAttached) {
+    return;
+  }
+
+  ses.__fixbyteDownloadTrackingAttached = true;
+
+  ses.on('will-download', (_event, item) => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return;
+    }
+
+    titleBeforeDownload = mainWindow.getTitle() || APP_NAME;
+    const sourceUrl = item.getURL() || '';
+    const isBackup = sourceUrl.includes('/admin/backup');
+
+    const downloadState = {
+      id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      isBackup,
+      receivedBytes: item.getReceivedBytes(),
+      totalBytes: item.getTotalBytes()
+    };
+
+    activeDownloads.add(downloadState);
+    updateDownloadProgressUI();
+
+    item.on('updated', (_e, state) => {
+      if (state === 'interrupted') {
+        return;
+      }
+      downloadState.receivedBytes = item.getReceivedBytes();
+      downloadState.totalBytes = item.getTotalBytes();
+      updateDownloadProgressUI();
+    });
+
+    item.once('done', (_e, state) => {
+      activeDownloads.delete(downloadState);
+      updateDownloadProgressUI();
+
+      if (downloadState.isBackup) {
+        mainWindow.setTitle(titleBeforeDownload || APP_NAME);
+      }
+
+      if (state === 'completed' && downloadState.isBackup) {
+        dialog.showMessageBox({
+          type: 'info',
+          title: 'Бэкап скачан',
+          message: 'Резервная копия успешно скачана.',
+          detail: `Файл сохранен: ${item.getSavePath()}`
+        });
+      }
+
+      if (state !== 'completed' && downloadState.isBackup) {
+        dialog.showMessageBox({
+          type: 'warning',
+          title: 'Скачивание прервано',
+          message: 'Не удалось скачать резервную копию.',
+          detail: `Статус загрузки: ${state}`
+        });
+      }
+    });
+  });
+}
+
 function getSettingsPath() {
   return path.join(app.getPath('userData'), 'desktop-settings.json');
 }
@@ -53,6 +175,7 @@ function normalizeWindowSize(settings) {
   const width = Number(settings?.startupWidth);
   const height = Number(settings?.startupHeight);
   const serverMode = settings?.serverMode || 'auto';
+  const launchFullscreen = settings?.launchFullscreen === true;
   let customServerUrl = (settings?.customServerUrl || '').trim();
 
   customServerUrl = customServerUrl
@@ -63,6 +186,7 @@ function normalizeWindowSize(settings) {
   return {
     startupWidth: Number.isFinite(width) ? Math.min(Math.max(Math.round(width), 900), 3840) : DEFAULT_WINDOW_SIZE.startupWidth,
     startupHeight: Number.isFinite(height) ? Math.min(Math.max(Math.round(height), 600), 2160) : DEFAULT_WINDOW_SIZE.startupHeight,
+    launchFullscreen,
     serverMode,
     customServerUrl
   };
@@ -152,7 +276,10 @@ function createWindow() {
     },
     autoHideMenuBar: true,
     skipTaskbar: false,
+    fullscreen: settings.launchFullscreen === true,
   });
+
+  setupDownloadTracking(mainWindow);
 
   // Загружаем CRM
   mainWindow.loadURL(CRM_URL);
@@ -300,7 +427,11 @@ function createTray() {
     {
       label: '📂 Открыть',
       click: () => {
-        if (mainWindow) { mainWindow.show(); mainWindow.focus(); }
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+          navigateToRoute('/');
+        }
         else createWindow();
       }
     },
@@ -331,14 +462,16 @@ function createTray() {
 
 // ── Меню приложения ───────────────────────────────────────────────────────────
 function buildAppMenu() {
+  const crmNavigationSubmenu = CRM_NAV_ITEMS.map(item => ({
+    label: item.label,
+    click: () => navigateToRoute(item.route)
+  }));
+
   const template = [
     {
       label: 'Приложение',
       submenu: [
-        { label: '🏠 Главная', click: () => mainWindow?.loadURL(CRM_URL) },
-        { label: '📊 Дашборд', click: () => mainWindow?.loadURL(`${CRM_URL}/dashboard`) },
-        { label: '👥 Клиенты', click: () => mainWindow?.loadURL(`${CRM_URL}/clients`) },
-        { label: '📋 Заказы', click: () => mainWindow?.loadURL(`${CRM_URL}/orders`) },
+        ...crmNavigationSubmenu,
         { type: 'separator' },
         { label: '⚙️ Настройки клиента', accelerator: 'CmdOrCtrl+,', click: () => openSettingsWindow() },
         { type: 'separator' },
@@ -385,6 +518,7 @@ ipcMain.handle('desktop-settings:get', () => {
 
 ipcMain.handle('desktop-settings:save', (_e, settings) => {
   const saved = saveDesktopSettings(settings);
+  const windowMode = saved.launchFullscreen ? 'полноэкранный режим' : `${saved.startupWidth}x${saved.startupHeight}`;
   const serverInfo = saved.serverMode === 'custom' 
     ? `пользовательский сервер (${saved.customServerUrl})`
     : saved.serverMode === 'local'
@@ -397,7 +531,7 @@ ipcMain.handle('desktop-settings:save', (_e, settings) => {
     type: 'info',
     title: 'Настройки сохранены',
     message: 'Настройки клиента обновлены.',
-    detail: `Сервер: ${serverInfo}\nРазмер окна: ${saved.startupWidth}x${saved.startupHeight}\n\nИзменения применятся при следующем запуске приложения.`
+    detail: `Сервер: ${serverInfo}\nРежим окна: ${windowMode}\n\nИзменения применятся при следующем запуске приложения.`
   });
   return saved;
 });

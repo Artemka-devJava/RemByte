@@ -2,12 +2,14 @@ let kanbanBoard = null;
 let currentBoardId = null;
 let draggingCardId = null;
 let pendingAttachments = [];
+let openedColumnMenuId = null;
 
 const supportsDragAndDrop = () => !window.matchMedia('(pointer: coarse)').matches;
 
 const boardSelectEl = () => document.getElementById('boardSelect');
 const boardTitleEl = () => document.getElementById('kanbanBoardTitle');
 const newBoardNameInputEl = () => document.getElementById('newBoardNameInput');
+const newColumnNameInputEl = () => document.getElementById('newColumnNameInput');
 const boardNameInputEl = () => document.getElementById('boardNameInput');
 const boardNameActionsEl = () => document.getElementById('boardNameActions');
 
@@ -80,6 +82,7 @@ function renderKanbanBoard() {
 
     columnsContainer.innerHTML = columns.map(column => {
         const cards = Array.isArray(column.cards) ? column.cards : [];
+        const isMenuOpen = Number(openedColumnMenuId) === Number(column.id);
         const cardsHtml = cards.length
             ? cards.map(card => renderCardHtml(card)).join('')
             : '<div class="kanban-empty">Перетащите карточку сюда или создайте новую</div>';
@@ -89,11 +92,17 @@ function renderKanbanBoard() {
             <div class="kanban-column-head">
               <div class="kanban-column-head-main">
                 <h2 class="kanban-column-title">${escapeHtml(column.name)}</h2>
-                <button class="btn btn-sm btn-secondary" type="button" onclick="renameColumn(${column.id})">Переименовать</button>
               </div>
               <div style="display:flex;align-items:center;gap:8px;">
                 <span class="kanban-column-count">${cards.length}</span>
-                <button class="btn btn-sm btn-primary" type="button" onclick="openCreateCardModal(${column.id})">+ Карточка</button>
+                <div class="kanban-column-menu ${isMenuOpen ? 'open' : ''}">
+                  <button class="btn btn-sm btn-secondary kanban-column-menu-toggle" type="button" onclick="toggleColumnMenu(event, ${column.id})" title="Меню колонки">⋮</button>
+                  <div class="kanban-column-menu-dropdown" onclick="event.stopPropagation()">
+                    <button class="btn btn-sm btn-primary" type="button" onclick="openCreateCardModal(${column.id}); closeColumnMenus();">+ Карточка</button>
+                    <button class="btn btn-sm btn-secondary" type="button" onclick="renameColumn(${column.id}); closeColumnMenus();">Переименовать</button>
+                    <button class="btn btn-sm btn-danger" type="button" onclick="deleteColumn(${column.id}); closeColumnMenus();">Удалить</button>
+                  </div>
+                </div>
               </div>
             </div>
             <div class="kanban-cards" data-cards-column="${column.id}">
@@ -151,10 +160,66 @@ async function createBoard() {
     showNotification('Доска создана', 'success');
 }
 
+async function createColumn() {
+    const boardId = Number.isFinite(Number(currentBoardId))
+        ? Number(currentBoardId)
+        : Number(kanbanBoard?.id);
+
+    if (!Number.isFinite(boardId)) {
+        showNotification('Сначала выберите доску', 'warning');
+        return;
+    }
+
+    const input = newColumnNameInputEl();
+    const name = (input?.value || '').trim();
+
+    if (!name) {
+        showNotification('Введите название новой колонки', 'warning');
+        input?.focus();
+        return;
+    }
+
+    const result = await KanbanAPI.createColumn(boardId, { name });
+    if (!result || result.error) {
+        showNotification(result?.error || 'Не удалось создать колонку', 'error');
+        return;
+    }
+
+    if (input) input.value = '';
+    await loadKanbanBoard();
+    showNotification('Колонка создана', 'success');
+}
+
+function toggleColumnMenu(event, columnId) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    openedColumnMenuId = Number(openedColumnMenuId) === Number(columnId)
+        ? null
+        : Number(columnId);
+    renderKanbanBoard();
+}
+
+function closeColumnMenus() {
+    if (openedColumnMenuId !== null) {
+        openedColumnMenuId = null;
+        renderKanbanBoard();
+    }
+}
+
 function handleNewBoardNameKeydown(event) {
     if (event.key === 'Enter') {
         event.preventDefault();
         createBoard();
+    }
+}
+
+function handleNewColumnNameKeydown(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        createColumn();
     }
 }
 
@@ -216,6 +281,27 @@ async function renameColumn(columnId) {
     }
 
     await loadKanbanBoard();
+}
+
+async function deleteColumn(columnId) {
+    const column = findColumnById(columnId);
+    if (!column) {
+        showNotification('Колонка не найдена', 'error');
+        return;
+    }
+
+    if (!confirm(`Удалить колонку "${column.name || 'Без названия'}" вместе с карточками?`)) {
+        return;
+    }
+
+    const result = await KanbanAPI.deleteColumn(columnId);
+    if (!result || result.error) {
+        showNotification(result?.error || 'Не удалось удалить колонку', 'error');
+        return;
+    }
+
+    await loadKanbanBoard();
+    showNotification('Колонка удалена', 'success');
 }
 
 function handleCardDragStart(event, cardId) {
@@ -483,6 +569,11 @@ function escapeJs(value) {
 }
 
 window.addEventListener('click', (event) => {
+    const isMenuButton = event.target.closest('.kanban-column-menu');
+    if (!isMenuButton) {
+        closeColumnMenus();
+    }
+
     if (event.target === cardModalEl()) {
         closeCardModal();
     }

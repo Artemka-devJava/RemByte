@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
 import java.io.*;
+import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.sql.*;
@@ -23,6 +24,8 @@ import java.util.zip.ZipOutputStream;
  */
 @Service
 public class DatabaseBackupService {
+
+    private static final int MAX_RESTORE_ATTEMPTS = 2;
 
     private final DataSource dataSource;
 
@@ -285,22 +288,81 @@ public class DatabaseBackupService {
 
     private void restoreSql(InputStream inputStream) throws Exception {
         String sql = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+        List<String> statements = splitStatements(sql);
 
+        for (int attempt = 1; attempt <= MAX_RESTORE_ATTEMPTS; attempt++) {
+            try {
+                executeRestoreStatements(statements);
+                return;
+            } catch (SQLException ex) {
+                if (!isRecoverableRestoreError(ex) || attempt >= MAX_RESTORE_ATTEMPTS) {
+                    throw ex;
+                }
+            }
+        }
+    }
+
+    private void executeRestoreStatements(List<String> statements) throws SQLException {
         try (Connection conn = dataSource.getConnection()) {
             boolean prev = conn.getAutoCommit();
             conn.setAutoCommit(false);
             try (Statement st = conn.createStatement()) {
-                for (String stmt : splitStatements(sql)) {
-                    if (!stmt.isBlank()) st.execute(stmt);
+                int statementIndex = 0;
+                for (String stmt : statements) {
+                    String trimmed = stmt == null ? "" : stmt.trim();
+                    if (trimmed.isEmpty()) {
+                        continue;
+                    }
+                    statementIndex++;
+                    try {
+                        st.execute(trimmed);
+                    } catch (SQLException sqlEx) {
+                        throw new SQLException(
+                                "Ошибка выполнения SQL-оператора #" + statementIndex + ": " + previewSql(trimmed),
+                                sqlEx
+                        );
+                    }
                 }
                 conn.commit();
-            } catch (Exception ex) {
+            } catch (SQLException ex) {
                 conn.rollback();
                 throw ex;
             } finally {
                 conn.setAutoCommit(prev);
             }
         }
+    }
+
+    private boolean isRecoverableRestoreError(SQLException ex) {
+        if (ex == null) {
+            return false;
+        }
+
+        if (ex instanceof SQLNonTransientConnectionException
+                || ex instanceof SQLTransientConnectionException
+                || ex instanceof SQLRecoverableException) {
+            return true;
+        }
+
+        String sqlState = ex.getSQLState();
+        if (sqlState != null && sqlState.startsWith("08")) {
+            return true;
+        }
+
+        Throwable cause = ex;
+        while (cause != null) {
+            if (cause instanceof SocketException) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+
+        return false;
+    }
+
+    private String previewSql(String sql) {
+        String normalized = sql.replaceAll("\\s+", " ").trim();
+        return normalized.length() <= 160 ? normalized : normalized.substring(0, 160) + "...";
     }
 
     /**

@@ -19,11 +19,19 @@
     .page-footer { padding-bottom: max(10px, env(safe-area-inset-bottom)); }
 
     .kanban-columns {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      display: flex;
       gap: 14px;
-      align-items: start;
+      align-items: flex-start;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
+      padding-bottom: 4px;
     }
+
+    .kanban-columns::-webkit-scrollbar { height: 10px; }
+    .kanban-columns::-webkit-scrollbar-track { background: transparent; }
+    .kanban-columns::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--c-muted) 40%, transparent); border-radius: 8px; }
 
     .kanban-column {
       background: var(--c-card);
@@ -34,6 +42,8 @@
       flex-direction: column;
       max-height: calc(100dvh - 220px);
       overflow: hidden;
+      flex: 0 0 360px;
+      width: 360px;
     }
 
     .kanban-column.drag-over {
@@ -53,6 +63,24 @@
     .kanban-column-head-main { display:flex; align-items:center; gap:8px; }
     .kanban-column-title { font-size: 14px; font-weight: 700; margin: 0; }
     .kanban-column-count { font-size: 12px; color: var(--c-muted); }
+    .kanban-column-menu { position: relative; }
+    .kanban-column-menu-toggle { min-width: 34px; padding: 5px 10px; }
+    .kanban-column-menu-dropdown {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 6px);
+      z-index: 20;
+      min-width: 170px;
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+      padding: 8px;
+      background: var(--c-card);
+      border: 1px solid var(--c-border);
+      border-radius: 8px;
+      box-shadow: 0 8px 20px rgba(0,0,0,.15);
+    }
+    .kanban-column-menu.open .kanban-column-menu-dropdown { display: flex; }
 
     .kanban-cards {
       padding: 10px;
@@ -153,6 +181,12 @@
         justify-content: space-between;
       }
 
+      .kanban-column-menu-dropdown {
+        right: auto;
+        left: 0;
+        width: 100%;
+      }
+
       .kanban-card-actions .btn { min-height: 36px; }
     }
   </style>
@@ -173,6 +207,8 @@
           <select id="boardSelect" onchange="onBoardChange(this.value)"></select>
           <input id="newBoardNameInput" type="text" maxlength="120" placeholder="Название новой доски" onkeydown="handleNewBoardNameKeydown(event)">
           <button class="btn btn-primary" type="button" onclick="createBoard()">+ Создать доску</button>
+          <input id="newColumnNameInput" type="text" maxlength="120" placeholder="Название новой колонки" onkeydown="handleNewColumnNameKeydown(event)">
+          <button class="btn btn-primary" type="button" onclick="createColumn()">+ Создать колонку</button>
           <input id="boardNameInput" type="text" maxlength="120" disabled>
           <button class="btn btn-secondary" type="button" onclick="enableRenameBoard()">Переименовать доску</button>
           <div id="boardNameActions" style="display:none;gap:6px;">

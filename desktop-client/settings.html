@@ -61,6 +61,22 @@
       font-size: 12px;
       color: #64748b;
     }
+    .checkbox-row {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      color: #334155;
+      user-select: none;
+      cursor: pointer;
+    }
+    .checkbox-row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: #2563eb;
+      margin: 0;
+    }
     .actions {
       margin-top: 16px;
       display: flex;
@@ -132,6 +148,11 @@
       </div>
 
       <div class="limits">Допустимый диапазон: ширина 900-3840, высота 600-2160.</div>
+
+      <label class="checkbox-row" for="launchFullscreen">
+        <input id="launchFullscreen" type="checkbox" />
+        <span>Запускать на весь экран</span>
+      </label>
     </div>
 
     <div class="actions">
@@ -145,6 +166,7 @@
     const CLOUD_CRM_URL = 'https://crm.fix-byte.ru';
     const widthInput = document.getElementById('startupWidth');
     const heightInput = document.getElementById('startupHeight');
+    const fullscreenInput = document.getElementById('launchFullscreen');
     const serverModeSelect = document.getElementById('serverMode');
     const customServerDiv = document.getElementById('customServerDiv');
     const customServerUrl = document.getElementById('customServerUrl');
@@ -209,6 +231,7 @@
       // Загружаем размер окна
       widthInput.value = String(current.startupWidth || 1440);
       heightInput.value = String(current.startupHeight || 900);
+      fullscreenInput.checked = current.launchFullscreen === true;
 
       // Загружаем настройки сервера
       const serverMode = current.serverMode || 'auto';
@@ -248,6 +271,7 @@
       const payload = {
         startupWidth: clampNumber(widthInput.value, 900, 3840),
         startupHeight: clampNumber(heightInput.value, 600, 2160),
+        launchFullscreen: fullscreenInput.checked,
         serverMode: mode,
         customServerUrl: mode === 'custom' ? normalizeCustomServerUrl(customServerUrl.value) : ''
       };

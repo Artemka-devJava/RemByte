@@ -139,6 +139,59 @@ public class KanbanService {
     }
 
     @Transactional
+    public ColumnView createColumn(String username, Long boardId, CreateColumnRequest request) {
+        KanbanBoard board = requireBoard(boardId, username);
+
+        String name = sanitize(request.name());
+        if (name.isBlank()) {
+            throw new IllegalArgumentException("Название колонки не может быть пустым");
+        }
+
+        int nextPosition = columnRepository.findByBoardIdOrderByPositionAscIdAsc(board.getId()).size();
+
+        KanbanColumn column = new KanbanColumn(board, name, nextPosition);
+        column.setCreatedAt(LocalDateTime.now());
+        column.setUpdatedAt(LocalDateTime.now());
+        column = columnRepository.save(column);
+
+        touchBoard(board);
+        return new ColumnView(column.getId(), column.getName(), nullSafe(column.getPosition()), List.of());
+    }
+
+    @Transactional
+    public void deleteColumn(String username, Long columnId) {
+        KanbanColumn column = requireColumn(columnId);
+        KanbanBoard board = column.getBoard();
+        ensureBoardAccess(board, username);
+
+        List<KanbanColumn> columns = columnRepository.findByBoardIdOrderByPositionAscIdAsc(board.getId());
+        if (columns.size() <= 1) {
+            throw new IllegalArgumentException("Нельзя удалить последнюю колонку на доске");
+        }
+
+        int removedPosition = nullSafe(column.getPosition());
+
+        List<KanbanCard> cards = cardRepository.findByColumnIdOrderByPositionAscIdAsc(columnId);
+        if (!cards.isEmpty()) {
+            cardRepository.deleteAll(cards);
+        }
+        columnRepository.delete(column);
+
+        for (KanbanColumn current : columns) {
+            if (Objects.equals(current.getId(), column.getId())) {
+                continue;
+            }
+            if (nullSafe(current.getPosition()) > removedPosition) {
+                current.setPosition(nullSafe(current.getPosition()) - 1);
+                current.setUpdatedAt(LocalDateTime.now());
+                columnRepository.save(current);
+            }
+        }
+
+        touchBoard(board);
+    }
+
+    @Transactional
     public CardView createCard(String username, Long columnId, CreateCardRequest request) {
         KanbanColumn column = requireColumn(columnId);
         ensureBoardAccess(column.getBoard(), username);
@@ -527,6 +580,8 @@ public class KanbanService {
     public record RenameBoardRequest(String name) {}
 
     public record RenameColumnRequest(String name) {}
+
+    public record CreateColumnRequest(String name) {}
 
     public record CreateCardRequest(String title, String description) {}
 

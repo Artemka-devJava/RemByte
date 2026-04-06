@@ -78,6 +78,20 @@ function getCsrfOnlyHeaders() {
     return headers;
 }
 
+/**
+ * Преобразует Date/строку в формат LocalDateTime без timezone: yyyy-MM-ddTHH:mm:ss
+ */
+function toLocalDateTimeParam(value) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        throw new Error('Invalid date value for statistics request');
+    }
+
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+        `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 // ====== CLIENTS API ======
 const ClientAPI = {
     // Получить всех клиентов
@@ -364,6 +378,25 @@ const OrderAPI = {
         }
     },
 
+    // Получить статистику заказов за период
+    getStatistics: async (from, to) => {
+        try {
+            const fromParam = encodeURIComponent(toLocalDateTimeParam(from));
+            const toParam = encodeURIComponent(toLocalDateTimeParam(to));
+            const response = await fetch(`${API_BASE}/orders/statistics?from=${fromParam}&to=${toParam}`);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || `Statistics request failed with status ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching order statistics:', error);
+            return null;
+        }
+    },
+
     // Загрузить вложения (фото/видео) к заказу
     uploadAttachments: async (id, files) => {
         try {
@@ -505,6 +538,20 @@ const NotesPluginAPI = {
 
 // ====== CHAT API ======
 const ChatAPI = {
+    getWidgetSite: async () => {
+        try {
+            const response = await fetch(`${API_BASE}/chat/widget-site`, { cache: 'no-store' });
+            if (!response.ok) {
+                const text = await response.text().catch(() => '');
+                return { error: text || `HTTP ${response.status}` };
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Error loading chat widget settings:', error);
+            return { error: 'network_error' };
+        }
+    },
+
     getConversations: async () => {
         try {
             const response = await fetch(`${API_BASE}/chat/conversations`);
@@ -607,10 +654,23 @@ const ChatAPI = {
                 headers: getSecureHeaders(),
                 body: JSON.stringify(payload)
             });
-            return await response.json();
+
+            const text = await response.text();
+            let data = {};
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch {
+                data = {};
+            }
+
+            if (!response.ok) {
+                return { error: data?.error || text || `HTTP ${response.status}` };
+            }
+
+            return data;
         } catch (error) {
             console.error('Error saving chat widget settings:', error);
-            return null;
+            return { error: 'network_error' };
         }
     }
 };
@@ -681,6 +741,59 @@ const KanbanAPI = {
         } catch (error) {
             console.error('Error renaming kanban column:', error);
             return null;
+        }
+    },
+
+    createColumn: async (boardId, payload) => {
+        try {
+            const response = await fetch(`${API_BASE}/kanban/boards/${boardId}/columns`, {
+                method: 'POST',
+                headers: getSecureHeaders(),
+                body: JSON.stringify(payload)
+            });
+
+            const text = await response.text();
+            let data = {};
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch {
+                data = {};
+            }
+
+            if (!response.ok) {
+                return { error: data?.error || text || `HTTP ${response.status}` };
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Error creating kanban column:', error);
+            return { error: 'network_error' };
+        }
+    },
+
+    deleteColumn: async (columnId) => {
+        try {
+            const response = await fetch(`${API_BASE}/kanban/columns/${columnId}`, {
+                method: 'DELETE',
+                headers: getSecureHeaders()
+            });
+
+            const text = await response.text();
+            let data = {};
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch {
+                data = {};
+            }
+
+            if (!response.ok) {
+                return { error: data?.error || text || `HTTP ${response.status}` };
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Error deleting kanban column:', error);
+            return { error: 'network_error' };
         }
     },
 

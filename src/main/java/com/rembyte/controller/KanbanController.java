@@ -71,6 +71,29 @@ public class KanbanController {
         }
     }
 
+    @PostMapping("/boards/{boardId}/columns")
+    public ResponseEntity<?> createColumn(@PathVariable Long boardId,
+                                          @RequestBody KanbanService.CreateColumnRequest request,
+                                          Authentication authentication) {
+        try {
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(kanbanService.createColumn(authentication.getName(), boardId, request));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/columns/{columnId}")
+    public ResponseEntity<?> deleteColumn(@PathVariable Long columnId,
+                                          Authentication authentication) {
+        try {
+            kanbanService.deleteColumn(authentication.getName(), columnId);
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @PostMapping("/columns/{columnId}/cards")
     public ResponseEntity<?> createCard(@PathVariable Long columnId,
                                         @RequestBody KanbanService.CreateCardRequest request,
