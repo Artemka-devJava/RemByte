@@ -77,6 +77,16 @@ public class ChatOperatorController {
         }
     }
 
+    @DeleteMapping("/conversations/{id}")
+    public ResponseEntity<?> deleteConversation(@PathVariable Long id) {
+        try {
+            chatService.deleteConversation(id);
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @GetMapping("/summary")
     public ResponseEntity<ChatService.ChatSummaryView> getSummary() {
         return ResponseEntity.ok(chatService.getSummary());

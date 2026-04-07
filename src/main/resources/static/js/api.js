@@ -645,6 +645,25 @@ const ChatAPI = {
         }
     },
 
+    deleteConversation: async (id) => {
+        try {
+            const response = await fetch(`${API_BASE}/chat/conversations/${id}`, {
+                method: 'DELETE',
+                headers: getCsrfOnlyHeaders()
+            });
+            if (!response.ok) {
+                const txt = await response.text().catch(() => null);
+                console.error('Error deleting chat conversation, status=', response.status, txt);
+                return null;
+            }
+            const text = await response.text();
+            try { return text ? JSON.parse(text) : { success: true }; } catch { return { success: true }; }
+        } catch (error) {
+            console.error('Error deleting chat conversation:', error);
+            return null;
+        }
+    },
+
     // ...existing code...
 
     saveWidgetSite: async (payload) => {

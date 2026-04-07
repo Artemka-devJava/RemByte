@@ -23,6 +23,24 @@ import static org.mockito.Mockito.*;
 class ChatServiceTest {
 
     @Test
+    void deleteConversation_shouldDeleteMessagesThenConversation() {
+        ChatConversationRepository conversationRepository = mock(ChatConversationRepository.class);
+        ChatMessageRepository messageRepository = mock(ChatMessageRepository.class);
+        ChatWidgetSiteRepository widgetSiteRepository = mock(ChatWidgetSiteRepository.class);
+        AppUserRepository appUserRepository = mock(AppUserRepository.class);
+
+        ChatConversation conversation = new ChatConversation();
+        conversation.setId(42L);
+        when(conversationRepository.findById(42L)).thenReturn(Optional.of(conversation));
+
+        ChatService chatService = new ChatService(conversationRepository, messageRepository, widgetSiteRepository, appUserRepository);
+        chatService.deleteConversation(42L);
+
+        verify(messageRepository, times(1)).deleteByConversationId(42L);
+        verify(conversationRepository, times(1)).delete(conversation);
+    }
+
+    @Test
     void createConversation_shouldIncrementUnreadForOperatorWhenVisitorSendsFirstMessage() {
         ChatConversationRepository conversationRepository = mock(ChatConversationRepository.class);
         ChatMessageRepository messageRepository = mock(ChatMessageRepository.class);

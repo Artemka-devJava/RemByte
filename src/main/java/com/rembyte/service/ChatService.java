@@ -16,6 +16,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.net.URI;
 
 @Service
 public class ChatService {
@@ -206,6 +207,13 @@ public class ChatService {
         conversationRepository.save(conversation);
     }
 
+    @Transactional
+    public void deleteConversation(Long conversationId) {
+        ChatConversation conversation = requireConversation(conversationId);
+        messageRepository.deleteByConversationId(conversation.getId());
+        conversationRepository.delete(conversation);
+    }
+
     @Transactional(readOnly = true)
     public ChatSummaryView getSummary() {
         long unread = conversationRepository.countByUnreadForOperatorGreaterThan(0);
@@ -238,14 +246,14 @@ public class ChatService {
         if (allowed.isEmpty()) {
             return true;
         }
-        String normalizedOrigin = sanitize(origin);
+        String normalizedOrigin = normalizeOriginValue(origin);
         if (normalizedOrigin.isBlank()) {
             return false;
         }
         if (allowed.contains("*")) {
             return true;
         }
-        return allowed.contains(normalizedOrigin.toLowerCase(Locale.ROOT));
+        return allowed.contains(normalizedOrigin);
     }
 
     private List<String> parseOrigins(String raw) {
@@ -255,7 +263,7 @@ public class ChatService {
         }
         List<String> result = new ArrayList<>();
         for (String part : normalized.split("\\n")) {
-            String value = sanitize(part).toLowerCase(Locale.ROOT);
+            String value = normalizeOriginValue(part);
             if (!value.isBlank()) {
                 result.add(value);
             }
@@ -380,6 +388,32 @@ public class ChatService {
     private String normalizeColor(String color) {
         String value = sanitize(color);
         return COLOR_PATTERN.matcher(value).matches() ? value : "#3699d9";
+    }
+
+    private String normalizeOriginValue(String value) {
+        String raw = sanitize(value);
+        if (raw.isBlank()) {
+            return "";
+        }
+        if ("*".equals(raw)) {
+            return "*";
+        }
+        String cleaned = raw.replaceAll("/+$", "");
+        try {
+            URI uri = URI.create(cleaned);
+            String scheme = uri.getScheme();
+            String host = uri.getHost();
+            if (scheme == null || host == null) {
+                return cleaned.toLowerCase(Locale.ROOT);
+            }
+            int port = uri.getPort();
+            boolean defaultHttp = "http".equalsIgnoreCase(scheme) && port == 80;
+            boolean defaultHttps = "https".equalsIgnoreCase(scheme) && port == 443;
+            String portPart = (port == -1 || defaultHttp || defaultHttps) ? "" : ":" + port;
+            return (scheme + "://" + host + portPart).toLowerCase(Locale.ROOT);
+        } catch (Exception ignored) {
+            return cleaned.toLowerCase(Locale.ROOT);
+        }
     }
 
     private String defaultIfBlank(String value, String defaultValue) {

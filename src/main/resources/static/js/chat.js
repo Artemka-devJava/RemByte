@@ -128,6 +128,11 @@ function renderConversationHeader(conversation) {
     btn.style.display = 'inline-flex';
     btn.textContent = conversation.status === 'CLOSED' ? 'Открыть диалог' : 'Закрыть диалог';
     btn.className = `btn btn-sm ${conversation.status === 'CLOSED' ? 'btn-success' : 'btn-secondary'}`;
+
+    const deleteBtn = document.getElementById('chatDeleteConversationBtn');
+    if (deleteBtn) {
+        deleteBtn.style.display = 'inline-flex';
+    }
 }
 
 function renderConversationInfo(conversation) {
@@ -197,6 +202,27 @@ async function toggleCurrentConversationStatus() {
     await refreshChatData(true);
 }
 
+async function deleteCurrentConversation() {
+    if (!currentConversationDetail?.conversation) return;
+    const current = currentConversationDetail.conversation;
+    const visitorName = current.visitorName || 'Посетитель';
+    const confirmed = window.confirm(`Удалить диалог с "${visitorName}"? Это действие нельзя отменить.`);
+    if (!confirmed) {
+        return;
+    }
+
+    const result = await ChatAPI.deleteConversation(current.id);
+    if (!result || result.error) {
+        showNotification(result?.error || 'Не удалось удалить диалог', 'error');
+        return;
+    }
+
+    showNotification('Диалог удален', 'success');
+    clearCurrentConversation();
+    await refreshChatData(false);
+    await refreshSidebarChatBadge();
+}
+
 function clearCurrentConversation() {
     currentConversationId = null;
     currentConversationDetail = null;
@@ -205,6 +231,10 @@ function clearCurrentConversation() {
     document.getElementById('chatConversationInfo').innerHTML = '';
     document.getElementById('chatMessages').innerHTML = '<div class="chat-empty-state">Слева выберите диалог, чтобы просмотреть переписку.</div>';
     document.getElementById('chatToggleStatusBtn').style.display = 'none';
+    const deleteBtn = document.getElementById('chatDeleteConversationBtn');
+    if (deleteBtn) {
+        deleteBtn.style.display = 'none';
+    }
 }
 
 async function refreshSidebarChatBadge() {
