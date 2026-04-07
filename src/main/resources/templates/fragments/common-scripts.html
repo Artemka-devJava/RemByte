@@ -9,10 +9,15 @@
   <script src="/js/plugin-host.js"></script>
   <script>
     (function () {
-      // Вставляем кнопку-бургер в top-bar для мобильных
-      var topBar = document.querySelector('.top-bar');
-      if (topBar) {
+      function ensureBurgerButton() {
+        if (document.getElementById('burgerBtn')) {
+          return;
+        }
+
+        // Вставляем кнопку-бургер в top-bar для мобильных
+        var topBar = document.querySelector('.top-bar');
         var burger = document.createElement('button');
+        burger.type = 'button';
         burger.className = 'burger-btn';
         burger.id = 'burgerBtn';
         burger.setAttribute('aria-label', 'Открыть меню');
@@ -22,8 +27,17 @@
           + '<rect y="16" width="22" height="2.2" rx="1.1" fill="currentColor"/>'
           + '</svg>';
         burger.style.color = 'var(--c-text)';
-        topBar.insertBefore(burger, topBar.firstChild);
+
+        if (topBar) {
+          topBar.insertBefore(burger, topBar.firstChild);
+        } else {
+          // Fallback: плавающая кнопка для страниц без .top-bar
+          burger.classList.add('floating-burger');
+          document.body.appendChild(burger);
+        }
       }
+
+      ensureBurgerButton();
 
       var sidebar = document.querySelector('.sidebar');
       var overlay = document.getElementById('sidebarOverlay');
@@ -32,13 +46,13 @@
       function openSidebar() {
         if (sidebar) sidebar.classList.add('sidebar-mobile-open');
         if (overlay) overlay.classList.add('active');
-        document.body.style.overflow = 'hidden';
+        document.body.classList.add('sidebar-open');
       }
 
       function closeSidebar() {
         if (sidebar) sidebar.classList.remove('sidebar-mobile-open');
         if (overlay) overlay.classList.remove('active');
-        document.body.style.overflow = '';
+        document.body.classList.remove('sidebar-open');
       }
 
       var burgerBtn = document.getElementById('burgerBtn');
@@ -58,6 +72,12 @@
       // Закрываем при изменении размера (если стал десктоп)
       window.addEventListener('resize', function() {
         if (window.innerWidth > 768) closeSidebar();
+      });
+
+      window.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+          closeSidebar();
+        }
       });
     })();
   </script>

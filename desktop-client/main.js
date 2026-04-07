@@ -233,6 +233,52 @@ function getServerUrlFromSettings(settings) {
     : LOCAL_CRM_URL;
 }
 
+function resolveReloadUrlForServerSwitch(previousBase, nextBase) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return normalizeBaseUrl(nextBase);
+  }
+
+  const currentUrl = mainWindow.webContents.getURL() || '';
+  const from = normalizeBaseUrl(previousBase);
+  const to = normalizeBaseUrl(nextBase);
+
+  if (!currentUrl || currentUrl.startsWith('data:')) {
+    return to;
+  }
+
+  if (currentUrl.startsWith(from)) {
+    const suffix = currentUrl.slice(from.length) || '/';
+    return `${to}${suffix.startsWith('/') ? suffix : `/${suffix}`}`;
+  }
+
+  return to;
+}
+
+function applyRuntimeDesktopSettings(saved, previousServerUrl) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  if (!mainWindow.isFullScreen() && !saved.launchFullscreen) {
+    mainWindow.setSize(saved.startupWidth, saved.startupHeight);
+    mainWindow.center();
+  }
+
+  if (mainWindow.isFullScreen() !== saved.launchFullscreen) {
+    mainWindow.setFullScreen(saved.launchFullscreen === true);
+  }
+
+  const nextServerUrl = getServerUrlFromSettings(saved);
+  const prevBase = normalizeBaseUrl(previousServerUrl || CRM_URL);
+  const nextBase = normalizeBaseUrl(nextServerUrl);
+  CRM_URL = nextBase;
+
+  if (prevBase !== nextBase) {
+    const targetUrl = resolveReloadUrlForServerSwitch(prevBase, nextBase);
+    mainWindow.loadURL(targetUrl);
+  }
+}
+
 // ── Splash-экран при запуске ──────────────────────────────────────────────────
 function createSplash() {
   splashWindow = new BrowserWindow({
@@ -517,7 +563,10 @@ ipcMain.handle('desktop-settings:get', () => {
 });
 
 ipcMain.handle('desktop-settings:save', (_e, settings) => {
+  const previousServerUrl = CRM_URL;
   const saved = saveDesktopSettings(settings);
+  applyRuntimeDesktopSettings(saved, previousServerUrl);
+
   const windowMode = saved.launchFullscreen ? 'полноэкранный режим' : `${saved.startupWidth}x${saved.startupHeight}`;
   const serverInfo = saved.serverMode === 'custom' 
     ? `пользовательский сервер (${saved.customServerUrl})`
@@ -531,7 +580,7 @@ ipcMain.handle('desktop-settings:save', (_e, settings) => {
     type: 'info',
     title: 'Настройки сохранены',
     message: 'Настройки клиента обновлены.',
-    detail: `Сервер: ${serverInfo}\nРежим окна: ${windowMode}\n\nИзменения применятся при следующем запуске приложения.`
+    detail: `Сервер: ${serverInfo}\nРежим окна: ${windowMode}\n\nИзменения применены сразу.`
   });
   return saved;
 });

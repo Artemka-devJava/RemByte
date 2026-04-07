@@ -72,7 +72,14 @@ async function sendWidgetMessage(event) {
             });
             const data = await response.json();
             if (!response.ok) {
+                // If operator removed the conversation, start a new one seamlessly.
+                if (response.status === 404) {
+                    clearConversationToken();
+                    const created = await createConversation(message);
+                    if (!created) return;
+                } else {
                 throw new Error(data?.error || 'Не удалось отправить сообщение');
+                }
             }
         }
 
@@ -123,6 +130,11 @@ async function reloadWidgetConversation() {
         const response = await fetch(`/public/chat/conversations/${encodeURIComponent(widgetState.token)}`);
         const data = await response.json();
         if (!response.ok) {
+            if (response.status === 404) {
+                clearConversationToken();
+                renderWidgetEmpty();
+                return;
+            }
             throw new Error(data?.error || 'Диалог не найден');
         }
         renderWidgetConversation(data);
@@ -190,6 +202,15 @@ function saveConversationToken() {
     } catch {
         // ignore
     }
+}
+
+function clearConversationToken() {
+    try {
+        localStorage.removeItem(tokenStorageKey());
+    } catch {
+        // ignore
+    }
+    widgetState.token = null;
 }
 
 function formatWidgetDate(value) {
