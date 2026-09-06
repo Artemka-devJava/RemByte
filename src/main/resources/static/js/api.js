@@ -138,7 +138,7 @@ const ClientAPI = {
         }
     },
 
-    // Создать нового клиента
+    // Создать клиента. При дубле телефона -> { duplicate:true, existing:<клиент> }
     create: async (clientData) => {
         try {
             const response = await fetch(`${API_BASE}/clients`, {
@@ -146,6 +146,10 @@ const ClientAPI = {
                 headers: getSecureHeaders(),
                 body: JSON.stringify(clientData)
             });
+            if (response.status === 409) {
+                return { duplicate: true, existing: await response.json().catch(() => null) };
+            }
+            if (!response.ok) return null;
             return await response.json();
         } catch (error) {
             console.error('Error creating client:', error);
@@ -153,7 +157,7 @@ const ClientAPI = {
         }
     },
 
-    // Обновить клиента
+    // Обновить клиента. При дубле телефона -> { duplicate:true, existing:<клиент> }
     update: async (id, clientData) => {
         try {
             const response = await fetch(`${API_BASE}/clients/${id}`, {
@@ -161,6 +165,10 @@ const ClientAPI = {
                 headers: getSecureHeaders(),
                 body: JSON.stringify(clientData)
             });
+            if (response.status === 409) {
+                return { duplicate: true, existing: await response.json().catch(() => null) };
+            }
+            if (!response.ok) return null;
             return await response.json();
         } catch (error) {
             console.error('Error updating client:', error);
@@ -168,20 +176,90 @@ const ClientAPI = {
         }
     },
 
-    // Удалить клиента
     delete: async (id) => {
         try {
-            await fetch(`${API_BASE}/clients/${id}`, {
-                method: 'DELETE',
-                headers: getCsrfOnlyHeaders()
-            });
+            await fetch(`${API_BASE}/clients/${id}`, { method: 'DELETE', headers: getCsrfOnlyHeaders() });
             return true;
         } catch (error) {
             console.error('Error deleting client:', error);
             return false;
         }
-    }
+    },
+
+    archive: async (id) => _clientAction(id, 'archive'),
+    restore: async (id) => _clientAction(id, 'restore'),
+
+    getSummary: async (id) => _clientGet(`${id}/summary`, null),
+
+    // Журнал
+    getNotes:   async (id) => _clientGet(`${id}/notes`, []),
+    addNote:    async (id, note) => _clientPost(`${id}/notes`, note),
+    deleteNote: async (id, noteId) => _clientDelete(`${id}/notes/${noteId}`),
+
+    // Устройства
+    getDevices:   async (id) => _clientGet(`${id}/devices`, []),
+    addDevice:    async (id, device) => _clientPost(`${id}/devices`, device),
+    updateDevice: async (id, deviceId, device) => _clientPut(`${id}/devices/${deviceId}`, device),
+    deleteDevice: async (id, deviceId) => _clientDelete(`${id}/devices/${deviceId}`),
+
+    // Фото
+    getPhotos: async (id) => _clientGet(`${id}/photos`, []),
+    uploadPhotos: async (id, files, caption, deviceId) => {
+        try {
+            const fd = new FormData();
+            Array.from(files || []).forEach(f => fd.append('files', f));
+            if (caption) fd.append('caption', caption);
+            if (deviceId) fd.append('deviceId', deviceId);
+            const response = await fetch(`${API_BASE}/clients/${id}/photos`, {
+                method: 'POST', headers: getCsrfOnlyHeaders(), body: fd
+            });
+            if (!response.ok) return { error: await response.text().catch(() => 'Ошибка загрузки') };
+            return await response.json();
+        } catch (error) {
+            console.error('Error uploading client photos:', error);
+            return { error: 'network' };
+        }
+    },
+    deletePhoto: async (id, photoId) => _clientDelete(`${id}/photos/${photoId}`)
 };
+
+async function _clientGet(path, fallback) {
+    try {
+        const r = await fetch(`${API_BASE}/clients/${path}`);
+        if (!r.ok) return fallback;
+        return await r.json();
+    } catch (e) { console.error('client GET', path, e); return fallback; }
+}
+async function _clientPost(path, body) {
+    try {
+        const r = await fetch(`${API_BASE}/clients/${path}`, {
+            method: 'POST', headers: getSecureHeaders(), body: JSON.stringify(body)
+        });
+        return r.ok ? await r.json() : null;
+    } catch (e) { console.error('client POST', path, e); return null; }
+}
+async function _clientPut(path, body) {
+    try {
+        const r = await fetch(`${API_BASE}/clients/${path}`, {
+            method: 'PUT', headers: getSecureHeaders(), body: JSON.stringify(body)
+        });
+        return r.ok ? await r.json() : null;
+    } catch (e) { console.error('client PUT', path, e); return null; }
+}
+async function _clientDelete(path) {
+    try {
+        const r = await fetch(`${API_BASE}/clients/${path}`, { method: 'DELETE', headers: getCsrfOnlyHeaders() });
+        return r.ok;
+    } catch (e) { console.error('client DELETE', path, e); return false; }
+}
+async function _clientAction(id, action) {
+    try {
+        const r = await fetch(`${API_BASE}/clients/${id}/${action}`, {
+            method: 'PUT', headers: getCsrfOnlyHeaders()
+        });
+        return r.ok ? await r.json() : null;
+    } catch (e) { console.error('client action', action, e); return null; }
+}
 
 // ====== SERVICES API ======
 const ServiceAPI = {
@@ -360,6 +438,53 @@ const OrderAPI = {
             return await response.json();
         } catch (error) {
             console.error('Error updating order status:', error);
+            return null;
+        }
+    },
+
+    // Добавить позицию (услугу / разовую работу) в заказ
+    addLine: async (id, line) => {
+        try {
+            const response = await fetch(`${API_BASE}/orders/${id}/lines`, {
+                method: 'POST',
+                headers: getSecureHeaders(),
+                body: JSON.stringify(line)
+            });
+            if (!response.ok) return null;
+            return await response.json();
+        } catch (error) {
+            console.error('Error adding order line:', error);
+            return null;
+        }
+    },
+
+    // Изменить позицию заказа
+    updateLine: async (id, lineId, line) => {
+        try {
+            const response = await fetch(`${API_BASE}/orders/${id}/lines/${lineId}`, {
+                method: 'PUT',
+                headers: getSecureHeaders(),
+                body: JSON.stringify(line)
+            });
+            if (!response.ok) return null;
+            return await response.json();
+        } catch (error) {
+            console.error('Error updating order line:', error);
+            return null;
+        }
+    },
+
+    // Удалить позицию из заказа
+    deleteLine: async (id, lineId) => {
+        try {
+            const response = await fetch(`${API_BASE}/orders/${id}/lines/${lineId}`, {
+                method: 'DELETE',
+                headers: getCsrfOnlyHeaders()
+            });
+            if (!response.ok) return null;
+            return await response.json();
+        } catch (error) {
+            console.error('Error deleting order line:', error);
             return null;
         }
     },

@@ -82,6 +82,11 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -100,5 +105,20 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- Запуск без MariaDB: встроенная файловая H2 (offline / demo).
+             mvn spring-boot:run -Ph2 -Dspring-boot.run.profiles=h2 -->
+        <profile>
+            <id>h2</id>
+            <dependencies>
+                <dependency>
+                    <groupId>com.h2database</groupId>
+                    <artifactId>h2</artifactId>
+                    <scope>runtime</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
 </project>
 

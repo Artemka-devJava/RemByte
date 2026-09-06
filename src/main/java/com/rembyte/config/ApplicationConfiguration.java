@@ -5,6 +5,7 @@ import com.rembyte.repository.CategoryRepository;
 import com.rembyte.service.AppUserService;
 import com.rembyte.service.ChatService;
 import com.rembyte.service.LegacyAttachmentMigrationService;
+import com.rembyte.service.OrderLineMigrationService;
 import com.rembyte.service.RepairServiceService;
 import com.rembyte.service.KanbanService;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,6 +23,7 @@ public class ApplicationConfiguration {
     private final AppUserService userService;
     private final CategoryRepository categoryRepository;
     private final LegacyAttachmentMigrationService legacyAttachmentMigrationService;
+    private final OrderLineMigrationService orderLineMigrationService;
     private final ChatService chatService;
     private final KanbanService kanbanService;
 
@@ -38,12 +40,14 @@ public class ApplicationConfiguration {
                                      AppUserService userService,
                                      CategoryRepository categoryRepository,
                                      LegacyAttachmentMigrationService legacyAttachmentMigrationService,
+                                     OrderLineMigrationService orderLineMigrationService,
                                      ChatService chatService,
                                      KanbanService kanbanService) {
         this.serviceService    = serviceService;
         this.userService       = userService;
         this.categoryRepository = categoryRepository;
         this.legacyAttachmentMigrationService = legacyAttachmentMigrationService;
+        this.orderLineMigrationService = orderLineMigrationService;
         this.chatService = chatService;
         this.kanbanService = kanbanService;
     }
@@ -70,6 +74,9 @@ public class ApplicationConfiguration {
 
             // Миграция старых файлов-вложений в БД
             legacyAttachmentMigrationService.migrateOnStartup();
+
+            // Миграция состава заказов order_services -> order_lines
+            orderLineMigrationService.migrateOnStartup();
 
             // Конфигурация встроенного чата
             chatService.initializeDefaultWidgetSite();

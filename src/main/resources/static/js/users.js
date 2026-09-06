@@ -63,8 +63,8 @@ function openCreateUserModal() {
     document.getElementById('uUsername').disabled = false;
     document.getElementById('uEnabledGroup').style.display = 'none';
     document.getElementById('uPasswordHint').textContent = '(обязательно при создании)';
-    document.getElementById('uModal' || 'userModal').style.display = 'block';
     document.getElementById('userModal').style.display = 'block';
+    setTimeout(() => document.getElementById('uUsername')?.focus(), 50);
 }
 
 // ===== РЕДАКТИРОВАТЬ =====

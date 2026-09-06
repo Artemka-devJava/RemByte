@@ -89,10 +89,6 @@
           <span class="order-detail-value" id="vOrderDevice">—</span>
         </div>
         <div class="order-detail-row">
-          <span class="order-detail-label">Услуги</span>
-          <span class="order-detail-value" id="vOrderServices">—</span>
-        </div>
-        <div class="order-detail-row">
           <span class="order-detail-label">Заметки</span>
           <span class="order-detail-value" id="vOrderNotes">—</span>
         </div>
@@ -115,6 +111,16 @@
       </div>
 
       <hr class="order-detail-divider">
+
+      <!-- Состав заказа -->
+      <div class="form-group">
+        <label style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--c-muted);">Состав заказа:</label>
+        <div id="vOrderLines" class="order-lines"></div>
+        <div class="combo" id="vServiceCombo" style="margin-top:8px;">
+          <input type="text" id="vServiceSearch" placeholder="➕ Добавить услугу в заказ…">
+          <div id="vServiceComboMenu" class="combo-menu" hidden></div>
+        </div>
+      </div>
 
       <!-- Смена статуса -->
       <div class="form-group">
@@ -186,30 +192,37 @@
       <form id="createOrderForm" onsubmit="submitOrder(event)">
         <div class="form-group">
           <label>Клиент:</label>
-          <select id="clientSelect" required>
-            <option value="">Выберите клиента...</option>
-          </select>
+          <div class="combo" id="clientCombo">
+            <input type="text" id="clientSearch" placeholder="Начните вводить имя или телефон…">
+            <div id="clientComboMenu" class="combo-menu" hidden></div>
+          </div>
+          <input type="hidden" id="clientId">
+          <div id="clientChosen" class="combo-chosen" hidden></div>
+          <div id="clientCreateBox" class="inline-create" hidden>
+            <div class="inline-create-grid">
+              <input type="text" id="newClientName" placeholder="ФИО / организация" maxlength="160">
+              <input type="tel" id="newClientPhone" placeholder="Телефон" maxlength="40">
+            </div>
+            <div class="inline-create-actions">
+              <button type="button" class="btn btn-sm btn-primary" onclick="confirmCreateClient()">Создать и выбрать</button>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="cancelCreateClient()">Отмена</button>
+            </div>
+          </div>
         </div>
         <div class="form-group">
           <label>Описание устройства и проблемы:</label>
           <textarea id="deviceDescription" required placeholder="Ноутбук Dell, не включается..."></textarea>
         </div>
         <div class="form-group">
-          <label>Услуги:</label>
-          <div id="servicesCheckbox"></div>
-        </div>
-        <div class="form-group quick-service-box">
-          <label>Быстро добавить новую услугу:</label>
-          <div class="quick-service-grid">
-            <input type="text" id="quickServiceName" placeholder="Название услуги" maxlength="120">
-            <input type="number" id="quickServicePrice" placeholder="Цена, ₽" min="0" step="100">
+          <label>Услуги и работы:</label>
+          <div class="combo" id="serviceCombo">
+            <input type="text" id="serviceSearch" placeholder="Найдите услугу или впишите свою…">
+            <div id="serviceComboMenu" class="combo-menu" hidden></div>
           </div>
-          <div class="quick-service-grid quick-service-grid-bottom">
-            <input type="text" id="quickServiceCategory" placeholder="Категория (например: BGA)" list="serviceCategoryOptions" maxlength="80">
-            <input type="text" id="quickServiceDescription" placeholder="Короткое описание (необязательно)" maxlength="255">
-          </div>
-          <datalist id="serviceCategoryOptions"></datalist>
-          <button class="btn btn-secondary" type="button" onclick="createServiceFromOrderForm()">➕ Добавить услугу в справочник и заказ</button>
+          <div id="orderLines" class="order-lines"></div>
+          <label class="order-lines-catalog-toggle">
+            <input type="checkbox" id="saveNewToCatalog"> Новые позиции сохранять в справочник услуг
+          </label>
         </div>
         <div class="form-group">
           <label>Заметки:</label>
@@ -375,6 +388,7 @@
 <script>const IS_ADMIN = !!document.getElementById('adminMarker');</script>
 <th:block th:replace="~{fragments/common-scripts :: uiBase}"></th:block>
 <script src="/js/api.js"></script>
+<script src="/js/combobox.js"></script>
 <script src="/js/orders.js"></script>
 </body>
 </html>

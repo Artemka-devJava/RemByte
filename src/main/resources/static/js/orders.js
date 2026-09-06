@@ -3,10 +3,19 @@
  */
 
 let allOrders   = [];
-let allClients  = [];
 let allServices = [];
 let currentViewOrderId = null; // ID заказа в модале просмотра
 let currentViewOrder   = null; // полный объект заказа для чека
+
+// Состав нового/редактируемого заказа: [{ tempId, serviceId|null, name, unitPrice, quantity }]
+let orderLines = [];
+let lineTempSeq = 0;
+
+// Autocomplete-контроллеры
+let clientAc = null;
+let serviceAc = null;
+let viewServiceAc = null;
+
 const pendingAttachmentFiles = {
     createAttachmentFiles: [],
     vAttachmentFiles: []
@@ -37,8 +46,10 @@ function loadReceiptSettings() {
 
 document.addEventListener('DOMContentLoaded', () => {
     loadOrders();
-    loadClientsForSelect();
     loadServicesForSelect();
+    setupClientAutocomplete();
+    setupServiceAutocomplete();
+    setupViewServiceAutocomplete();
 
     const searchInput = document.getElementById('searchOrder');
     if (searchInput) {
@@ -47,6 +58,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initAttachmentInputAndDropzone('createAttachmentFiles', 'createAttachmentFilesList', 'createAttachmentDropzone');
     initAttachmentInputAndDropzone('vAttachmentFiles', 'vAttachmentFilesList', 'vAttachmentDropzone');
+
+    // Открыть форму нового заказа сразу, если пришли по /orders?new=1
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('new')) {
+        openCreateOrderForm();
+        const clientId = params.get('clientId');
+        if (clientId) {
+            ClientAPI.getById(clientId).then(c => { if (c && c.id) selectClient(c); });
+        }
+    }
+    // Открыть конкретный заказ: /orders?open=<id>
+    const openId = params.get('open');
+    if (openId) viewOrder(Number(openId));
 });
 
 // ===== ЗАГРУЗКА =====
@@ -62,26 +86,10 @@ async function loadOrders() {
     }
 }
 
-async function loadClientsForSelect() {
-    try {
-        const clients = await ClientAPI.getActive();
-        allClients = clients;
-        const select = document.getElementById('clientSelect');
-        if (select) {
-            select.innerHTML = '<option value="">Выберите клиента...</option>' +
-                clients.map(c => `<option value="${c.id}">${c.name} (${c.phone})</option>`).join('');
-        }
-    } catch (error) {
-        console.error('Error loading clients:', error);
-    }
-}
-
 async function loadServicesForSelect() {
     try {
         const services = await ServiceAPI.getActive();
-        allServices = services;
-        renderServicesCheckbox(services);
-        refreshServiceCategoryOptions();
+        allServices = Array.isArray(services) ? services : [];
         applyCalculatorPreSelection();  // предзаполнить из калькулятора, если пришли оттуда
     } catch (error) {
         console.error('Error loading services:', error);
@@ -119,6 +127,286 @@ function renderOrdersTable(orders) {
     }).join('');
 }
 
+// ============================================================
+//  ВЫБОР КЛИЕНТА (поиск + создание на месте)
+// ============================================================
+
+function setupClientAutocomplete() {
+    const input = document.getElementById('clientSearch');
+    const menu  = document.getElementById('clientComboMenu');
+    if (!input || !menu || !window.Autocomplete) return;
+
+    clientAc = Autocomplete.attach(input, {
+        menu,
+        minChars: 0,
+        emptyText: 'Ничего не найдено — можно создать нового',
+        getItems: async (query) => {
+            const list = query
+                ? await ClientAPI.search(query)
+                : await ClientAPI.getActive();
+            return (list || []).slice(0, 20).map(c => ({
+                id: c.id,
+                label: c.name,
+                sublabel: c.phone || '',
+                data: c
+            }));
+        },
+        footer: (query) => query
+            ? [{ id: '__create__', label: `➕ Создать клиента «${query}»`, kind: 'action', data: query }]
+            : [],
+        onSelect: (item) => {
+            if (item.id === '__create__') {
+                startCreateClient(item.data);
+            } else {
+                selectClient(item.data);
+            }
+            clientAc.close();
+        }
+    });
+}
+
+function selectClient(client) {
+    document.getElementById('clientId').value = client.id;
+    const box = document.getElementById('clientChosen');
+    box.innerHTML =
+        `<strong>${escHtml(client.name)}</strong>` +
+        (client.phone ? `<span class="combo-chosen-phone">· ${escHtml(client.phone)}</span>` : '') +
+        `<button type="button" title="Сбросить" onclick="clearClient()">&times;</button>`;
+    box.hidden = false;
+
+    document.getElementById('clientSearch').value = '';
+    document.getElementById('clientSearch').hidden = true;
+    document.getElementById('clientCreateBox').hidden = true;
+}
+
+function clearClient() {
+    document.getElementById('clientId').value = '';
+    document.getElementById('clientChosen').hidden = true;
+    const search = document.getElementById('clientSearch');
+    search.hidden = false;
+    search.value = '';
+    search.focus();
+}
+
+function startCreateClient(prefillName) {
+    const box = document.getElementById('clientCreateBox');
+    box.hidden = false;
+    const nameEl = document.getElementById('newClientName');
+    const phoneEl = document.getElementById('newClientPhone');
+    // Если запрос похож на телефон — кладём его в поле телефона, иначе в имя
+    if (/^[\d\s()+-]{4,}$/.test(prefillName || '')) {
+        phoneEl.value = prefillName;
+        nameEl.value = '';
+        nameEl.focus();
+    } else {
+        nameEl.value = prefillName || '';
+        phoneEl.value = '';
+        phoneEl.focus();
+    }
+    if (clientAc) clientAc.close();
+}
+
+function cancelCreateClient() {
+    document.getElementById('clientCreateBox').hidden = true;
+    document.getElementById('newClientName').value = '';
+    document.getElementById('newClientPhone').value = '';
+}
+
+async function confirmCreateClient() {
+    const name  = document.getElementById('newClientName').value.trim();
+    const phone = document.getElementById('newClientPhone').value.trim();
+
+    if (!name)  { showNotification('Введите имя клиента', 'warning'); document.getElementById('newClientName').focus(); return; }
+    if (!phone) { showNotification('Введите телефон клиента', 'warning'); document.getElementById('newClientPhone').focus(); return; }
+
+    const created = await ClientAPI.create({ name, phone, isActive: true });
+
+    if (created && created.id) {
+        showNotification('Клиент создан', 'success');
+        cancelCreateClient();
+        selectClient(created);
+        return;
+    }
+
+    // Дубль по телефону — сервер вернул существующую карточку.
+    if (created && created.duplicate && created.existing) {
+        showNotification('Клиент с этим телефоном уже есть — выбран существующий', 'info');
+        cancelCreateClient();
+        selectClient(created.existing);
+        return;
+    }
+
+    showNotification('Не удалось создать клиента', 'error');
+}
+
+// ============================================================
+//  СОСТАВ ЗАКАЗА (поиск услуг + строки)
+// ============================================================
+
+function serviceItemsForQuery(query) {
+    const q = (query || '').toLowerCase().trim();
+    const matched = allServices
+        .filter(s => !q
+            || (s.name || '').toLowerCase().includes(q)
+            || (s.category || '').toLowerCase().includes(q))
+        .sort((a, b) => (a.category || 'Прочее').localeCompare(b.category || 'Прочее', 'ru')
+            || (a.name || '').localeCompare(b.name || '', 'ru'));
+
+    return matched.slice(0, 40).map(s => ({
+        id: s.id,
+        label: s.name,
+        sublabel: formatCurrency(s.basePrice),
+        group: s.category || 'Прочее',
+        data: s
+    }));
+}
+
+function setupServiceAutocomplete() {
+    const input = document.getElementById('serviceSearch');
+    const menu  = document.getElementById('serviceComboMenu');
+    if (!input || !menu || !window.Autocomplete) return;
+
+    serviceAc = Autocomplete.attach(input, {
+        menu,
+        minChars: 0,
+        emptyText: 'Нет такой услуги — впишите название и нажмите Enter',
+        getItems: (query) => serviceItemsForQuery(query),
+        footer: (query) => {
+            const q = query.trim();
+            if (!q) return [];
+            const exact = allServices.some(s => (s.name || '').toLowerCase() === q.toLowerCase());
+            return exact ? [] : [{ id: '__oneoff__', label: `➕ Разовая услуга «${q}»`, kind: 'action', data: q }];
+        },
+        onSelect: (item) => {
+            if (item.id === '__oneoff__') {
+                addOneOffLine(item.data);
+            } else {
+                addCatalogLine(item.data);
+            }
+            input.value = '';
+            serviceAc.close();
+            input.focus();
+        }
+    });
+}
+
+function addCatalogLine(service) {
+    const existing = orderLines.find(l => l.serviceId === service.id);
+    if (existing) {
+        existing.quantity += 1;
+    } else {
+        orderLines.push({
+            tempId: ++lineTempSeq,
+            serviceId: service.id,
+            name: service.name,
+            unitPrice: Number(service.basePrice) || 0,
+            quantity: 1
+        });
+    }
+    renderOrderLines();
+}
+
+function addOneOffLine(name) {
+    orderLines.push({
+        tempId: ++lineTempSeq,
+        serviceId: null,
+        name: name,
+        unitPrice: 0,
+        quantity: 1
+    });
+    renderOrderLines();
+    // Фокус на цену только что добавленной строки
+    const last = document.querySelector('#orderLines .order-line:last-child input[data-field="price"]');
+    if (last) { last.focus(); last.select(); }
+}
+
+function renderOrderLines() {
+    const box = document.getElementById('orderLines');
+    if (!box) return;
+
+    if (orderLines.length === 0) {
+        box.innerHTML = '<div class="order-lines-empty">Позиции не добавлены. Найдите услугу выше или впишите свою.</div>';
+        updateOrderTotal();
+        return;
+    }
+
+    box.innerHTML = orderLines.map(line => `
+        <div class="order-line" data-temp="${line.tempId}">
+            <span class="order-line-name" title="${escHtml(line.name)}">
+                ${line.serviceId ? '' : '<span class="order-line-oneoff">разовая</span>'}${escHtml(line.name)}
+            </span>
+            <input type="number" data-field="price" min="0" step="50" value="${line.unitPrice}" aria-label="Цена">
+            <span class="order-line-qty">
+                <input type="number" data-field="qty" min="1" step="1" value="${line.quantity}" aria-label="Количество">
+            </span>
+            <button type="button" class="order-line-del" title="Убрать" onclick="removeOrderLine(${line.tempId})">🗑</button>
+        </div>
+    `).join('');
+
+    box.querySelectorAll('.order-line').forEach(row => {
+        const tempId = Number(row.dataset.temp);
+        const line = orderLines.find(l => l.tempId === tempId);
+        if (!line) return;
+        row.querySelector('[data-field="price"]').addEventListener('input', e => {
+            line.unitPrice = Math.max(0, Number(e.target.value) || 0);
+            updateOrderTotal();
+        });
+        row.querySelector('[data-field="qty"]').addEventListener('input', e => {
+            line.quantity = Math.max(1, Math.floor(Number(e.target.value) || 1));
+            updateOrderTotal();
+        });
+    });
+
+    updateOrderTotal();
+}
+
+function removeOrderLine(tempId) {
+    orderLines = orderLines.filter(l => l.tempId !== tempId);
+    renderOrderLines();
+}
+
+function computeOrderTotal() {
+    return orderLines.reduce((sum, l) => sum + (Number(l.unitPrice) || 0) * (Number(l.quantity) || 1), 0);
+}
+
+function updateOrderTotal() {
+    const el = document.getElementById('orderTotalPrice');
+    if (el) el.textContent = formatCurrency(computeOrderTotal());
+}
+
+/** Собрать состав заказа для отправки; при необходимости — записать новые позиции в справочник. */
+async function buildLinesPayload() {
+    const saveToCatalog = document.getElementById('saveNewToCatalog')?.checked;
+    const payload = [];
+
+    for (const line of orderLines) {
+        let serviceId = line.serviceId;
+
+        if (!serviceId && saveToCatalog && line.name.trim()) {
+            const created = await ServiceAPI.create({
+                name: line.name.trim(),
+                basePrice: Number(line.unitPrice) || 0,
+                category: 'Прочее',
+                description: null,
+                isActive: true
+            });
+            if (created && created.id) {
+                serviceId = created.id;
+                allServices.push(created);
+            }
+        }
+
+        payload.push({
+            service: serviceId ? { id: serviceId } : null,
+            name: line.name.trim() || 'Позиция',
+            unitPrice: Number(line.unitPrice) || 0,
+            quantity: Math.max(1, Math.floor(Number(line.quantity) || 1))
+        });
+    }
+
+    return payload;
+}
+
 // ===== ПРОСМОТР ЗАКАЗА (МОДАЛ С ВОЗМОЖНОСТЬЮ МЕНЯТЬ СТАТУС) =====
 
 async function viewOrder(id) {
@@ -128,21 +416,18 @@ async function viewOrder(id) {
     currentViewOrderId = id;
     currentViewOrder   = order;
 
-    // Показать / скрыть кнопку «Напечатать чек»
     togglePrintReceiptBtn(order.status === 'COMPLETED');
 
-    // Заполнить поля детали
     document.getElementById('vOrderNumber').textContent  = order.orderNumber;
     document.getElementById('vOrderClient').textContent  = order.client
         ? `${order.client.name} ${order.client.phone ? '· ' + order.client.phone : ''}`
         : '—';
     document.getElementById('vOrderDevice').textContent  = order.deviceDescription || '—';
-    document.getElementById('vOrderServices').innerHTML  = order.services && order.services.length
-        ? order.services.map(s => `<span class="status-badge status-new" style="margin:2px;">${s.name}</span>`).join('')
-        : '—';
     document.getElementById('vOrderNotes').textContent   = order.notes || '—';
     document.getElementById('vOrderTotal').textContent   = formatCurrency(order.totalPrice);
     document.getElementById('vOrderPaid').textContent    = formatCurrency(order.paidAmount);
+
+    renderViewOrderLines(order);
 
     const balance = (order.totalPrice || 0) - (order.paidAmount || 0);
     const balEl = document.getElementById('vOrderBalance');
@@ -158,14 +443,109 @@ async function viewOrder(id) {
     renderSelectedFileList('vAttachmentFiles', 'vAttachmentFilesList');
     resetUploadProgress('view');
 
-    // Установить текущий статус в select
     const statusSelect = document.getElementById('vOrderStatus');
     statusSelect.value = order.status || 'NEW';
-
-    // Сбросить поле оплаты
     document.getElementById('vPaymentAmount').value = '';
+    const vsearch = document.getElementById('vServiceSearch');
+    if (vsearch) vsearch.value = '';
 
     document.getElementById('viewOrderModal').style.display = 'block';
+}
+
+function renderViewOrderLines(order) {
+    const box = document.getElementById('vOrderLines');
+    if (!box) return;
+    const lines = Array.isArray(order.lines) ? order.lines : [];
+
+    if (lines.length === 0) {
+        box.innerHTML = '<div class="order-lines-empty">Пока без услуг</div>';
+        return;
+    }
+
+    box.innerHTML = lines.map(l => `
+        <div class="order-line" style="grid-template-columns:1fr auto 40px;">
+            <span class="order-line-name" title="${escHtml(l.name)}">
+                ${l.serviceId ? '' : '<span class="order-line-oneoff">разовая</span>'}${escHtml(l.name)}
+            </span>
+            <span style="font-size:13px;color:var(--c-muted);white-space:nowrap;">
+                ${l.quantity > 1 ? l.quantity + ' × ' : ''}${formatCurrency(l.unitPrice)} = <strong style="color:var(--c-text);">${formatCurrency(l.lineTotal)}</strong>
+            </span>
+            <button type="button" class="order-line-del" title="Убрать из заказа" onclick="deleteLineFromOpenOrder(${l.id})">🗑</button>
+        </div>
+    `).join('');
+}
+
+function setupViewServiceAutocomplete() {
+    const input = document.getElementById('vServiceSearch');
+    const menu  = document.getElementById('vServiceComboMenu');
+    if (!input || !menu || !window.Autocomplete) return;
+
+    viewServiceAc = Autocomplete.attach(input, {
+        menu,
+        minChars: 0,
+        emptyText: 'Нет такой услуги — впишите название и нажмите Enter',
+        getItems: (query) => serviceItemsForQuery(query),
+        footer: (query) => {
+            const q = query.trim();
+            if (!q) return [];
+            const exact = allServices.some(s => (s.name || '').toLowerCase() === q.toLowerCase());
+            return exact ? [] : [{ id: '__oneoff__', label: `➕ Разовая услуга «${q}»`, kind: 'action', data: q }];
+        },
+        onSelect: async (item) => {
+            input.value = '';
+            viewServiceAc.close();
+            if (item.id === '__oneoff__') {
+                await addLineToOpenOrder({ service: null, name: item.data, unitPrice: 0, quantity: 1 });
+            } else {
+                await addLineToOpenOrder({
+                    service: { id: item.data.id },
+                    name: item.data.name,
+                    unitPrice: Number(item.data.basePrice) || 0,
+                    quantity: 1
+                });
+            }
+        }
+    });
+}
+
+async function addLineToOpenOrder(linePayload) {
+    if (!currentViewOrderId) return;
+    const updated = await OrderAPI.addLine(currentViewOrderId, linePayload);
+    if (updated && updated.id) {
+        currentViewOrder = updated;
+        afterOpenOrderLinesChanged(updated);
+        showNotification('Услуга добавлена в заказ', 'success');
+    } else {
+        showNotification('Не удалось добавить услугу', 'error');
+    }
+}
+
+async function deleteLineFromOpenOrder(lineId) {
+    if (!currentViewOrderId || !lineId) return;
+    const updated = await OrderAPI.deleteLine(currentViewOrderId, lineId);
+    if (updated && updated.id) {
+        currentViewOrder = updated;
+        afterOpenOrderLinesChanged(updated);
+        showNotification('Позиция убрана', 'success');
+    } else {
+        showNotification('Не удалось убрать позицию', 'error');
+    }
+}
+
+function afterOpenOrderLinesChanged(order) {
+    renderViewOrderLines(order);
+    document.getElementById('vOrderTotal').textContent = formatCurrency(order.totalPrice);
+    const balance = (order.totalPrice || 0) - (order.paidAmount || 0);
+    const balEl = document.getElementById('vOrderBalance');
+    balEl.textContent = formatCurrency(balance);
+    balEl.style.color = balance > 0 ? 'var(--c-danger)' : 'var(--c-success)';
+
+    const idx = allOrders.findIndex(o => o.id === order.id);
+    if (idx !== -1) {
+        allOrders[idx].totalPrice = order.totalPrice;
+        allOrders[idx].lines = order.lines;
+    }
+    renderOrdersTable(applyCurrentFilter());
 }
 
 function closeViewOrderModal() {
@@ -188,7 +568,6 @@ async function saveOrderStatus() {
         if (result && result.id) {
             showNotification(`Статус изменён: ${STATUS_LABELS[newStatus] || newStatus}`, 'success');
             togglePrintReceiptBtn(newStatus === 'COMPLETED');
-            // Обновить currentViewOrder и объект в массиве
             if (currentViewOrder) currentViewOrder.status = newStatus;
             const idx = allOrders.findIndex(o => o.id === currentViewOrderId);
             if (idx !== -1) { allOrders[idx].status = newStatus; }
@@ -216,13 +595,11 @@ async function addPaymentFromModal() {
         if (result && result.id) {
             showNotification(`Оплата ${formatCurrency(amount)} добавлена`, 'success');
             document.getElementById('vPaymentAmount').value = '';
-            // Обновить отображение в модале
             document.getElementById('vOrderPaid').textContent = formatCurrency(result.paidAmount);
             const balance = (result.totalPrice || 0) - (result.paidAmount || 0);
             const balEl = document.getElementById('vOrderBalance');
             balEl.textContent = formatCurrency(balance);
             balEl.style.color = balance > 0 ? 'var(--c-danger)' : 'var(--c-success)';
-            // Обновить в массиве
             const idx = allOrders.findIndex(o => o.id === currentViewOrderId);
             if (idx !== -1) { allOrders[idx].paidAmount = result.paidAmount; }
             renderOrdersTable(applyCurrentFilter());
@@ -235,7 +612,6 @@ async function addPaymentFromModal() {
     }
 }
 
-// Перейти к редактированию из модала просмотра
 function openEditFromView() {
     const id = currentViewOrderId;
     closeViewOrderModal();
@@ -255,20 +631,36 @@ function applyCurrentFilter() {
     return result;
 }
 
-// ===== СОЗДАНИЕ ЗАКАЗА =====
+// ===== СОЗДАНИЕ / РЕДАКТИРОВАНИЕ ЗАКАЗА =====
 
-function openCreateOrderForm() {
-    document.getElementById('orderModalTitle').textContent = '➕ Новый заказ';
-    document.getElementById('createOrderModal').style.display = 'block';
-    document.getElementById('createOrderForm').reset();
+function resetOrderForm() {
+    const form = document.getElementById('createOrderForm');
+    form.reset();
+    delete form.dataset.editingId;
+
+    document.getElementById('clientId').value = '';
+    document.getElementById('clientChosen').hidden = true;
+    document.getElementById('clientSearch').hidden = false;
+    document.getElementById('clientSearch').value = '';
+    cancelCreateClient();
+
+    orderLines = [];
+    renderOrderLines();
+    const saveToggle = document.getElementById('saveNewToCatalog');
+    if (saveToggle) saveToggle.checked = false;
+
     const attachmentInput = document.getElementById('createAttachmentFiles');
     if (attachmentInput) attachmentInput.value = '';
     clearPendingFiles('createAttachmentFiles');
     renderSelectedFileList('createAttachmentFiles', 'createAttachmentFilesList');
     resetUploadProgress('create');
-    resetQuickServiceForm();
-    document.getElementById('createOrderForm').onsubmit = submitOrder;
-    updateOrderPrice();
+}
+
+function openCreateOrderForm() {
+    resetOrderForm();
+    document.getElementById('orderModalTitle').textContent = '➕ Новый заказ';
+    document.getElementById('createOrderModal').style.display = 'block';
+    setTimeout(() => document.getElementById('clientSearch')?.focus(), 50);
 }
 
 function closeCreateOrderForm() {
@@ -276,93 +668,80 @@ function closeCreateOrderForm() {
     clearPendingFiles('createAttachmentFiles');
     renderSelectedFileList('createAttachmentFiles', 'createAttachmentFilesList');
     resetUploadProgress('create');
-    resetQuickServiceForm();
+    cancelCreateClient();
 }
 
 async function submitOrder(event) {
     event.preventDefault();
-    const clientId = document.getElementById('clientSelect').value;
-    const deviceDescription = document.getElementById('deviceDescription').value;
-    const notes = document.getElementById('orderNotes').value;
-    const selectedServices = Array.from(document.querySelectorAll('#servicesCheckbox input[type="checkbox"]:checked'))
-        .map(cb => allServices.find(s => Number(s.id) === Number(cb.value))).filter(Boolean);
 
-    const orderData = {
+    const form = document.getElementById('createOrderForm');
+    const editingId = form.dataset.editingId;
+
+    const clientId = document.getElementById('clientId').value;
+    if (!clientId) { showNotification('Выберите или создайте клиента', 'warning'); return; }
+
+    const deviceDescription = document.getElementById('deviceDescription').value.trim();
+    if (!deviceDescription) { showNotification('Опишите устройство и проблему', 'warning'); return; }
+
+    const notes = document.getElementById('orderNotes').value.trim();
+    const lines = await buildLinesPayload();
+
+    const basePayload = {
         client: { id: clientId },
         deviceDescription,
         notes: notes || null,
-        services: selectedServices,
-        status: 'NEW',
-        totalPrice: selectedServices.reduce((sum, s) => sum + s.basePrice, 0),
-        paidAmount: 0
+        lines
     };
 
     try {
-        const result = await OrderAPI.create(orderData);
-        if (result && result.id) {
-            await uploadOrderFiles(result.id, 'createAttachmentFiles');
-            showNotification('Заказ создан успешно!', 'success');
-            closeCreateOrderForm();
-            loadOrders();
+        if (editingId) {
+            const result = await OrderAPI.update(editingId, basePayload);
+            if (result && result.id) {
+                await uploadOrderFiles(editingId, 'createAttachmentFiles');
+                showNotification('Заказ обновлён!', 'success');
+                closeCreateOrderForm();
+                loadOrders();
+            } else {
+                showNotification('Ошибка при обновлении заказа', 'error');
+            }
         } else {
-            showNotification('Ошибка при создании заказа', 'error');
+            const result = await OrderAPI.create({ ...basePayload, status: 'NEW', paidAmount: 0 });
+            if (result && result.id) {
+                await uploadOrderFiles(result.id, 'createAttachmentFiles');
+                showNotification('Заказ создан успешно!', 'success');
+                closeCreateOrderForm();
+                loadOrders();
+            } else {
+                showNotification('Ошибка при создании заказа', 'error');
+            }
         }
     } catch (error) {
-        console.error('Error:', error);
-        showNotification('Ошибка при создании заказа', 'error');
+        console.error('Error saving order:', error);
+        showNotification('Ошибка при сохранении заказа', 'error');
     }
 }
-
-// ===== РЕДАКТИРОВАТЬ ЗАКАЗ =====
 
 async function editOrder(id) {
     const order = await OrderAPI.getById(id);
     if (!order) { showNotification('Заказ не найден', 'error'); return; }
 
+    resetOrderForm();
+    document.getElementById('createOrderForm').dataset.editingId = String(id);
     document.getElementById('orderModalTitle').textContent = `✏️ Редактирование заказа ${order.orderNumber}`;
     document.getElementById('createOrderModal').style.display = 'block';
-    document.getElementById('clientSelect').value = order.client?.id || '';
+
+    if (order.client) selectClient(order.client);
     document.getElementById('deviceDescription').value = order.deviceDescription || '';
     document.getElementById('orderNotes').value = order.notes || '';
-    const attachmentInput = document.getElementById('createAttachmentFiles');
-    if (attachmentInput) attachmentInput.value = '';
-    clearPendingFiles('createAttachmentFiles');
-    renderSelectedFileList('createAttachmentFiles', 'createAttachmentFilesList');
-    resetUploadProgress('create');
 
-    // Отметить услуги
-    const checkboxes = document.querySelectorAll('#servicesCheckbox input[type="checkbox"]');
-    checkboxes.forEach(cb => {
-        cb.checked = order.services?.some(s => s.id === parseInt(cb.value)) || false;
-    });
-
-    updateOrderPrice();
-
-    document.getElementById('createOrderForm').onsubmit = async (event) => {
-        event.preventDefault();
-        const selectedServices = Array.from(document.querySelectorAll('#servicesCheckbox input[type="checkbox"]:checked'))
-            .map(cb => allServices.find(s => Number(s.id) === Number(cb.value))).filter(Boolean);
-
-        const updatedData = {
-            ...order,
-            client: { id: document.getElementById('clientSelect').value },
-            deviceDescription: document.getElementById('deviceDescription').value,
-            notes: document.getElementById('orderNotes').value || null,
-            services: selectedServices,
-            totalPrice: selectedServices.reduce((sum, s) => sum + s.basePrice, 0),
-        };
-
-        const result = await OrderAPI.update(id, updatedData);
-        if (result && result.id) {
-            await uploadOrderFiles(id, 'createAttachmentFiles');
-            showNotification('Заказ обновлён!', 'success');
-            closeCreateOrderForm();
-            loadOrders();
-            document.getElementById('createOrderForm').onsubmit = submitOrder;
-        } else {
-            showNotification('Ошибка при обновлении заказа', 'error');
-        }
-    };
+    orderLines = (order.lines || []).map(l => ({
+        tempId: ++lineTempSeq,
+        serviceId: l.serviceId || null,
+        name: l.name,
+        unitPrice: Number(l.unitPrice) || 0,
+        quantity: Math.max(1, Number(l.quantity) || 1)
+    }));
+    renderOrderLines();
 }
 
 // ===== ПОИСК И ФИЛЬТР =====
@@ -374,154 +753,6 @@ function searchOrders() {
 function filterOrders() {
     renderOrdersTable(applyCurrentFilter());
 }
-
-// ===== СЕРВИСЫ ЧЕКБОКС =====
-
-const CATEGORY_ICONS = {
-    'Диагностика':'🔍','Ремонт':'🔧','Чистка':'🧹','Замена':'🔄',
-    'Установка':'💿','Обслуживание':'⚙️','Данные':'💾','Прочее':'📦'
-};
-
-function getCategoryIcon(name) {
-    for (const [k, v] of Object.entries(CATEGORY_ICONS)) {
-        if (name && name.toLowerCase().includes(k.toLowerCase())) return v;
-    }
-    return '🛠️';
-}
-
-function detectCategory(service) {
-    const n = (service.name || '').toLowerCase();
-    if (n.includes('диагност'))    return 'Диагностика';
-    if (n.includes('чист'))        return 'Чистка';
-    if (n.includes('замен'))       return 'Замена';
-    if (n.includes('установ') || n.includes('инстал')) return 'Установка';
-    if (n.includes('восстан') || n.includes('данн') || n.includes('резерв')) return 'Данные';
-    if (n.includes('ремонт') || n.includes('пайк') || n.includes('плат')) return 'Ремонт';
-    if (n.includes('обслуж') || n.includes('настр') || n.includes('оптим')) return 'Обслуживание';
-    return 'Прочее';
-}
-
-function renderServicesCheckbox(services, selectedIds = []) {
-    const container = document.getElementById('servicesCheckbox');
-    if (!container) return;
-
-    const groups = {};
-    services.forEach(s => {
-        const cat = detectCategory(s);
-        if (!groups[cat]) groups[cat] = [];
-        groups[cat].push(s);
-    });
-
-    const sortOrder = ['Диагностика','Ремонт','Замена','Чистка','Установка','Обслуживание','Данные','Прочее'];
-    const sortedCats = Object.keys(groups).sort((a, b) => {
-        const ai = sortOrder.indexOf(a), bi = sortOrder.indexOf(b);
-        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-    });
-
-    container.innerHTML = sortedCats.map(cat => {
-        const icon = getCategoryIcon(cat);
-        const items = groups[cat].map(service => `
-            <div class="service-item" onclick="toggleService(this)">
-                <input type="checkbox" id="svc_${service.id}" value="${service.id}"
-                       data-price="${service.basePrice}" ${selectedIds.includes(Number(service.id)) ? 'checked' : ''} onchange="updateOrderPrice()">
-                <label for="svc_${service.id}">${service.name}</label>
-                <span class="service-price">${formatCurrency(service.basePrice)}</span>
-            </div>`).join('');
-
-        return `
-            <div class="services-group collapsed">
-                <div class="services-group-header" onclick="toggleGroup(this.parentElement)">
-                    ${icon} ${cat} <small style="opacity:.75;font-weight:400;">(${groups[cat].length})</small>
-                </div>
-                <div class="services-group-body">${items}</div>
-            </div>`;
-    }).join('');
-}
-
-function getSelectedServiceIds() {
-    return Array.from(document.querySelectorAll('#servicesCheckbox input[type="checkbox"]:checked'))
-        .map(cb => Number(cb.value));
-}
-
-function refreshServiceCategoryOptions() {
-    const datalist = document.getElementById('serviceCategoryOptions');
-    if (!datalist) return;
-
-    const categories = [...new Set(allServices
-        .map(service => (service.category || '').trim())
-        .filter(Boolean))]
-        .sort((a, b) => a.localeCompare(b, 'ru'));
-
-    datalist.innerHTML = categories.map(category => `<option value="${category}"></option>`).join('');
-}
-
-function resetQuickServiceForm() {
-    const nameEl = document.getElementById('quickServiceName');
-    const priceEl = document.getElementById('quickServicePrice');
-    const categoryEl = document.getElementById('quickServiceCategory');
-    const descriptionEl = document.getElementById('quickServiceDescription');
-
-    if (nameEl) nameEl.value = '';
-    if (priceEl) priceEl.value = '';
-    if (categoryEl) categoryEl.value = '';
-    if (descriptionEl) descriptionEl.value = '';
-}
-
-async function createServiceFromOrderForm() {
-    const nameEl = document.getElementById('quickServiceName');
-    const priceEl = document.getElementById('quickServicePrice');
-    const categoryEl = document.getElementById('quickServiceCategory');
-    const descriptionEl = document.getElementById('quickServiceDescription');
-
-    const name = (nameEl?.value || '').trim();
-    const price = Number(priceEl?.value || 0);
-    const category = (categoryEl?.value || '').trim() || 'Прочее';
-    const description = (descriptionEl?.value || '').trim();
-
-    if (!name) {
-        showNotification('Введите название услуги', 'warning');
-        nameEl?.focus();
-        return;
-    }
-
-    if (!Number.isFinite(price) || price <= 0) {
-        showNotification('Укажите корректную цену услуги', 'warning');
-        priceEl?.focus();
-        return;
-    }
-
-    const selectedBefore = getSelectedServiceIds();
-
-    try {
-        const created = await ServiceAPI.create({
-            name,
-            basePrice: price,
-            category,
-            description: description || null,
-            isActive: true
-        });
-
-        if (!created || !created.id) {
-            showNotification('Не удалось добавить услугу', 'error');
-            return;
-        }
-
-        allServices = [...allServices, created].sort((a, b) =>
-            (a.name || '').localeCompare((b.name || ''), 'ru'));
-
-        renderServicesCheckbox(allServices, [...selectedBefore, Number(created.id)]);
-        refreshServiceCategoryOptions();
-        updateOrderPrice();
-        resetQuickServiceForm();
-
-        showNotification(`Услуга "${created.name}" добавлена`, 'success');
-    } catch (error) {
-        console.error('Error creating service from order form:', error);
-        showNotification('Ошибка при создании услуги', 'error');
-    }
-}
-
-function toggleGroup(groupEl) { groupEl.classList.toggle('collapsed'); }
 
 // ===== ПРЕДЗАПОЛНЕНИЕ ИЗ КАЛЬКУЛЯТОРА =====
 
@@ -536,23 +767,14 @@ function applyCalculatorPreSelection() {
     try { calcData = JSON.parse(raw); } catch { return; }
     sessionStorage.removeItem('calculatorData');
 
-    // Открыть модал создания заказа
     openCreateOrderForm();
 
-    // Предвыбрать услуги
     const ids = calcData.serviceIds || [];
     ids.forEach(id => {
-        const cb = document.querySelector(`#servicesCheckbox input[value="${id}"]`);
-        if (cb) {
-            cb.checked = true;
-            // Открыть группу, чтобы отмеченные услуги были видны
-            const group = cb.closest('.services-group');
-            if (group) group.classList.remove('collapsed');
-        }
+        const svc = allServices.find(s => Number(s.id) === Number(id));
+        if (svc) addCatalogLine(svc);
     });
-    updateOrderPrice();
 
-    // Сформировать заметку
     if (calcData.extras && calcData.extras.length) {
         const notesEl = document.getElementById('orderNotes');
         if (notesEl) notesEl.value = `[Калькулятор] ${calcData.extras.join(', ')}`;
@@ -562,22 +784,6 @@ function applyCalculatorPreSelection() {
         `Из калькулятора: ${ids.length} услуг · Итого ~${formatCurrency(calcData.totalPrice || 0)}`,
         'info'
     );
-}
-
-function toggleService(itemEl) {
-    const cb = itemEl.querySelector('input[type="checkbox"]');
-    if (cb && event.target !== cb && event.target.tagName !== 'LABEL') {
-        cb.checked = !cb.checked;
-        updateOrderPrice();
-    }
-}
-
-function updateOrderPrice() {
-    const checkboxes = document.querySelectorAll('#servicesCheckbox input[type="checkbox"]:checked');
-    let total = 0;
-    checkboxes.forEach(cb => { total += parseFloat(cb.dataset.price || 0); });
-    const el = document.getElementById('orderTotalPrice');
-    if (el) el.textContent = formatCurrency(total);
 }
 
 function initAttachmentInputAndDropzone(inputId, listId, dropzoneId) {
@@ -666,7 +872,6 @@ function getUrlFileName(url) {
     if (!url) return 'файл';
     const parts = url.split('/');
     const raw = parts[parts.length - 1] || 'файл';
-    // убрать timestamp-UUID-prefix (NN_uuid.ext → оставить расширение)
     const match = raw.match(/_[0-9a-f-]+(\.[a-z0-9]+)$/i);
     return match ? 'Документ' + match[1] : raw;
 }
@@ -805,7 +1010,6 @@ function notify(message, type = 'info') {
         showNotification(message, type);
         return;
     }
-    // Fallback, если общий toast-код не загрузился.
     window.alert(message);
 }
 
@@ -816,6 +1020,10 @@ function uploadAttachmentsWithProgress(orderId, files, scope) {
 
         const xhr = new XMLHttpRequest();
         xhr.open('POST', `/api/orders/${orderId}/attachments`);
+
+        const csrf = (typeof getCsrfToken === 'function') ? getCsrfToken() : '';
+        const csrfHeader = (typeof getCsrfHeaderName === 'function') ? getCsrfHeaderName() : 'X-CSRF-TOKEN';
+        if (csrf && csrfHeader) xhr.setRequestHeader(csrfHeader, csrf);
 
         xhr.upload.onprogress = (event) => {
             if (!event.lengthComputable) {
@@ -972,11 +1180,10 @@ function closeMediaLightbox() {
 
 window.onclick = function(event) {
     const viewModal   = document.getElementById('viewOrderModal');
-    const createModal = document.getElementById('createOrderModal');
     const receiptMod  = document.getElementById('receiptModal');
     const lightbox    = document.getElementById('mediaLightbox');
+    // Форму создания/редактирования по клику на фон не закрываем — чтобы не терять введённое.
     if (event.target === viewModal)   closeViewOrderModal();
-    if (event.target === createModal) closeCreateOrderForm();
     if (event.target === receiptMod)  closeReceiptModal();
     if (event.target === lightbox)    closeMediaLightbox();
 };
@@ -1001,14 +1208,11 @@ function openReceiptModal(order) {
     const isAdmin = (typeof IS_ADMIN !== 'undefined' && IS_ADMIN);
     const ce = isAdmin ? 'true' : 'false';
 
-    // Загрузить сохранённые настройки из localStorage
     const cfg = loadReceiptSettings();
 
-    // Подсказка для администратора
     const hint = document.getElementById('receiptEditHint');
     if (hint) hint.style.display = isAdmin ? 'block' : 'none';
 
-    // Заполнить поля (приоритет: настройки из admin-панели → значения по умолчанию)
     setRField('rCompanyName',    cfg.companyName    || 'FixByte');
     setRField('rCompanySub',     cfg.companySub     || 'Сервисный центр · Ремонт техники');
     setRField('rCompanyAddress', cfg.companyAddress || '');
@@ -1028,24 +1232,21 @@ function openReceiptModal(order) {
     const balRow = document.getElementById('rBalanceRow');
     if (balRow) balRow.className = 'receipt-total-row ' + (balance <= 0 ? 'balance-ok' : 'balance-due');
 
-    // Таблица услуг
     const tbody = document.getElementById('rServicesTbody');
     if (tbody) {
-        const svcs = Array.isArray(order.services) ? order.services : [];
-        tbody.innerHTML = svcs.length
-            ? svcs.map(s => `<tr>
-                <td contenteditable="${ce}">${escHtml(s.name || '—')}</td>
-                <td contenteditable="${ce}" style="text-align:right;">${formatCurrency(s.basePrice || 0)}</td>
+        const lines = Array.isArray(order.lines) ? order.lines : [];
+        tbody.innerHTML = lines.length
+            ? lines.map(l => `<tr>
+                <td contenteditable="${ce}">${escHtml(l.name || '—')}${l.quantity > 1 ? ' × ' + l.quantity : ''}</td>
+                <td contenteditable="${ce}" style="text-align:right;">${formatCurrency(l.lineTotal != null ? l.lineTotal : (l.unitPrice || 0) * (l.quantity || 1))}</td>
               </tr>`).join('')
             : `<tr><td colspan="2" style="color:#94a3b8;text-align:center;padding:12px 0;">Услуги не указаны</td></tr>`;
     }
 
-    // Выставить contenteditable на все [data-editable] поля
     document.querySelectorAll('#receiptContent [data-editable]').forEach(el => {
         el.contentEditable = ce;
     });
 
-    // Инициализировать переключатели полей с учётом сохранённых настроек
     initReceiptToggles(isAdmin, cfg.hiddenFields || []);
 
     document.getElementById('receiptModal').style.display = 'block';
@@ -1056,7 +1257,6 @@ function closeReceiptModal() {
     if (m) m.style.display = 'none';
 }
 
-/** Инициализация чипов включения/отключения полей чека */
 function initReceiptToggles(isAdmin, savedHidden = []) {
     const panel = document.getElementById('receiptFieldToggles');
     if (!panel) return;
@@ -1064,7 +1264,6 @@ function initReceiptToggles(isAdmin, savedHidden = []) {
 
     const hiddenSet = new Set(savedHidden);
 
-    // Применить видимость из сохранённых настроек
     panel.querySelectorAll('input[data-toggle-section]').forEach(cb => {
         const sectionId = cb.dataset.toggleSection;
         const shouldHide = hiddenSet.has(sectionId);
@@ -1075,7 +1274,6 @@ function initReceiptToggles(isAdmin, savedHidden = []) {
 
     if (!isAdmin) return;
 
-    // Переподключить обработчики (клонирование убирает старые)
     panel.querySelectorAll('input[data-toggle-section]').forEach(cb => {
         const fresh = cb.cloneNode(true);
         cb.parentNode.replaceChild(fresh, cb);
@@ -1093,16 +1291,14 @@ function setRField(id, value) {
 
 function escHtml(str) {
     const d = document.createElement('div');
-    d.appendChild(document.createTextNode(str));
+    d.appendChild(document.createTextNode(str == null ? '' : str));
     return d.innerHTML;
 }
 
-// Открыть окно браузерной печати
 function printReceiptDirect() {
     const receiptEl = document.getElementById('receiptContent');
     if (!receiptEl) return;
 
-    // Собрать CSS .receipt-* из подключённых таблиц
     let receiptCss = '';
     try {
         for (const sheet of document.styleSheets) {
@@ -1134,7 +1330,6 @@ ${receiptEl.outerHTML}
     win.document.close();
 }
 
-// Генерация PDF → автоматическое прикрепление к заказу + скачивание
 async function saveReceiptAsPdf() {
     if (!currentViewOrderId) { showNotification('Нет активного заказа', 'error'); return; }
 
@@ -1148,7 +1343,6 @@ async function saveReceiptAsPdf() {
 
         const receiptEl = document.getElementById('receiptContent');
 
-        // Временно убрать contenteditable для чистого рендера
         const editables = [...receiptEl.querySelectorAll('[contenteditable]')];
         editables.forEach(el => el.removeAttribute('contenteditable'));
 
@@ -1156,7 +1350,6 @@ async function saveReceiptAsPdf() {
             scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false
         });
 
-        // Вернуть contenteditable для администратора
         if (typeof IS_ADMIN !== 'undefined' && IS_ADMIN) {
             editables.forEach(el => el.setAttribute('contenteditable', 'true'));
         }
@@ -1172,7 +1365,6 @@ async function saveReceiptAsPdf() {
         if (imgH <= pageH) {
             pdf.addImage(imgData, 'JPEG', 0, 0, pageW, imgH);
         } else {
-            // Многостраничный чек
             let yOffset = 0;
             while (yOffset < imgH) {
                 if (yOffset > 0) pdf.addPage();
@@ -1185,14 +1377,18 @@ async function saveReceiptAsPdf() {
                             .replace(/[^a-zA-Z0-9\-_А-Яа-я]/g, '_');
         const fileName = `receipt_${orderNum}_${Date.now()}.pdf`;
 
-        // Загрузить как вложение к заказу
         const pdfBlob = pdf.output('blob');
         const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
         const formData = new FormData();
         formData.append('files', pdfFile);
 
+        const headers = {};
+        const csrf = (typeof getCsrfToken === 'function') ? getCsrfToken() : '';
+        const csrfHeader = (typeof getCsrfHeaderName === 'function') ? getCsrfHeaderName() : 'X-CSRF-TOKEN';
+        if (csrf && csrfHeader) headers[csrfHeader] = csrf;
+
         const response = await fetch(`/api/orders/${currentViewOrderId}/attachments`, {
-            method: 'POST', body: formData
+            method: 'POST', body: formData, headers
         });
 
         if (!response.ok) {
@@ -1202,7 +1398,6 @@ async function saveReceiptAsPdf() {
 
         const updatedOrder = await response.json();
 
-        // Обновить медиа в открытом модале просмотра
         renderOrderMedia(updatedOrder);
         const idx = allOrders.findIndex(o => o.id === currentViewOrderId);
         if (idx !== -1) allOrders[idx].fileUrls = updatedOrder.fileUrls || [];
@@ -1216,4 +1411,3 @@ async function saveReceiptAsPdf() {
         if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
     }
 }
-

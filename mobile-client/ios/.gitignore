@@ -1,0 +1,14 @@
+# Сгенерированный проект (создаётся из project.yml)
+*.xcodeproj/
+*.xcworkspace/
+
+# Xcode
+xcuserdata/
+DerivedData/
+build/
+*.xcuserstate
+.DS_Store
+
+# SwiftPM (если добавишь пакеты)
+.swiftpm/
+Package.resolved

@@ -1,0 +1,31 @@
+# XcodeGen — генерирует FixByteCRM.xcodeproj из этого описания.
+#   brew install xcodegen && xcodegen generate && open FixByteCRM.xcodeproj
+name: FixByteCRM
+options:
+  bundleIdPrefix: ru.fixbyte
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.9"
+    DEVELOPMENT_TEAM: ""            # подставь свой Team ID в Xcode → Signing
+targets:
+  FixByteCRM:
+    type: application
+    platform: iOS
+    sources:
+      - path: FixByteCRM
+        excludes:
+          - "Resources/Info.plist"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ru.fixbyte.crm
+        INFOPLIST_FILE: FixByteCRM/Resources/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ENABLE_USER_SCRIPT_SANDBOXING: YES

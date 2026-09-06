@@ -2,21 +2,15 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-// Открываем безопасное API для renderer-процесса
+// API для навигации по CRM
 contextBridge.exposeInMainWorld('crmApp', {
-  // Навигация по CRM
   navigate: (path) => ipcRenderer.send('navigate', path),
-  // Версия приложения
   version: process.env.npm_package_version || '1.0.0',
 });
 
+// Добавляем класс electron-app для стилей специфичных для десктопа (если нужно).
+// Смещение контента на 36px делается через bounds CRM-вью в main.js —
+// CSS-инжекция больше не требуется, прыжок layout исключён.
 window.addEventListener('DOMContentLoaded', () => {
-  // Добавляем класс, что запущено в Electron
   document.documentElement.classList.add('electron-app');
-
-  // Показываем версию в title если не задана
-  if (!document.title) {
-    document.title = 'FixByte CRM';
-  }
 });
-

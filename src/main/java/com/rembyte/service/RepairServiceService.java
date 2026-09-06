@@ -1,6 +1,8 @@
 package com.rembyte.service;
 
+import com.rembyte.model.OrderLine;
 import com.rembyte.model.RepairService;
+import com.rembyte.repository.OrderLineRepository;
 import com.rembyte.repository.RepairServiceRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,9 +17,12 @@ import java.util.Optional;
 @Transactional
 public class RepairServiceService {
     private final RepairServiceRepository serviceRepository;
+    private final OrderLineRepository orderLineRepository;
 
-    public RepairServiceService(RepairServiceRepository serviceRepository) {
+    public RepairServiceService(RepairServiceRepository serviceRepository,
+                                OrderLineRepository orderLineRepository) {
         this.serviceRepository = serviceRepository;
+        this.orderLineRepository = orderLineRepository;
     }
 
     public RepairService createService(RepairService service) {
@@ -56,6 +61,15 @@ public class RepairServiceService {
     }
 
     public void deleteService(Long id) {
+        // Отвязать услугу от строк заказов, сохранив в них снимок названия и цены,
+        // чтобы история заказов не пострадала и не нарушился внешний ключ.
+        List<OrderLine> referencing = orderLineRepository.findByService_Id(id);
+        for (OrderLine line : referencing) {
+            line.setService(null);
+        }
+        if (!referencing.isEmpty()) {
+            orderLineRepository.saveAll(referencing);
+        }
         serviceRepository.deleteById(id);
     }
 

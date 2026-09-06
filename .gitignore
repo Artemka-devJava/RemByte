@@ -5,6 +5,9 @@
 # Maven
 target/
 
+# Встроенная H2 (профиль h2 / run.ps1)
+data/
+
 # Desktop client — бинарные/генерируемые файлы
 desktop-client/node_modules/
 desktop-client/dist/

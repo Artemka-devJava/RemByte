@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Разрешаем HTTP для локального сервера / LAN (эмулятор 10.0.2.2, IP в локальной сети).
+         Продакшн-адрес (crm.fix-byte.ru) работает по HTTPS. -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

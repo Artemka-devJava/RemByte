@@ -1,116 +1,134 @@
 package com.rembyte.service;
 
 import com.rembyte.model.Order;
+import com.rembyte.model.OrderLine;
 import com.rembyte.model.RepairService;
 import com.rembyte.repository.OrderAttachmentRepository;
 import com.rembyte.repository.OrderRepository;
+import com.rembyte.repository.RepairServiceRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
- * Сервис для управления заказами и расчета стоимости
+ * Сервис для управления заказами и расчёта стоимости.
+ * <p>
+ * Состав заказа хранится в {@link OrderLine}: каждая строка — услуга из справочника
+ * или разовая позиция, со снимком названия, ценой за единицу и количеством.
  */
 @Service
 @Transactional
 public class OrderService {
     private final OrderRepository orderRepository;
     private final OrderAttachmentRepository orderAttachmentRepository;
+    private final RepairServiceRepository repairServiceRepository;
 
     public OrderService(OrderRepository orderRepository,
-                        OrderAttachmentRepository orderAttachmentRepository) {
+                        OrderAttachmentRepository orderAttachmentRepository,
+                        RepairServiceRepository repairServiceRepository) {
         this.orderRepository = orderRepository;
         this.orderAttachmentRepository = orderAttachmentRepository;
+        this.repairServiceRepository = repairServiceRepository;
     }
 
     /**
-     * Создать новый заказ
+     * Создать новый заказ.
      */
     public Order createOrder(Order order) {
         if (order.getOrderNumber() == null || order.getOrderNumber().isEmpty()) {
             order.setOrderNumber(generateOrderNumber());
         }
         order.setStatus("NEW");
+        if (order.getPaidAmount() == null || order.getPaidAmount() < 0) {
+            order.setPaidAmount(0.0);
+        }
+        applyLines(order, new ArrayList<>(order.getLines()));
         return orderRepository.save(order);
     }
 
-    /**
-     * Получить заказ по ID
-     */
     public Optional<Order> getOrderById(Long id) {
         return orderRepository.findById(id);
     }
 
-    /**
-     * Получить все заказы
-     */
     public List<Order> getAllOrders() {
         return orderRepository.findAll();
     }
 
-    /**
-     * Получить заказы клиента
-     */
     public List<Order> getClientOrders(Long clientId) {
         return orderRepository.findByClientId(clientId);
     }
 
-    /**
-     * Найти заказ по номеру
-     */
     public Optional<Order> findByOrderNumber(String orderNumber) {
         return orderRepository.findByOrderNumber(orderNumber);
     }
 
     /**
-     * Обновить заказ
+     * Обновить заказ. Меняются только описание, заметки и состав.
+     * Статус и оплата не трогаются — для них есть отдельные операции.
      */
     public Order updateOrder(Long id, Order orderData) {
         return orderRepository.findById(id).map(order -> {
             order.setDeviceDescription(orderData.getDeviceDescription());
-            order.setStatus(orderData.getStatus());
-            order.setServices(orderData.getServices());
             order.setNotes(orderData.getNotes());
-            order.setUpdatedAt(LocalDateTime.now());
-            order.setTotalPrice(calculateOrderPrice(order.getServices()));
-            return orderRepository.save(order);
-        }).orElseThrow(() -> new RuntimeException("Заказ не найден"));
-    }
-
-    /**
-     * Добавить услугу к заказу
-     */
-    public Order addServiceToOrder(Long orderId, RepairService service) {
-        return orderRepository.findById(orderId).map(order -> {
-            order.getServices().add(service);
-            order.setTotalPrice(calculateOrderPrice(order.getServices()));
+            applyLines(order, new ArrayList<>(orderData.getLines()));
             order.setUpdatedAt(LocalDateTime.now());
             return orderRepository.save(order);
         }).orElseThrow(() -> new RuntimeException("Заказ не найден"));
     }
 
     /**
-     * Удалить услугу из заказа
+     * Добавить одну позицию в существующий заказ (без открытия полной формы).
      */
-    public Order removeServiceFromOrder(Long orderId, Long serviceId) {
-        return orderRepository.findById(orderId).map(order -> {
-            order.setServices(order.getServices().stream()
-                    .filter(s -> !s.getId().equals(serviceId))
-                    .collect(Collectors.toSet()));
-            order.setTotalPrice(calculateOrderPrice(order.getServices()));
-            order.setUpdatedAt(LocalDateTime.now());
-            return orderRepository.save(order);
-        }).orElseThrow(() -> new RuntimeException("Заказ не найден"));
+    public Order addLine(Long orderId, OrderLine raw) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+        OrderLine line = normalizeLine(raw, order.getLines().size());
+        order.addLine(line);
+        order.setUpdatedAt(LocalDateTime.now());
+        return orderRepository.save(order);
     }
 
     /**
-     * Обновить статус заказа
+     * Изменить позицию заказа (название разовой позиции, цену, количество).
      */
+    public Order updateLine(Long orderId, Long lineId, OrderLine raw) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+        OrderLine target = order.getLines().stream()
+                .filter(l -> l.getId() != null && l.getId().equals(lineId))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Строка заказа не найдена"));
+
+        if (raw.getName() != null && !raw.getName().isBlank()) {
+            target.setName(raw.getName().trim());
+        }
+        if (raw.getUnitPrice() != null && raw.getUnitPrice() >= 0) {
+            target.setUnitPrice(raw.getUnitPrice());
+        }
+        target.setQuantity(raw.getQuantity());
+        order.recalcTotal();
+        order.setUpdatedAt(LocalDateTime.now());
+        return orderRepository.save(order);
+    }
+
+    /**
+     * Удалить позицию из заказа.
+     */
+    public Order removeLine(Long orderId, Long lineId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+        boolean removed = order.removeLine(lineId);
+        if (!removed) {
+            throw new RuntimeException("Строка заказа не найдена");
+        }
+        order.setUpdatedAt(LocalDateTime.now());
+        return orderRepository.save(order);
+    }
+
     public Order updateOrderStatus(Long orderId, String status) {
         return orderRepository.findById(orderId).map(order -> {
             order.setStatus(status);
@@ -122,9 +140,6 @@ public class OrderService {
         }).orElseThrow(() -> new RuntimeException("Заказ не найден"));
     }
 
-    /**
-     * Добавить платеж
-     */
     public Order addPayment(Long orderId, Double amount) {
         return orderRepository.findById(orderId).map(order -> {
             order.setPaidAmount(order.getPaidAmount() + amount);
@@ -133,9 +148,6 @@ public class OrderService {
         }).orElseThrow(() -> new RuntimeException("Заказ не найден"));
     }
 
-    /**
-     * Добавить ссылки на фото/видео/документы к заказу
-     */
     public Order addAttachmentUrls(Long orderId, List<String> photoUrls, List<String> videoUrls, List<String> fileUrls) {
         return orderRepository.findById(orderId).map(order -> {
             order.addPhotoUrls(photoUrls);
@@ -146,9 +158,6 @@ public class OrderService {
         }).orElseThrow(() -> new RuntimeException("Заказ не найден"));
     }
 
-    /**
-     * Удалить ссылку вложения у заказа
-     */
     public Order removeAttachmentUrl(Long orderId, String attachmentUrl) {
         return orderRepository.findById(orderId).map(order -> {
             boolean removed = order.removeAttachmentUrl(attachmentUrl);
@@ -160,9 +169,6 @@ public class OrderService {
         }).orElseThrow(() -> new RuntimeException("Заказ не найден"));
     }
 
-    /**
-     * Получить статистику за период
-     */
     public OrderStatistics getStatistics(LocalDateTime from, LocalDateTime to) {
         List<Order> orders = orderRepository.findByCreatedAtBetween(from, to);
 
@@ -187,31 +193,58 @@ public class OrderService {
         );
     }
 
-    /**
-     * Удалить заказ
-     */
     public void deleteOrder(Long id) {
         orderAttachmentRepository.deleteByOrderId(id);
         orderRepository.deleteById(id);
     }
 
-    /**
-     * Генерировать уникальный номер заказа
-     */
     private String generateOrderNumber() {
         return "ФБ-" + System.currentTimeMillis();
     }
 
+    // ===== Работа с составом заказа =====
+
     /**
-     * Рассчитать стоимость заказа
+     * Полностью заменить состав заказа нормализованными строками.
      */
-    public Double calculateOrderPrice(Set<RepairService> services) {
-        if (services == null || services.isEmpty()) {
-            return 0.0;
+    private void applyLines(Order order, List<OrderLine> rawLines) {
+        List<OrderLine> normalized = new ArrayList<>();
+        if (rawLines != null) {
+            int i = 0;
+            for (OrderLine raw : rawLines) {
+                if (raw == null) continue;
+                normalized.add(normalizeLine(raw, i++));
+            }
         }
-        return services.stream()
-                .mapToDouble(RepairService::getBasePrice)
-                .sum();
+        order.setLines(normalized);
+    }
+
+    /**
+     * Привести пришедшую с фронта строку к сохраняемому виду:
+     * подтянуть управляемую сущность услуги, зафиксировать снимок названия и цену.
+     */
+    private OrderLine normalizeLine(OrderLine raw, int index) {
+        OrderLine line = new OrderLine();
+        line.setSortOrder(index);
+        line.setQuantity(raw.getQuantity());
+
+        RepairService ref = null;
+        if (raw.getService() != null && raw.getService().getId() != null) {
+            ref = repairServiceRepository.findById(raw.getService().getId()).orElse(null);
+        }
+        line.setService(ref);
+
+        String name = raw.getName() != null && !raw.getName().isBlank()
+                ? raw.getName().trim()
+                : (ref != null ? ref.getName() : null);
+        line.setName(name == null || name.isBlank() ? "Позиция" : name);
+
+        Double price = raw.getUnitPrice();
+        if ((price == null || price < 0) && ref != null) {
+            price = ref.getBasePrice();
+        }
+        line.setUnitPrice(price == null || price < 0 ? 0.0 : price);
+
+        return line;
     }
 }
-

@@ -1,14 +1,8 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru" xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
   <th:block th:replace="~{fragments/head-common :: commonHead('FixByte CRM — Клиенты')}"></th:block>
-  <style>
-    .sidebar-user{padding:12px 14px;border-top:1px solid rgba(255,255,255,.07);margin-top:auto;}
-    .sidebar-user-name{font-size:12px;color:#64748b;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .btn-sidebar-logout{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);border-radius:7px;color:#fca5a5;font-size:12.5px;font-family:inherit;cursor:pointer;transition:all .2s;}
-    .btn-sidebar-logout:hover{background:rgba(239,68,68,.2);color:#fff;}
-  </style>
 </head>
 <body>
 <div class="app-layout">
@@ -28,10 +22,10 @@
 
       <div class="filter-bar">
         <label>Показывать:</label>
-        <select id="filterActive" onchange="loadClients()">
-          <option value="">Все клиенты</option>
-          <option value="true">Только активные</option>
-          <option value="false">Неактивные</option>
+        <select id="filterMode" onchange="loadClients()">
+          <option value="active">Активные</option>
+          <option value="archived">Архив</option>
+          <option value="all">Все</option>
         </select>
       </div>
 
@@ -42,29 +36,28 @@
               <tr>
                 <th>ФИО / Название</th>
                 <th>Телефон</th>
-                <th>Email</th>
-                <th>Адрес</th>
-                <th>Статус</th>
+                <th>Тип</th>
+                <th>Метки</th>
                 <th>Добавлен</th>
-                <th>Действия</th>
               </tr>
             </thead>
             <tbody id="clientsTable">
-              <tr><td colspan="7" class="empty">Загрузка клиентов...</td></tr>
+              <tr><td colspan="5" class="empty">Загрузка клиентов...</td></tr>
             </tbody>
           </table>
         </div>
+        <p class="hint" style="padding:10px 4px 0;">Нажмите на строку — откроется карточка клиента со всей историей.</p>
       </div>
     </main>
     <footer class="page-footer">FixByte CRM © 2026</footer>
   </div>
 </div>
 
-<!-- Модал: создать/редактировать клиента -->
+<!-- Модал: быстрое создание клиента -->
 <div id="createClientModal" class="modal" style="display:none;">
   <div class="modal-content">
     <div class="modal-header">
-      <h2 id="clientModalTitle">Новый клиент</h2>
+      <h2>Новый клиент</h2>
       <button class="close" onclick="closeCreateClientForm()">&times;</button>
     </div>
     <div class="modal-body">
@@ -78,6 +71,13 @@
           <input type="tel" id="clientPhone" required placeholder="+7 (999) 123-45-67">
         </div>
         <div class="form-group">
+          <label>Тип:</label>
+          <select id="clientType">
+            <option value="INDIVIDUAL">Физлицо</option>
+            <option value="COMPANY">Организация</option>
+          </select>
+        </div>
+        <div class="form-group">
           <label>Email:</label>
           <input type="email" id="clientEmail" placeholder="client@example.com">
         </div>
@@ -85,11 +85,8 @@
           <label>Адрес:</label>
           <textarea id="clientAddress" placeholder="г. Москва, ул. Примерная..."></textarea>
         </div>
-        <div class="form-group">
-          <label>Заметки:</label>
-          <textarea id="clientNotes" placeholder="Дополнительная информация..."></textarea>
-        </div>
-        <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
+        <p class="hint">Остальное — тип, метки, устройства, согласия — заполняется в карточке клиента.</p>
+        <button type="submit" class="btn btn-primary btn-block">Создать и открыть карточку</button>
       </form>
     </div>
   </div>
@@ -99,7 +96,3 @@
 <script src="/js/clients.js"></script>
 </body>
 </html>
-
-
-
-

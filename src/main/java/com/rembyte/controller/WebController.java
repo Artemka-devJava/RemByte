@@ -46,6 +46,11 @@ public class WebController {
         return "clients";
     }
 
+    @GetMapping("/clients/{id}")
+    public String clientCard() {
+        return "client-card";
+    }
+
     @GetMapping("/services")
     public String services() {
         return "services";

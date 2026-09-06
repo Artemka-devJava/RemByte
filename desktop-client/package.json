@@ -23,6 +23,7 @@
       "settings-preload.js",
       "settings.html",
       "splash.html",
+      "app-styles.css",
       "build/**"
     ],
     "win": {

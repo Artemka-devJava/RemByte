@@ -131,6 +131,7 @@
       </div>
     </div>
 
+
     <!-- Раздел: Размер окна -->
     <div style="margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
       <h2 style="margin: 0 0 8px; font-size: 14px; font-weight: 600; color: #334155;">📏 Размер окна</h2>
@@ -171,6 +172,7 @@
     const customServerDiv = document.getElementById('customServerDiv');
     const customServerUrl = document.getElementById('customServerUrl');
     const serverDisplayValue = document.getElementById('serverDisplayValue');
+
 
     function clampNumber(value, min, max) {
       const n = Number(value);
@@ -243,6 +245,9 @@
       // Показываем/скрываем поле пользовательского сервера
       customServerDiv.style.display = serverMode === 'custom' ? 'block' : 'none';
 
+      // Загружаем стиль рамки
+      // (стиль рамки удалён)
+
       updateServerDisplay();
     }
 
@@ -269,11 +274,11 @@
       }
 
       const payload = {
-        startupWidth: clampNumber(widthInput.value, 900, 3840),
-        startupHeight: clampNumber(heightInput.value, 600, 2160),
+        startupWidth:    clampNumber(widthInput.value, 900, 3840),
+        startupHeight:   clampNumber(heightInput.value, 600, 2160),
         launchFullscreen: fullscreenInput.checked,
-        serverMode: mode,
-        customServerUrl: mode === 'custom' ? normalizeCustomServerUrl(customServerUrl.value) : ''
+        serverMode:      mode,
+        customServerUrl: mode === 'custom' ? normalizeCustomServerUrl(customServerUrl.value) : '',
       };
 
       await window.desktopSettings.save(payload);

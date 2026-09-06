@@ -7,12 +7,10 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@JsonIgnoreProperties(value = {"hibernateLazyInitializer", "handler"}, ignoreUnknown = true)
 @Entity
 @Table(name = "orders")
 public class Order {
@@ -33,13 +31,9 @@ public class Order {
     @Column(columnDefinition = "TEXT")
     private String deviceDescription;
 
-    @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(
-            name = "order_services",
-            joinColumns = @JoinColumn(name = "order_id"),
-            inverseJoinColumns = @JoinColumn(name = "service_id")
-    )
-    private Set<RepairService> services = new HashSet<>();
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("sortOrder ASC, id ASC")
+    private List<OrderLine> lines = new ArrayList<>();
 
     @Column(nullable = false)
     private Double totalPrice = 0.0;
@@ -88,8 +82,49 @@ public class Order {
     public String getDeviceDescription() { return deviceDescription; }
     public void setDeviceDescription(String deviceDescription) { this.deviceDescription = deviceDescription; }
 
-    public Set<RepairService> getServices() { return services; }
-    public void setServices(Set<RepairService> services) { this.services = services; }
+    public List<OrderLine> getLines() { return lines; }
+
+    /** Полная замена состава заказа: старые строки удаляются (orphanRemoval), новые привязываются. */
+    public void setLines(List<OrderLine> newLines) {
+        this.lines.clear();
+        if (newLines != null) {
+            int i = 0;
+            for (OrderLine line : newLines) {
+                if (line == null) continue;
+                line.setOrder(this);
+                if (line.getSortOrder() == null || line.getSortOrder() == 0) {
+                    line.setSortOrder(i);
+                }
+                this.lines.add(line);
+                i++;
+            }
+        }
+        recalcTotal();
+    }
+
+    public void addLine(OrderLine line) {
+        if (line == null) return;
+        line.setOrder(this);
+        line.setSortOrder(this.lines.size());
+        this.lines.add(line);
+        recalcTotal();
+    }
+
+    public boolean removeLine(Long lineId) {
+        boolean removed = this.lines.removeIf(l -> l.getId() != null && l.getId().equals(lineId));
+        if (removed) recalcTotal();
+        return removed;
+    }
+
+    /** Пересчитать {@link #totalPrice} как сумму строк (цена × количество). */
+    public void recalcTotal() {
+        double sum = 0.0;
+        for (OrderLine line : this.lines) {
+            Double lineTotal = line.getLineTotal();
+            sum += lineTotal == null ? 0.0 : lineTotal;
+        }
+        this.totalPrice = sum;
+    }
 
     public Double getTotalPrice() { return totalPrice; }
     public void setTotalPrice(Double totalPrice) { this.totalPrice = totalPrice; }

@@ -1,6 +1,7 @@
 package com.rembyte.controller;
 
 import com.rembyte.model.Order;
+import com.rembyte.model.OrderLine;
 import com.rembyte.service.FileStorageService;
 import com.rembyte.service.OrderService;
 import com.rembyte.service.OrderStatistics;
@@ -77,12 +78,33 @@ public class OrderController {
         }
     }
 
-    @PostMapping("/{id}/add-service/{serviceId}")
-    public ResponseEntity<Order> addServiceToOrder(@PathVariable Long id,
-                                                    @PathVariable Long serviceId) {
-        return orderService.getOrderById(id)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    @PostMapping("/{id}/lines")
+    public ResponseEntity<?> addLine(@PathVariable Long id, @RequestBody OrderLine line) {
+        try {
+            return ResponseEntity.ok(orderService.addLine(id, line));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
+
+    @PutMapping("/{id}/lines/{lineId}")
+    public ResponseEntity<?> updateLine(@PathVariable Long id,
+                                       @PathVariable Long lineId,
+                                       @RequestBody OrderLine line) {
+        try {
+            return ResponseEntity.ok(orderService.updateLine(id, lineId, line));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/{id}/lines/{lineId}")
+    public ResponseEntity<?> deleteLine(@PathVariable Long id, @PathVariable Long lineId) {
+        try {
+            return ResponseEntity.ok(orderService.removeLine(id, lineId));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
     }
 
     @PostMapping("/{id}/payment")

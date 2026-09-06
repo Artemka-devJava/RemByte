@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="4dp">
+
+    <ImageView
+        android:id="@+id/photo"
+        android:layout_width="match_parent"
+        android:layout_height="120dp"
+        android:scaleType="centerCrop"
+        android:background="#E2E8F0"
+        android:contentDescription="фото клиента" />
+
+    <ImageButton
+        android:id="@+id/sharePhoto"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_gravity="top|start"
+        android:layout_margin="4dp"
+        android:background="#99000000"
+        android:src="@android:drawable/ic_menu_share"
+        android:contentDescription="поделиться" />
+
+    <ImageButton
+        android:id="@+id/deletePhoto"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="4dp"
+        android:background="#99000000"
+        android:src="@android:drawable/ic_menu_delete"
+        android:contentDescription="удалить" />
+
+</FrameLayout>

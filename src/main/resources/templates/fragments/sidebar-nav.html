@@ -4,6 +4,7 @@
 <body>
 <th:block th:fragment="mainNav" th:with="uri=${#httpServletRequest != null ? #httpServletRequest.requestURI : ''}">
   <nav class="sidebar-nav">
+    <a href="/orders?new=1" class="nav-cta">➕ Новый заказ</a>
     <a href="/" class="nav-item" th:classappend="${uri == '/'} ? ' active'">
       <span class="nav-icon">🏠</span>Главная
     </a>

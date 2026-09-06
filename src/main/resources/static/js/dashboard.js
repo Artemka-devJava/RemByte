@@ -104,8 +104,8 @@ async function loadPopularServices(orders) {
     const serviceCount = {};
     
     orders.forEach(order => {
-        order.services?.forEach(service => {
-            serviceCount[service.name] = (serviceCount[service.name] || 0) + 1;
+        (order.lines || []).forEach(line => {
+            serviceCount[line.name] = (serviceCount[line.name] || 0) + 1;
         });
     });
 

@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">FixByte CRM</string>
+    <string name="server_url">Адрес сервера</string>
+    <string name="username">Логин</string>
+    <string name="password">Пароль</string>
+    <string name="sign_in">Войти</string>
+    <string name="clients">Клиенты</string>
+    <string name="search_clients">Поиск: имя или телефон</string>
+    <string name="add_photo_camera">Сфотографировать</string>
+    <string name="add_photo_gallery">Выбрать из галереи</string>
+    <string name="photo_caption_hint">Подпись к фото (необязательно)</string>
+    <string name="logout">Выйти</string>
+</resources>

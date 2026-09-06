@@ -281,6 +281,54 @@
       .stats-row { display: none; }
       .quick-nav { grid-template-columns: repeat(2, 1fr); }
     }
+
+    /* ===== ELECTRON TITLEBAR OVERLAY ===== */
+    /* Для Windows/Linux Electron приложения с кастомной рамкой */
+    @supports (app-region: drag) {
+      /* Делаем шапку перетаскиваемой (для кастомной рамки) */
+      .topnav {
+        app-region: drag;
+        -webkit-app-region: drag;
+      }
+
+      /* Кнопки должны быть кликабельными */
+      .topnav-logo,
+      .topnav-user,
+      .btn-logout,
+      .topnav-username {
+        app-region: no-drag;
+        -webkit-app-region: no-drag;
+      }
+
+      /* Стиль для взаимодействия с titlebar overlay */
+      html {
+        /* Отступ для titlebar на Windows с titleBarOverlay */
+        padding-top: max(2px, env(titlebar-area-height, 0px));
+      }
+
+      body {
+        padding-top: 0;
+      }
+    }
+
+    /* Светлая тема: более контрастная рамка */
+    [data-theme='light'] .topnav {
+      background: rgba(248, 250, 252, 0.98);
+      border-bottom: 1px solid rgba(15, 23, 42, 0.15);
+    }
+
+    /* Тёмная тема: более яркая рамка для контраста */
+    [data-theme='dark'] .topnav {
+      background: rgba(15, 23, 42, 0.98);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* FixByte фирменная тема с более выраженной рамкой */
+    [data-theme='fixbyte'] .topnav {
+      background: linear-gradient(180deg, rgba(255,255,255,.97) 0%, rgba(255,255,255,.94) 100%);
+      border-bottom: 1px solid rgba(45, 61, 80, 0.2);
+      box-shadow: 0 2px 12px rgba(45, 61, 80, 0.15);
+    }
   </style>
 </head>
 <body>
