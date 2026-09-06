@@ -11,7 +11,7 @@ data/
 # Desktop client — бинарные/генерируемые файлы
 desktop-client/node_modules/
 desktop-client/dist/
-desktop-client/build/icon.ico
+desktop-client/build/
 
 # IntelliJ IDEA
 .idea/
@@ -23,3 +23,4 @@ Thumbs.db
 
 
 deploy/app/*.jar
+uploads/
