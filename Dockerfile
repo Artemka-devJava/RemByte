@@ -28,8 +28,8 @@ WORKDIR /app
 # Создаём непривилегированного пользователя
 RUN addgroup -S fixbyte && adduser -S fixbyte -G fixbyte
 
-# Копируем JAR из build-стадии
-COPY --from=build /build/target/rembyte-crm-1.0.4.jar app.jar
+# Копируем JAR из build-стадии (без привязки к номеру версии)
+COPY --from=build /build/target/rembyte-crm-*.jar app.jar
 
 # Назначаем владельца
 RUN chown fixbyte:fixbyte app.jar

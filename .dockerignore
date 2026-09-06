@@ -27,6 +27,7 @@ RUN_IN_INTELLIJ.md
 # Docker-файлы (не нужны внутри образа)
 Dockerfile
 docker-compose.yml
+docker-compose.*.yml
 docker/
 
 # Env-файлы (передаются через docker-compose, не копируются в образ)
