@@ -38,38 +38,33 @@ Linux/macOS — `./run.sh` (`--h2`, `--build`). Без скрипта: `mvn spri
 
 ## 3) Docker запуск
 
-```powershell
-Set-Location "C:\JavaProject\RemByte"
-docker compose up -d --build
-docker compose ps
+Всё для Docker вынесено в отдельную папку **`deploy/`** — самодостаточную:
+compose-файлы, `.env.example`, скрипты, SQL инициализации БД, гайд по macvlan.
+
+```bash
+cd deploy
+cp .env.example .env      # смените пароли (и сеть для macvlan)
+./up.sh                   # обычный режим; Windows: .\up.ps1
+./logs.sh                 # логи
+./down.sh                 # остановить (данные БД сохраняются)
 ```
 
-Остановка:
-
-```powershell
-docker compose down
-```
-
-Полная остановка с удалением volume БД (осторожно, удалит данные):
-
-```powershell
-docker compose down -v
-```
+Веб: `http://localhost:${HOST_HTTP_PORT:-9087}`.
 
 ### 3.1) Режим сети macvlan (свой IP в локальной сети)
 
-Для варианта, когда контейнер CRM получает **собственный IP в вашей LAN** и
-телефоны/браузеры заходят по нему напрямую (`http://<CRM_IP>:9087`), без проброса
-портов:
+Контейнер CRM получает **собственный IP в вашей LAN**, телефоны/браузеры
+заходят по нему напрямую (`http://<CRM_IP>:9087`) без проброса портов:
 
 ```bash
-cp .env.macvlan .env          # отредактировать под свою сеть
-docker compose -f docker-compose.macvlan.yml up -d --build
+cd deploy
+cp .env.example .env      # MACVLAN_PARENT, LAN_SUBNET, LAN_GATEWAY, LAN_IP_RANGE, CRM_IP, HOST_SHIM_IP
+./up.sh macvlan
+sudo ./macvlan/host-shim.sh up     # доступ с самого хоста
 ```
 
-Полная инструкция, ограничения (нужен Linux-хост по кабелю; Docker Desktop
-Windows/macOS не подойдёт), доступ с самого хоста через `host-shim.sh` и
-разбор проблем — в **`docker/macvlan/README.md`**.
+Только Linux-хост по кабелю (Docker Desktop Windows/macOS не подойдёт).
+Полная инструкция и разбор проблем — **`deploy/macvlan/README.md`**.
 
 ## 4) Бэкап и восстановление
 

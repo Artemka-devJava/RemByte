@@ -29,6 +29,11 @@ Dockerfile
 docker-compose.yml
 docker-compose.*.yml
 docker/
+deploy/
+
+# Клиенты (в образ сервера не нужны)
+desktop-client/
+mobile-client/
 
 # Env-файлы (передаются через docker-compose, не копируются в образ)
 .env
