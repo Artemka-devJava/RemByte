@@ -1,0 +1,10 @@
+# В образ нужен только jar + Dockerfile. Всё остальное — исключаем.
+.env
+.env.example
+README.md
+*.sh
+*.ps1
+macvlan/
+mariadb/
+docker-compose*.yml
+app/.gitkeep

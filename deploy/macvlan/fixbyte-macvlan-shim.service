@@ -1,0 +1,25 @@
+# systemd-юнит: поднимает host-shim при загрузке, чтобы Docker-хост
+# всегда видел CRM-контейнер в сети macvlan.
+#
+# Установка (проект развёрнут в /opt/fixbyte-crm):
+#   sudo cp deploy/macvlan/fixbyte-macvlan-shim.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now fixbyte-macvlan-shim.service
+#
+# Если проект в другом каталоге — поправьте пути ниже.
+
+[Unit]
+Description=FixByte CRM macvlan host shim
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=/opt/fixbyte-crm/deploy/.env
+ExecStart=/opt/fixbyte-crm/deploy/macvlan/host-shim.sh up
+ExecStop=/opt/fixbyte-crm/deploy/macvlan/host-shim.sh down
+
+[Install]
+WantedBy=multi-user.target

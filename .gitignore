@@ -22,3 +22,4 @@ desktop-client/build/icon.ico
 Thumbs.db
 
 
+deploy/app/*.jar

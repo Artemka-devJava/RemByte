@@ -1,0 +1,79 @@
+# ============================================================
+# FixByte CRM — Docker (сеть macvlan)
+# Контейнер app получает СВОЙ IP в вашей локальной сети,
+# телефоны заходят по нему напрямую:  http://<CRM_IP>:9087
+#
+# Только Linux-хост, подключённый к сети кабелем.
+# Docker Desktop (Windows/macOS) — используйте docker-compose.yml.
+#
+#   cd deploy
+#   cp .env.example .env      # заполнить MACVLAN_* / LAN_* / CRM_IP
+#   ./up.sh macvlan
+#   sudo ./macvlan/host-shim.sh up      # доступ с самого хоста
+# ============================================================
+
+name: fixbyte-crm
+
+networks:
+  crm_lan:
+    driver: macvlan
+    driver_opts:
+      parent: ${MACVLAN_PARENT}
+    ipam:
+      config:
+        - subnet: ${LAN_SUBNET}
+          gateway: ${LAN_GATEWAY}
+          ip_range: ${LAN_IP_RANGE}
+  crm_internal:
+    driver: bridge
+    internal: true
+
+services:
+
+  db:
+    image: mariadb:11.4
+    container_name: fixbyte-db
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_PASSWORD:-changeme}
+      MARIADB_DATABASE: rembyte
+    volumes:
+      - fixbyte-db-data:/var/lib/mysql
+      - ./mariadb/init:/docker-entrypoint-initdb.d:ro
+    networks: [crm_internal]
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile     # runtime-образ из app/app.jar
+    image: fixbyte/crm:local
+    container_name: fixbyte-app
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      MARIADB_URL: jdbc:mariadb://db:3306/rembyte?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=UTF-8
+      MARIADB_USERNAME: root
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-changeme}
+      FIXBYTE_ADMIN_USERNAME: ${FIXBYTE_ADMIN_USERNAME:-admin}
+      FIXBYTE_ADMIN_PASSWORD: ${FIXBYTE_ADMIN_PASSWORD:-changeme}
+      FIXBYTE_OPERATOR_USERNAME: ${FIXBYTE_OPERATOR_USERNAME:-operator}
+      FIXBYTE_OPERATOR_PASSWORD: ${FIXBYTE_OPERATOR_PASSWORD:-changeme}
+    networks:
+      crm_lan:
+        ipv4_address: ${CRM_IP}
+        priority: 100
+      crm_internal:
+        priority: 10
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  fixbyte-db-data:
+    driver: local

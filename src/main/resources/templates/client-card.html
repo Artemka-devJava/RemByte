@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+  <th:block th:replace="~{fragments/head-common :: commonHead('FixByte CRM — Клиент')}"></th:block>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" th:replace="~{fragments/sidebar-shell :: sidebar()}"></aside>
+
+  <div class="main-area">
+    <header class="top-bar">
+      <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+        <a href="/clients" class="btn btn-sm btn-secondary">← Клиенты</a>
+        <h1 id="cardTitle" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Клиент</h1>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-primary btn-sm" id="btnNewOrder">➕ Заказ</button>
+        <a class="btn btn-secondary btn-sm" id="btnCall" href="#">☎ Позвонить</a>
+        <a class="btn btn-secondary btn-sm" id="btnWrite" href="#" target="_blank" rel="noopener">✉ Написать</a>
+        <button class="btn btn-secondary btn-sm" id="btnArchive">🗄 В архив</button>
+        <button class="btn btn-danger btn-sm" id="btnDelete" sec:authorize="hasRole('ADMIN')">🗑</button>
+      </div>
+    </header>
+
+    <main class="content" id="cardBody" style="max-width:960px;">
+      <div class="empty" id="cardLoading">Загрузка карточки…</div>
+
+      <div id="cardContent" hidden>
+        <!-- Шапка -->
+        <div class="card client-head">
+          <div class="client-head-main">
+            <input id="fName" class="client-name-input" placeholder="ФИО / организация">
+            <div class="client-head-sub">
+              <span class="status-badge" id="typeBadge">Физлицо</span>
+              <span id="archBadge" class="status-badge status-cancelled" hidden>В архиве</span>
+              <span id="tagChips" class="tag-chips"></span>
+            </div>
+          </div>
+          <div class="finance-strip">
+            <div><span class="fs-num" id="fsOrders">0</span><span class="fs-lbl">заказов</span></div>
+            <div><span class="fs-num" id="fsRevenue">0₽</span><span class="fs-lbl">оборот</span></div>
+            <div><span class="fs-num fs-debt" id="fsDebt">0₽</span><span class="fs-lbl">долг</span></div>
+          </div>
+        </div>
+
+        <!-- Контакты и данные -->
+        <details class="card card-section" open>
+          <summary>Контакты и данные</summary>
+          <div class="section-body form-grid">
+            <label>Телефон<input id="fPhone" type="tel"></label>
+            <label>Email<input id="fEmail" type="email"></label>
+            <label>Адрес<input id="fAddress" type="text"></label>
+            <label>Тип
+              <select id="fType">
+                <option value="INDIVIDUAL">Физлицо</option>
+                <option value="COMPANY">Организация</option>
+              </select>
+            </label>
+            <label>Источник
+              <input id="fSource" list="sourceList" placeholder="сарафан, реклама, сайт…">
+              <datalist id="sourceList">
+                <option value="Сарафан"></option><option value="Реклама"></option>
+                <option value="Сайт / чат"></option><option value="Повторный"></option>
+                <option value="Авито"></option><option value="Карты (2ГИС/Яндекс)"></option>
+              </datalist>
+            </label>
+            <label>Канал связи
+              <select id="fChannel">
+                <option value="">—</option>
+                <option value="PHONE">Звонок</option>
+                <option value="TELEGRAM">Telegram</option>
+                <option value="WHATSAPP">WhatsApp</option>
+                <option value="EMAIL">Email</option>
+              </select>
+            </label>
+            <label>Метки (через запятую)<input id="fTags" placeholder="VIP, оптовик, должник…"></label>
+            <label id="companyWrap" hidden>Реквизиты организации
+              <textarea id="fCompany" rows="2" placeholder="ИНН, договор, условия оплаты"></textarea>
+            </label>
+            <label>Заметка в карточке<textarea id="fNotes" rows="2"></textarea></label>
+          </div>
+          <div class="section-actions">
+            <button class="btn btn-primary btn-sm" id="btnSaveCard" disabled>Сохранить</button>
+            <span id="saveHint" class="hint"></span>
+          </div>
+        </details>
+
+        <!-- Заказы -->
+        <details class="card card-section" open>
+          <summary>Заказы <span class="count" id="ordersCount"></span></summary>
+          <div class="section-body">
+            <div style="overflow-x:auto;">
+              <table class="data-table">
+                <thead><tr><th>№</th><th>Устройство</th><th>Статус</th><th>Сумма</th><th>Остаток</th><th>Дата</th></tr></thead>
+                <tbody id="ordersTable"><tr><td colspan="6" class="empty">—</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="section-actions">
+            <button class="btn btn-primary btn-sm" id="btnNewOrder2">➕ Новый заказ</button>
+          </div>
+        </details>
+
+        <!-- Устройства -->
+        <details class="card card-section">
+          <summary>Устройства <span class="count" id="devCount"></span></summary>
+          <div class="section-body">
+            <div id="deviceList" class="stack-list"></div>
+            <div class="inline-add">
+              <input id="dKind" list="devKinds" placeholder="Тип" style="max-width:120px;">
+              <datalist id="devKinds"><option>Ноутбук</option><option>ПК</option><option>Моноблок</option><option>Телефон</option><option>Планшет</option></datalist>
+              <input id="dModel" placeholder="Модель" style="flex:1;">
+              <input id="dSerial" placeholder="Серийный №" style="max-width:150px;">
+              <button class="btn btn-secondary btn-sm" id="btnAddDevice">Добавить</button>
+            </div>
+          </div>
+        </details>
+
+        <!-- Фото -->
+        <details class="card card-section">
+          <summary>Фото <span class="count" id="photoCount"></span></summary>
+          <div class="section-body">
+            <div id="photoGrid" class="photo-grid"></div>
+            <div class="inline-add">
+              <input type="file" id="photoInput" accept="image/*" multiple>
+              <input id="photoCaption" placeholder="Подпись (необязательно)" style="flex:1;">
+              <button class="btn btn-secondary btn-sm" id="btnUploadPhotos">Загрузить</button>
+            </div>
+            <small class="hint">Изображения до 15 МБ. Эти же фото можно будет присылать из мобильного приложения.</small>
+          </div>
+        </details>
+
+        <!-- Журнал -->
+        <details class="card card-section">
+          <summary>Журнал <span class="count" id="noteCount"></span></summary>
+          <div class="section-body">
+            <div class="inline-add">
+              <select id="nKind" style="max-width:130px;">
+                <option value="NOTE">Заметка</option>
+                <option value="CALL">Звонок</option>
+                <option value="MESSAGE">Сообщение</option>
+              </select>
+              <input id="nText" placeholder="Что произошло…" style="flex:1;">
+              <button class="btn btn-secondary btn-sm" id="btnAddNote">Добавить</button>
+            </div>
+            <div id="noteList" class="timeline"></div>
+          </div>
+        </details>
+
+        <!-- Согласия -->
+        <details class="card card-section">
+          <summary>Согласия (152-ФЗ)</summary>
+          <div class="section-body">
+            <label class="consent-row"><input type="checkbox" id="cPdn"> Обработка персональных данных <span id="cPdnDate" class="hint"></span></label>
+            <label class="consent-row"><input type="checkbox" id="cMarketing"> Рекламные рассылки <span id="cMarketingDate" class="hint"></span></label>
+            <div class="section-actions"><button class="btn btn-primary btn-sm" id="btnSaveConsent">Сохранить согласия</button></div>
+          </div>
+        </details>
+      </div>
+    </main>
+    <footer class="page-footer">FixByte CRM © 2026</footer>
+  </div>
+</div>
+
+<!-- Лайтбокс фото -->
+<div id="lightbox" class="media-lightbox" style="display:none;">
+  <button class="media-lightbox-close" type="button" onclick="document.getElementById('lightbox').style.display='none'">&times;</button>
+  <div id="lightboxContent" class="media-lightbox-content"></div>
+</div>
+
+<span id="adminMarker" sec:authorize="hasRole('ADMIN')" style="display:none;"></span>
+<div id="toast-container"></div>
+<th:block th:replace="~{fragments/common-scripts :: uiBase}"></th:block>
+<script src="/js/api.js"></script>
+<script src="/js/client-card.js"></script>
+</body>
+</html>
