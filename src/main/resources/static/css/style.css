@@ -1314,4 +1314,17 @@ a:hover { text-decoration: underline; }
 .tl-icon { font-size: 15px; }
 .tl-body { flex: 1; font-size: 13.5px; }
 
+/* ===== PARTS MODULE (комплектующие) ===== */
+.status-in_stock { background: #dbeafe; color: #1d4ed8; }
+.status-sold      { background: #d1fae5; color: #065f46; }
+.parts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.part-card { border: 1px solid var(--c-border); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+.part-title { font-weight: 600; font-size: 14px; }
+.part-meta, .part-price { font-size: 12.5px; color: var(--c-muted); }
+.profit-pos { color: #15803d; font-weight: 600; }
+.profit-neg { color: #b91c1c; font-weight: 600; }
+.checkbox-select { font-size: 12px; display: flex; align-items: center; gap: 4px; color: var(--c-muted); }
+.lot-card { border: 1px solid var(--c-border); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+.lot-items-list { list-style: none; padding: 0; margin: 8px 0; font-size: 12.5px; color: var(--c-muted); }
+
 .consent-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13.5px; }

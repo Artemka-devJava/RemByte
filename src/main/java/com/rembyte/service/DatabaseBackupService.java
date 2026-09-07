@@ -66,9 +66,43 @@ public class DatabaseBackupService {
     }
 
     private byte[] buildDatabaseDump() throws Exception {
+        try (Connection conn = dataSource.getConnection()) {
+            if (isH2(conn)) {
+                // H2 (локальный fallback без MariaDB) не понимает "SHOW CREATE TABLE" —
+                // используем встроенный SCRIPT, который сам корректно упорядочивает
+                // CREATE TABLE/ALTER TABLE ADD CONSTRAINT и данные.
+                return buildH2ScriptDump(conn);
+            }
+            return buildMariaDbDump(conn);
+        }
+    }
+
+    private boolean isH2(Connection conn) throws SQLException {
+        String product = conn.getMetaData().getDatabaseProductName();
+        return product != null && product.toUpperCase(Locale.ROOT).contains("H2");
+    }
+
+    private byte[] buildH2ScriptDump(Connection conn) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream(32 * 1024);
-        try (Connection conn = dataSource.getConnection();
-             PrintWriter w = new PrintWriter(new OutputStreamWriter(baos, StandardCharsets.UTF_8))) {
+        try (PrintWriter w = new PrintWriter(new OutputStreamWriter(baos, StandardCharsets.UTF_8));
+             Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery("SCRIPT NOPASSWORDS NOSETTINGS DROP")) {
+
+            w.println("-- FixByte CRM — Резервная копия базы данных (H2)");
+            w.println("-- Создана: " + LocalDateTime.now());
+            w.println("-- ==========================================");
+            w.println();
+            while (rs.next()) {
+                w.println(rs.getString(1));
+            }
+            w.flush();
+            return baos.toByteArray();
+        }
+    }
+
+    private byte[] buildMariaDbDump(Connection conn) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(32 * 1024);
+        try (PrintWriter w = new PrintWriter(new OutputStreamWriter(baos, StandardCharsets.UTF_8))) {
 
             w.println("-- FixByte CRM — Резервная копия базы данных");
             w.println("-- Создана: " + LocalDateTime.now());

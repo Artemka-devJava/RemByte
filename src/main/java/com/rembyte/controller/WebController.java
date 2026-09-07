@@ -56,6 +56,11 @@ public class WebController {
         return "services";
     }
 
+    @GetMapping("/parts")
+    public String parts() {
+        return "parts";
+    }
+
     @GetMapping("/calculator")
     public String calculator() {
         return "calculator";

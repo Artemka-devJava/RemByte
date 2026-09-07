@@ -1044,6 +1044,168 @@ const KanbanAPI = {
     }
 };
 
+// ====== PARTS API (комплектующие: закупка/продажа деталей и лотов) ======
+const PartsAPI = {
+    getAll: async (status) => {
+        try {
+            const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+            const response = await fetch(`${API_BASE}/parts${qs}`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching parts:', error);
+            return [];
+        }
+    },
+
+    getById: async (id) => _partsGet(`${id}`, null),
+
+    create: async (data) => {
+        try {
+            const response = await fetch(`${API_BASE}/parts`, {
+                method: 'POST', headers: getSecureHeaders(), body: JSON.stringify(data)
+            });
+            if (!response.ok) return { error: await response.text().catch(() => 'Ошибка создания') };
+            return await response.json();
+        } catch (error) {
+            console.error('Error creating part item:', error);
+            return { error: 'network' };
+        }
+    },
+
+    update: async (id, data) => _partsPut(`${id}`, data),
+
+    delete: async (id) => _partsDelete(`${id}`),
+
+    sell: async (id, salePrice, saleDate) => {
+        try {
+            const response = await fetch(`${API_BASE}/parts/${id}/sell`, {
+                method: 'POST', headers: getSecureHeaders(),
+                body: JSON.stringify({ salePrice, saleDate: saleDate ? toLocalDateTimeParam(saleDate) : null })
+            });
+            if (!response.ok) return { error: await response.text().catch(() => 'Ошибка продажи') };
+            return await response.json();
+        } catch (error) {
+            console.error('Error selling part item:', error);
+            return { error: 'network' };
+        }
+    },
+
+    // Фото
+    getPhotos: async (id) => _partsGet(`${id}/photos`, []),
+    uploadPhotos: async (id, files) => {
+        try {
+            const fd = new FormData();
+            Array.from(files || []).forEach(f => fd.append('files', f));
+            const response = await fetch(`${API_BASE}/parts/${id}/photos`, {
+                method: 'POST', headers: getCsrfOnlyHeaders(), body: fd
+            });
+            if (!response.ok) return { error: await response.text().catch(() => 'Ошибка загрузки') };
+            return await response.json();
+        } catch (error) {
+            console.error('Error uploading part photos:', error);
+            return { error: 'network' };
+        }
+    },
+    deletePhoto: async (id, photoId) => _partsDelete(`${id}/photos/${photoId}`),
+
+    // Лоты
+    getLots: async () => {
+        try {
+            const response = await fetch(`${API_BASE}/parts/lots`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching part lots:', error);
+            return [];
+        }
+    },
+    getLot: async (id) => _partsGet(`lots/${id}`, null),
+    createLot: async (title, itemIds) => {
+        try {
+            const response = await fetch(`${API_BASE}/parts/lots`, {
+                method: 'POST', headers: getSecureHeaders(), body: JSON.stringify({ title, itemIds })
+            });
+            if (!response.ok) return { error: await response.text().catch(() => 'Ошибка создания лота') };
+            return await response.json();
+        } catch (error) {
+            console.error('Error creating part lot:', error);
+            return { error: 'network' };
+        }
+    },
+    updateLot: async (id, title, itemIds) => _partsPut(`lots/${id}`, { title, itemIds }),
+    disbandLot: async (id) => _partsDelete(`lots/${id}`),
+    sellLot: async (id, salePrice, saleDate) => {
+        try {
+            const response = await fetch(`${API_BASE}/parts/lots/${id}/sell`, {
+                method: 'POST', headers: getSecureHeaders(),
+                body: JSON.stringify({ salePrice, saleDate: saleDate ? toLocalDateTimeParam(saleDate) : null })
+            });
+            if (!response.ok) return { error: await response.text().catch(() => 'Ошибка продажи') };
+            return await response.json();
+        } catch (error) {
+            console.error('Error selling part lot:', error);
+            return { error: 'network' };
+        }
+    },
+
+    // Бюджет и статистика
+    getBudget: async () => {
+        try {
+            const response = await fetch(`${API_BASE}/parts/budget`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching parts budget:', error);
+            return null;
+        }
+    },
+    setBudget: async (startingAmount) => {
+        try {
+            const response = await fetch(`${API_BASE}/parts/budget`, {
+                method: 'PUT', headers: getSecureHeaders(), body: JSON.stringify({ startingAmount })
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Error updating parts budget:', error);
+            return null;
+        }
+    },
+    getStats: async (from, to) => {
+        try {
+            let qs = '';
+            if (from) qs += `${qs ? '&' : '?'}from=${encodeURIComponent(toLocalDateTimeParam(from))}`;
+            if (to) qs += `${qs ? '&' : '?'}to=${encodeURIComponent(toLocalDateTimeParam(to))}`;
+            const response = await fetch(`${API_BASE}/parts/stats${qs}`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching parts statistics:', error);
+            return null;
+        }
+    }
+};
+
+async function _partsGet(path, fallback) {
+    try {
+        const r = await fetch(`${API_BASE}/parts/${path}`);
+        if (!r.ok) return fallback;
+        return await r.json();
+    } catch (e) { console.error('parts GET', path, e); return fallback; }
+}
+async function _partsPut(path, body) {
+    try {
+        const r = await fetch(`${API_BASE}/parts/${path}`, {
+            method: 'PUT', headers: getSecureHeaders(), body: JSON.stringify(body)
+        });
+        if (!r.ok) return { error: await r.text().catch(() => 'Ошибка') };
+        return await r.json();
+    } catch (e) { console.error('parts PUT', path, e); return { error: 'network' }; }
+}
+async function _partsDelete(path) {
+    try {
+        const r = await fetch(`${API_BASE}/parts/${path}`, { method: 'DELETE', headers: getCsrfOnlyHeaders() });
+        if (!r.ok) return { error: await r.text().catch(() => 'Ошибка') };
+        return true;
+    } catch (e) { console.error('parts DELETE', path, e); return { error: 'network' }; }
+}
+
 // ====== UTILITY FUNCTIONS ======
 function formatCurrency(amount) {
     return Math.round(amount) + '₽';

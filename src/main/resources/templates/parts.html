@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+  <th:block th:replace="~{fragments/head-common :: commonHead('FixByte CRM — Комплектующие')}"></th:block>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" th:replace="~{fragments/sidebar-shell :: sidebar()}"></aside>
+
+  <div class="main-area">
+    <header class="top-bar">
+      <h1>📦 Комплектующие</h1>
+      <button class="btn btn-primary" onclick="openCreateItemModal()">+ Новая деталь</button>
+    </header>
+
+    <main class="content">
+      <div class="stats-grid" style="grid-template-columns:repeat(5,1fr);">
+        <div class="stat-card"><div class="stat-icon">💼</div><div class="stat-label">Баланс</div><div class="number" id="statBalance">—</div></div>
+        <div class="stat-card"><div class="stat-icon">📈</div><div class="stat-label">Прибыль за период</div><div class="number" id="statProfit">—</div></div>
+        <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-label">Выручка за период</div><div class="number" id="statRevenue">—</div></div>
+        <div class="stat-card"><div class="stat-icon">🛒</div><div class="stat-label">Закуплено за период</div><div class="number" id="statPurchased">—</div></div>
+        <div class="stat-card"><div class="stat-icon">🏬</div><div class="stat-label">Склад (себестоимость)</div><div class="number" id="statInventory">—</div></div>
+      </div>
+
+      <div class="filter-bar">
+        <label>Период:</label>
+        <select id="periodSelect" onchange="loadStats()">
+          <option value="today">Сегодня</option>
+          <option value="week">7 дней</option>
+          <option value="month" selected>30 дней</option>
+          <option value="all">Всё время</option>
+        </select>
+
+        <label style="margin-left:16px;">Стартовый бюджет:</label>
+        <input type="number" id="budgetInput" style="width:120px;padding:8px 10px;border:1.5px solid var(--c-border);border-radius:7px;">
+        <button class="btn btn-sm btn-secondary" onclick="saveBudget()">Сохранить</button>
+      </div>
+
+      <div class="filter-bar">
+        <button class="btn btn-sm" id="viewTabItems" onclick="switchView('items')">📦 Детали</button>
+        <button class="btn btn-sm" id="viewTabLots" onclick="switchView('lots')">🧩 Лоты</button>
+        <select id="itemStatusFilter" onchange="loadItems()" style="margin-left:auto;">
+          <option value="">Все статусы</option>
+          <option value="IN_STOCK">В наличии</option>
+          <option value="SOLD">Продано</option>
+        </select>
+        <button class="btn btn-sm btn-secondary" id="btnMakeLot" style="display:none;" onclick="openCreateLotModal()">🧩 Собрать лот из выбранных</button>
+      </div>
+
+      <div id="itemsView">
+        <div class="card"><div class="card-body">
+          <div id="itemsGrid" class="parts-grid"><p class="empty">Загрузка...</p></div>
+        </div></div>
+      </div>
+
+      <div id="lotsView" style="display:none;">
+        <div class="card"><div class="card-body">
+          <div id="lotsList"><p class="empty">Загрузка...</p></div>
+        </div></div>
+      </div>
+    </main>
+    <footer class="page-footer">FixByte CRM © 2026</footer>
+  </div>
+</div>
+
+<!-- Модал: новая деталь -->
+<div id="createItemModal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Новая деталь</h2>
+      <button class="close" onclick="closeModal('createItemModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="createItemForm" onsubmit="submitCreateItem(event)">
+        <div class="form-group">
+          <label>Название:</label>
+          <input type="text" id="itemTitle" required placeholder="RTX 3060 12GB">
+        </div>
+        <div class="form-group">
+          <label>Категория:</label>
+          <input type="text" id="itemCategory" placeholder="Видеокарта">
+        </div>
+        <div class="form-group">
+          <label>Источник:</label>
+          <input type="text" id="itemSource" value="Авито">
+        </div>
+        <div class="form-group">
+          <label>Цена закупки:</label>
+          <input type="number" id="itemPurchasePrice" required min="0" step="1">
+        </div>
+        <div class="form-group">
+          <label>Дата закупки:</label>
+          <input type="datetime-local" id="itemPurchaseDate">
+        </div>
+        <div class="form-group">
+          <label>Фото:</label>
+          <input type="file" id="itemPhotos" accept="image/*" multiple>
+        </div>
+        <div class="form-group">
+          <label>Заметки:</label>
+          <textarea id="itemNotes" placeholder="Состояние, комплектация..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Добавить деталь</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Модал: фото детали -->
+<div id="itemPhotosModal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="itemPhotosTitle">Фото</h2>
+      <button class="close" onclick="closeModal('itemPhotosModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="itemPhotosGrid" class="photo-grid"></div>
+      <div class="form-group">
+        <input type="file" id="itemPhotosUploadInput" accept="image/*" multiple>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="uploadItemPhotos()">Загрузить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Модал: продажа (детали или лота) -->
+<div id="sellModal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="sellModalTitle">Продажа</h2>
+      <button class="close" onclick="closeModal('sellModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="sellForm" onsubmit="submitSell(event)">
+        <div class="form-group">
+          <label>Цена продажи:</label>
+          <input type="number" id="sellPrice" required min="0" step="1">
+        </div>
+        <div class="form-group">
+          <label>Дата продажи:</label>
+          <input type="datetime-local" id="sellDate">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Отметить проданным</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Модал: собрать лот -->
+<div id="createLotModal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Собрать лот</h2>
+      <button class="close" onclick="closeModal('createLotModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="createLotForm" onsubmit="submitCreateLot(event)">
+        <div class="form-group">
+          <label>Название лота:</label>
+          <input type="text" id="lotTitle" required placeholder="Сборка i5 + RTX 3060">
+        </div>
+        <div class="form-group">
+          <label>Состав:</label>
+          <ul id="lotItemsPreview" style="list-style:none;padding:0;font-size:13.5px;color:var(--c-muted);"></ul>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Создать лот</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<th:block th:replace="~{fragments/common-scripts :: uiBase}"></th:block>
+<script src="/js/api.js"></script>
+<script src="/js/parts.js"></script>
+</body>
+</html>
