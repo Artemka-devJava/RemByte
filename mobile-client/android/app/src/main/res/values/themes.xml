@@ -4,7 +4,14 @@
         <item name="colorPrimary">@color/brand</item>
         <item name="colorPrimaryDark">@color/brand_dark</item>
         <item name="colorOnPrimary">@color/white</item>
-        <item name="android:statusBarColor" tools:targetApi="l">@color/brand_dark</item>
         <item name="android:windowBackground">@color/bg</item>
+
+        <!-- Системные полосы: статус-бар в цвет тулбара, нав-бар — светлый -->
+        <item name="android:statusBarColor" tools:targetApi="l">@color/brand</item>
+        <item name="android:navigationBarColor" tools:targetApi="o_mr1">@color/bg</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">true</item>
+        <!-- Не рисуем контент под системными полосами (targetSdk 35+ иначе edge-to-edge) -->
+        <item name="android:windowOptOutEdgeToEdgeEnforcement" tools:targetApi="35">true</item>
     </style>
 </resources>
