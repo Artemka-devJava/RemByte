@@ -6,8 +6,10 @@ struct CreateClientSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
+    private let phonePrefix = "+7 "
+
     @State private var name = ""
-    @State private var phone = ""
+    @State private var phone = "+7 "
     @State private var type = "INDIVIDUAL"
     @State private var problem = ""
     @State private var priceText = ""
@@ -28,6 +30,7 @@ struct CreateClientSheet: View {
                         .textInputAutocapitalization(.words)
                     TextField("Телефон", text: $phone)
                         .keyboardType(.phonePad)
+                        .onChange(of: phone) { newValue in reformatPhone(newValue) }
                     Picker("Тип", selection: $type) {
                         Text("Физлицо").tag("INDIVIDUAL")
                         Text("Организация").tag("COMPANY")
@@ -85,16 +88,34 @@ struct CreateClientSheet: View {
         .presentationDetents([.large])
     }
 
+    /// Поле всегда начинается с "+7 " — префикс нельзя стереть/испортить.
+    private func reformatPhone(_ raw: String) {
+        let local: String
+        if raw.hasPrefix(phonePrefix) {
+            local = String(raw.dropFirst(phonePrefix.count))
+        } else {
+            var digits = raw.digitsOnly
+            if digits.hasPrefix("7") || digits.hasPrefix("8") { digits.removeFirst() }
+            local = digits
+        }
+        var digits = local.digitsOnly
+        if digits.count > 10 { digits = String(digits.prefix(10)) }
+        let formatted = phonePrefix + digits
+        if formatted != raw { phone = formatted }
+    }
+
     private func create() async {
         let n = name.trimmingCharacters(in: .whitespaces)
-        let p = phone.trimmingCharacters(in: .whitespaces)
-        guard !n.isEmpty, !p.isEmpty else {
-            error = "Имя и телефон обязательны"; return
+        guard !n.isEmpty else {
+            error = "Введите имя клиента"; return
+        }
+        guard let normalizedPhone = phone.normalizedRuPhone else {
+            error = "Введите корректный номер телефона: +7 и 10 цифр"; return
         }
         busy = true; error = nil
         do {
             let res = try await Api.shared.createClient(
-                name: n, phone: p, type: type,
+                name: n, phone: normalizedPhone, type: type,
                 problem: problem.trimmingCharacters(in: .whitespacesAndNewlines),
                 estimate: estimate
             )

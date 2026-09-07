@@ -45,20 +45,27 @@ final class Api {
     func saveCookies() {
         guard let u = URL(string: baseURL),
               let cookies = HTTPCookieStorage.shared.cookies(for: u) else { return }
-        let arr: [[String: String]] = cookies.map {
-            ["name": $0.name, "value": $0.value, "domain": $0.domain, "path": $0.path]
+        let arr: [[String: Any]] = cookies.map { c in
+            var d: [String: Any] = ["name": c.name, "value": c.value, "domain": c.domain, "path": c.path]
+            if let expires = c.expiresDate { d["expires"] = expires.timeIntervalSince1970 }
+            d["secure"] = c.isSecure
+            return d
         }
         defaults.set(arr, forKey: "cookies")
     }
 
     func restoreCookies() {
-        guard let arr = defaults.array(forKey: "cookies") as? [[String: String]] else { return }
+        guard let arr = defaults.array(forKey: "cookies") as? [[String: Any]] else { return }
         for d in arr {
             var p: [HTTPCookiePropertyKey: Any] = [:]
-            p[.name] = d["name"]
-            p[.value] = d["value"]
-            p[.domain] = d["domain"]
-            p[.path] = d["path"] ?? "/"
+            p[.name] = d["name"] as? String
+            p[.value] = d["value"] as? String
+            p[.domain] = d["domain"] as? String
+            p[.path] = (d["path"] as? String) ?? "/"
+            if let expires = d["expires"] as? TimeInterval {
+                p[.expires] = Date(timeIntervalSince1970: expires)
+            }
+            if (d["secure"] as? Bool) == true { p[.secure] = "TRUE" }
             if let c = HTTPCookie(properties: p) {
                 HTTPCookieStorage.shared.setCookie(c)
             }

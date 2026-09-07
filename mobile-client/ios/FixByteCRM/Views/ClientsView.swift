@@ -13,6 +13,7 @@ struct ClientsView: View {
     @State private var loading = false
     @State private var error: String?
     @State private var showCreate = false
+    @State private var showSettings = false
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -38,6 +39,9 @@ struct ClientsView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Menu {
+                        Button("Настройки сервера") {
+                            showSettings = true
+                        }
                         Button("Выйти", role: .destructive) {
                             Task { await session.logout() }
                         }
@@ -45,6 +49,9 @@ struct ClientsView: View {
                         Image(systemName: "person.crop.circle")
                     }
                 }
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
             }
             // Кнопка добавления клиента: закреплена внизу, всегда под рукой
             .safeAreaInset(edge: .bottom) {

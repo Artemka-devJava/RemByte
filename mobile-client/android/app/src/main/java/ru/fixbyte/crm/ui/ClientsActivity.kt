@@ -18,6 +18,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import ru.fixbyte.crm.Api
 import ru.fixbyte.crm.CreateClientResult
+import ru.fixbyte.crm.installPhoneMask
+import ru.fixbyte.crm.normalizeRuPhone
 import ru.fixbyte.crm.databinding.ActivityClientsBinding
 import ru.fixbyte.crm.databinding.DialogCreateClientBinding
 
@@ -90,13 +92,19 @@ class ClientsActivity : AppCompatActivity() {
             .setPositiveButton("Создать", null)
             .create()
 
+        installPhoneMask(d.dcPhone)
+
         dialog.setOnShowListener {
             val positive = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
             positive.setOnClickListener {
                 val name = d.dcName.text?.toString()?.trim().orEmpty()
-                val phone = d.dcPhone.text?.toString()?.trim().orEmpty()
-                if (name.isEmpty() || phone.isEmpty()) {
-                    Toast.makeText(this, "Имя и телефон обязательны", Toast.LENGTH_SHORT).show()
+                if (name.isEmpty()) {
+                    Toast.makeText(this, "Введите имя клиента", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                val phone = normalizeRuPhone(d.dcPhone.text?.toString().orEmpty())
+                if (phone == null) {
+                    Toast.makeText(this, "Введите корректный номер телефона: +7 и 10 цифр", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
                 val type = if (d.dcCompany.isChecked) "COMPANY" else "INDIVIDUAL"
@@ -139,11 +147,16 @@ class ClientsActivity : AppCompatActivity() {
     // ── Меню ──────────────────────────────────────────────────
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menu.add(0, MENU_SETTINGS, 0, "Настройки").setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
         menu.add(0, MENU_LOGOUT, 0, "Выйти").setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (item.itemId == MENU_SETTINGS) {
+            startActivity(Intent(this, SettingsActivity::class.java))
+            return true
+        }
         if (item.itemId == MENU_LOGOUT) {
             lifecycleScope.launch { Api.logout(); goToLogin() }
             return true
@@ -160,6 +173,7 @@ class ClientsActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_CLIENT_ID = "client_id"
-        private const val MENU_LOGOUT = 1
+        private const val MENU_SETTINGS = 1
+        private const val MENU_LOGOUT = 2
     }
 }

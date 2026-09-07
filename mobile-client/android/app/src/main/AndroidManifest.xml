@@ -24,6 +24,7 @@
 
         <activity android:name=".ui.ClientsActivity" android:exported="false" />
         <activity android:name=".ui.ClientActivity" android:exported="false" />
+        <activity android:name=".ui.SettingsActivity" android:exported="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

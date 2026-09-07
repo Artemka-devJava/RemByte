@@ -3,21 +3,15 @@ import SwiftUI
 struct LoginView: View {
     @EnvironmentObject private var session: Session
 
-    @State private var serverURL = Api.shared.baseURL
     @State private var username = Api.shared.lastUsername
     @State private var password = ""
     @State private var busy = false
     @State private var error: String?
+    @State private var showSettings = false
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Сервер") {
-                    TextField("http://IP:9087", text: $serverURL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.URL)
-                }
                 Section("Учётная запись") {
                     TextField("Логин", text: $username)
                         .textInputAutocapitalization(.never)
@@ -41,16 +35,26 @@ struct LoginView: View {
                 }
             }
             .navigationTitle("FixByte CRM")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                }
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
+            }
         }
     }
 
     private func signIn() async {
-        let url = serverURL.trimmedTrailingSlash
-        guard !url.isEmpty, !username.isEmpty, !password.isEmpty else {
+        guard !username.isEmpty, !password.isEmpty else {
             error = "Заполните все поля"; return
         }
         busy = true; error = nil
-        Api.shared.baseURL = url
         do {
             let info = try await Api.shared.login(username: username, password: password)
             Api.shared.lastUsername = username

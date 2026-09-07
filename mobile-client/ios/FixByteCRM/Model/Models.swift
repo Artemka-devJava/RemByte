@@ -63,4 +63,15 @@ extension String {
     }
     var digitsAndPlus: String { filter { $0.isNumber || $0 == "+" } }
     var digitsOnly: String { filter { $0.isNumber } }
+
+    /// Приводит российский номер к виду "+7XXXXXXXXXX" (8XXXXXXXXXX → тот же вид).
+    /// nil — если после нормализации получилось не ровно 11 цифр, начинающихся с 7.
+    var normalizedRuPhone: String? {
+        var digits = digitsOnly
+        if digits.count == 11, digits.hasPrefix("8") {
+            digits = "7" + digits.dropFirst()
+        }
+        guard digits.count == 11, digits.hasPrefix("7") else { return nil }
+        return "+" + digits
+    }
 }

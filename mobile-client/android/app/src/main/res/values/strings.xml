@@ -10,4 +10,6 @@
     <string name="add_photo_gallery">Выбрать из галереи</string>
     <string name="photo_caption_hint">Подпись к фото (необязательно)</string>
     <string name="logout">Выйти</string>
+    <string name="settings">Настройки</string>
+    <string name="save">Сохранить</string>
 </resources>
