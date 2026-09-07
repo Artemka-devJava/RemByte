@@ -43,7 +43,8 @@ struct AuthInfo: Decodable {
 }
 
 enum CreateClientResult {
-    case created(id: Int)
+    /// Клиент создан. `orderFailed` = первичную заявку завести не удалось.
+    case created(id: Int, orderFailed: Bool)
     case duplicate(id: Int, name: String)
 }
 

@@ -45,13 +45,21 @@ struct ClientsView: View {
                         Image(systemName: "person.crop.circle")
                     }
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showCreate = true
-                    } label: {
-                        Label("Клиент", systemImage: "plus")
-                    }
+            }
+            // Кнопка добавления клиента: закреплена внизу, всегда под рукой
+            .safeAreaInset(edge: .bottom) {
+                Button {
+                    showCreate = true
+                } label: {
+                    Label("Новый клиент", systemImage: "plus.circle.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
                 }
+                .buttonStyle(.borderedProminent)
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+                .background(.bar)
             }
             .sheet(isPresented: $showCreate) {
                 CreateClientSheet { newId in

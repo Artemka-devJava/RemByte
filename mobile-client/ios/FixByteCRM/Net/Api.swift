@@ -119,7 +119,16 @@ final class Api {
 
     func photos(_ id: Int) async throws -> [ClientPhoto] { try await getJSON("/api/clients/\(id)/photos") }
 
-    func createClient(name: String, phone: String, type: String) async throws -> CreateClientResult {
+    /// Создать клиента. При заданных `problem` / `estimate` следом заводится
+    /// первичная заявка (заказ NEW): описание = проблема, строка
+    /// «Предварительная оценка» = озвученная примерная цена.
+    func createClient(
+        name: String,
+        phone: String,
+        type: String,
+        problem: String? = nil,
+        estimate: Double? = nil
+    ) async throws -> CreateClientResult {
         var req = URLRequest(url: makeURL("/api/clients"))
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -132,12 +141,56 @@ final class Api {
         let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
 
         if (200..<300).contains(code) {
-            return .created(id: intValue(obj?["id"]))
+            let id = intValue(obj?["id"])
+            let hasProblem = !(problem ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            let hasPrice = (estimate ?? 0) > 0
+            var orderFailed = false
+            if hasProblem || hasPrice {
+                do {
+                    try await createInitialOrder(clientId: id, problem: problem, estimate: estimate)
+                } catch {
+                    orderFailed = true
+                }
+            }
+            return .created(id: id, orderFailed: orderFailed)
         }
         if code == 409 {
             return .duplicate(id: intValue(obj?["id"]), name: (obj?["name"] as? String) ?? "")
         }
         throw ApiError.message(errorText(data) ?? "Не удалось создать клиента (\(code))")
+    }
+
+    /// Первичная заявка для только что созданного клиента.
+    private func createInitialOrder(clientId: Int, problem: String?, estimate: Double?) async throws {
+        var order: [String: Any] = [
+            "client": ["id": clientId],
+            "status": "NEW",
+            "paidAmount": 0,
+            "notes": "Первичная заявка (моб. приложение)"
+        ]
+        let desc = (problem ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !desc.isEmpty { order["deviceDescription"] = desc }
+
+        var lines: [[String: Any]] = []
+        if (estimate ?? 0) > 0 {
+            lines.append([
+                "name": "Предварительная оценка (со слов клиента)",
+                "unitPrice": estimate!,
+                "quantity": 1
+            ])
+        }
+        order["lines"] = lines
+
+        var req = URLRequest(url: makeURL("/api/orders"))
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: order)
+
+        let (_, resp) = try await session.data(for: req)
+        let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(code) else {
+            throw ApiError.message("Заявка не создана (\(code))")
+        }
     }
 
     // MARK: — фото

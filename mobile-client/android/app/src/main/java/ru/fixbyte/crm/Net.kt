@@ -46,7 +46,8 @@ data class ClientSummary(val ordersCount: Long, val revenue: Double, val debt: D
 data class ClientPhoto(val id: Long, val url: String, val caption: String?, val createdAt: String?)
 
 sealed interface CreateClientResult {
-    data class Created(val id: Long) : CreateClientResult
+    /** Клиент создан. [orderFailed] = попытка завести первичную заявку не удалась. */
+    data class Created(val id: Long, val orderFailed: Boolean = false) : CreateClientResult
     data class Duplicate(val id: Long, val name: String) : CreateClientResult
 }
 
@@ -144,24 +145,75 @@ object Api {
         detail(JSONObject(get("/api/clients/$id")))
     }
 
-    /** Создать клиента. При дубле телефона сервер отдаёт 409 + существующую карточку. */
-    suspend fun createClient(name: String, phone: String, type: String): CreateClientResult =
-        withContext(Dispatchers.IO) {
-            val body = JSONObject()
-                .put("name", name).put("phone", phone).put("type", type).put("isActive", true)
-                .toString().toRequestBody(JSON)
-            http.newCall(Request.Builder().url(u("/api/clients")).post(body).build()).execute().use { r ->
-                val txt = r.body?.string().orEmpty()
-                when {
-                    r.isSuccessful -> CreateClientResult.Created(JSONObject(txt).getLong("id"))
-                    r.code == 409 -> {
-                        val o = JSONObject(txt)
-                        CreateClientResult.Duplicate(o.getLong("id"), o.optString("name", ""))
-                    }
-                    else -> throw ApiException(parseErr(txt) ?: "Не удалось создать клиента (${r.code})")
+    /**
+     * Создать клиента. При дубле телефона сервер отдаёт 409 + существующую карточку.
+     *
+     * Если заданы [problem] (жалоба на ПК) и/или [estimatePrice] (озвученная
+     * примерная цена) — следом заводится первичная заявка (заказ со статусом NEW):
+     * описание = проблема, строка «Предварительная оценка» = озвученная цена.
+     */
+    suspend fun createClient(
+        name: String,
+        phone: String,
+        type: String,
+        problem: String? = null,
+        estimatePrice: Double? = null
+    ): CreateClientResult = withContext(Dispatchers.IO) {
+        val body = JSONObject()
+            .put("name", name).put("phone", phone).put("type", type).put("isActive", true)
+            .toString().toRequestBody(JSON)
+
+        val result = http.newCall(Request.Builder().url(u("/api/clients")).post(body).build()).execute().use { r ->
+            val txt = r.body?.string().orEmpty()
+            when {
+                r.isSuccessful -> CreateClientResult.Created(JSONObject(txt).getLong("id"))
+                r.code == 409 -> {
+                    val o = JSONObject(txt)
+                    CreateClientResult.Duplicate(o.getLong("id"), o.optString("name", ""))
                 }
+                else -> throw ApiException(parseErr(txt) ?: "Не удалось создать клиента (${r.code})")
             }
         }
+
+        if (result is CreateClientResult.Created) {
+            val hasProblem = !problem.isNullOrBlank()
+            val hasPrice = (estimatePrice ?: 0.0) > 0.0
+            if (hasProblem || hasPrice) {
+                val ok = runCatching {
+                    createInitialOrder(result.id, problem?.trim(), estimatePrice)
+                }.isSuccess
+                return@withContext result.copy(orderFailed = !ok)
+            }
+        }
+        result
+    }
+
+    /** Первичная заявка для только что созданного клиента. */
+    private fun createInitialOrder(clientId: Long, deviceDescription: String?, estimatePrice: Double?) {
+        val order = JSONObject()
+            .put("client", JSONObject().put("id", clientId))
+            .put("status", "NEW")
+            .put("paidAmount", 0)
+            .put("notes", "Первичная заявка (моб. приложение)")
+        if (!deviceDescription.isNullOrBlank()) order.put("deviceDescription", deviceDescription)
+
+        val lines = JSONArray()
+        if ((estimatePrice ?: 0.0) > 0.0) {
+            lines.put(
+                JSONObject()
+                    .put("name", "Предварительная оценка (со слов клиента)")
+                    .put("unitPrice", estimatePrice)
+                    .put("quantity", 1)
+            )
+        }
+        order.put("lines", lines)
+
+        http.newCall(
+            Request.Builder().url(u("/api/orders")).post(order.toString().toRequestBody(JSON)).build()
+        ).execute().use { r ->
+            if (!r.isSuccessful) throw ApiException("Заявка не создана (${r.code})")
+        }
+    }
 
     /** Скачать файл (например фото) тем же клиентом — с cookie сессии. */
     suspend fun downloadBytes(url: String): ByteArray = withContext(Dispatchers.IO) {

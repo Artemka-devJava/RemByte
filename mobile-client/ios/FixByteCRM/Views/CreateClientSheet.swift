@@ -9,15 +9,23 @@ struct CreateClientSheet: View {
     @State private var name = ""
     @State private var phone = ""
     @State private var type = "INDIVIDUAL"
+    @State private var problem = ""
+    @State private var priceText = ""
     @State private var busy = false
     @State private var error: String?
     @State private var duplicate: (id: Int, name: String)?
 
+    private var estimate: Double? {
+        Double(priceText.replacingOccurrences(of: ",", with: ".")
+            .replacingOccurrences(of: " ", with: ""))
+    }
+
     var body: some View {
         NavigationStack {
             Form {
-                Section {
+                Section("Клиент") {
                     TextField("ФИО / организация", text: $name)
+                        .textInputAutocapitalization(.words)
                     TextField("Телефон", text: $phone)
                         .keyboardType(.phonePad)
                     Picker("Тип", selection: $type) {
@@ -26,6 +34,25 @@ struct CreateClientSheet: View {
                     }
                     .pickerStyle(.segmented)
                 }
+
+                Section("Первичная заявка (необязательно)") {
+                    ZStack(alignment: .topLeading) {
+                        if problem.isEmpty {
+                            Text("Проблема с ПК / устройством")
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 8)
+                                .padding(.leading, 4)
+                        }
+                        TextEditor(text: $problem)
+                            .frame(minHeight: 80)
+                    }
+                    HStack {
+                        TextField("Примерная цена (озвучена клиенту)", text: $priceText)
+                            .keyboardType(.decimalPad)
+                        Text("₽").foregroundStyle(.secondary)
+                    }
+                }
+
                 if let error {
                     Text(error).foregroundStyle(.red).font(.footnote)
                 }
@@ -55,7 +82,7 @@ struct CreateClientSheet: View {
                 Text("Клиент с этим телефоном уже есть: \(dup.name)")
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.large])
     }
 
     private func create() async {
@@ -66,8 +93,13 @@ struct CreateClientSheet: View {
         }
         busy = true; error = nil
         do {
-            switch try await Api.shared.createClient(name: n, phone: p, type: type) {
-            case .created(let id):
+            let res = try await Api.shared.createClient(
+                name: n, phone: p, type: type,
+                problem: problem.trimmingCharacters(in: .whitespacesAndNewlines),
+                estimate: estimate
+            )
+            switch res {
+            case .created(let id, _):
                 dismiss()
                 onOpen(id)
             case .duplicate(let id, let dupName):

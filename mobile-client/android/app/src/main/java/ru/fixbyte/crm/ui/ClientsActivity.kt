@@ -50,7 +50,7 @@ class ClientsActivity : AppCompatActivity() {
             searchJob = lifecycleScope.launch { delay(350); load(text) }
         }
 
-        b.addClientFab.setOnClickListener { showCreateClientDialog() }
+        b.addClientButton.setOnClickListener { showCreateClientDialog() }
     }
 
     override fun onResume() {
@@ -91,7 +91,8 @@ class ClientsActivity : AppCompatActivity() {
             .create()
 
         dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val positive = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            positive.setOnClickListener {
                 val name = d.dcName.text?.toString()?.trim().orEmpty()
                 val phone = d.dcPhone.text?.toString()?.trim().orEmpty()
                 if (name.isEmpty() || phone.isEmpty()) {
@@ -99,12 +100,21 @@ class ClientsActivity : AppCompatActivity() {
                     return@setOnClickListener
                 }
                 val type = if (d.dcCompany.isChecked) "COMPANY" else "INDIVIDUAL"
+                val problem = d.dcProblem.text?.toString()?.trim().orEmpty()
+                val price = d.dcPrice.text?.toString()?.trim()
+                    ?.replace(',', '.')?.replace(" ", "")?.toDoubleOrNull()
+
+                positive.isEnabled = false
                 lifecycleScope.launch {
                     try {
-                        when (val res = Api.createClient(name, phone, type)) {
+                        val res = Api.createClient(name, phone, type, problem.ifEmpty { null }, price)
+                        when (res) {
                             is CreateClientResult.Created -> {
                                 dialog.dismiss()
-                                Toast.makeText(this@ClientsActivity, "Клиент создан", Toast.LENGTH_SHORT).show()
+                                val msg = if (res.orderFailed)
+                                    "Клиент создан, но заявку не удалось завести — добавьте вручную"
+                                else "Клиент создан"
+                                Toast.makeText(this@ClientsActivity, msg, Toast.LENGTH_SHORT).show()
                                 openClient(res.id)
                             }
                             is CreateClientResult.Duplicate -> {
@@ -118,6 +128,7 @@ class ClientsActivity : AppCompatActivity() {
                         }
                     } catch (e: Exception) {
                         Toast.makeText(this@ClientsActivity, e.message ?: "Ошибка", Toast.LENGTH_LONG).show()
+                        positive.isEnabled = true
                     }
                 }
             }
