@@ -11,8 +11,10 @@ import java.nio.file.*;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -38,12 +40,19 @@ public class DatabaseBackupService {
 
     // ===== РЕЗЕРВНОЕ КОПИРОВАНИЕ =====
 
+    /** Полный бэкап (совместимость со старым вызовом). */
     public void backupToStream(OutputStream outputStream) throws Exception {
-        backupToStream(outputStream, true);
+        backupToStream(outputStream, BackupLevel.FULL);
     }
 
-    public void backupToStream(OutputStream outputStream, boolean includeLegacyUploads) throws Exception {
-        byte[] sqlBytes = buildDatabaseDump();
+    /** Совместимость: {@code true} → полный, {@code false} → лёгкий. */
+    public void backupToStream(OutputStream outputStream, boolean full) throws Exception {
+        backupToStream(outputStream, full ? BackupLevel.FULL : BackupLevel.LIGHT);
+    }
+
+    public void backupToStream(OutputStream outputStream, BackupLevel level) throws Exception {
+        byte[] sqlBytes = buildDatabaseDump(level);
+        boolean full = level == BackupLevel.FULL;
 
         try (ZipOutputStream zip = new ZipOutputStream(new BufferedOutputStream(outputStream), StandardCharsets.UTF_8)) {
             ZipEntry sqlEntry = new ZipEntry("database.sql");
@@ -54,26 +63,28 @@ public class DatabaseBackupService {
             ZipEntry meta = new ZipEntry("backup-info.txt");
             zip.putNextEntry(meta);
             String metaText = "createdAt=" + LocalDateTime.now() + "\n"
-                    + "format=fixbyte-backup-v2\n"
-                    + "includesLegacyUploads=" + includeLegacyUploads + "\n";
+                    + "format=fixbyte-backup-v3\n"
+                    + "level=" + level.name().toLowerCase() + "\n"
+                    + "includesBlobs=" + full + "\n"
+                    + "includesLegacyUploads=" + full + "\n";
             zip.write(metaText.getBytes(StandardCharsets.UTF_8));
             zip.closeEntry();
 
-            if (includeLegacyUploads) {
+            if (full) {
                 addUploadsToZip(zip);
             }
         }
     }
 
-    private byte[] buildDatabaseDump() throws Exception {
+    private byte[] buildDatabaseDump(BackupLevel level) throws Exception {
         try (Connection conn = dataSource.getConnection()) {
             if (isH2(conn)) {
                 // H2 (локальный fallback без MariaDB) не понимает "SHOW CREATE TABLE" —
                 // используем встроенный SCRIPT, который сам корректно упорядочивает
                 // CREATE TABLE/ALTER TABLE ADD CONSTRAINT и данные.
-                return buildH2ScriptDump(conn);
+                return buildH2ScriptDump(conn, level);
             }
-            return buildMariaDbDump(conn);
+            return buildMariaDbDump(conn, level);
         }
     }
 
@@ -82,7 +93,17 @@ public class DatabaseBackupService {
         return product != null && product.toUpperCase(Locale.ROOT).contains("H2");
     }
 
-    private byte[] buildH2ScriptDump(Connection conn) throws Exception {
+    private byte[] buildH2ScriptDump(Connection conn, BackupLevel level) throws Exception {
+        boolean light = level == BackupLevel.LIGHT;
+        // Лёгкий бэкап: строки таблиц с бинарными колонками (фото/вложения) не выгружаем.
+        Set<String> skipInsertTables = new HashSet<>();
+        if (light) {
+            for (String t : getTables(conn)) {
+                if (hasBinaryColumn(conn, t)) {
+                    skipInsertTables.add("\"" + t.toUpperCase(Locale.ROOT) + "\"");
+                }
+            }
+        }
         ByteArrayOutputStream baos = new ByteArrayOutputStream(32 * 1024);
         try (PrintWriter w = new PrintWriter(new OutputStreamWriter(baos, StandardCharsets.UTF_8));
              Statement st = conn.createStatement();
@@ -90,17 +111,39 @@ public class DatabaseBackupService {
 
             w.println("-- FixByte CRM — Резервная копия базы данных (H2)");
             w.println("-- Создана: " + LocalDateTime.now());
+            if (light) {
+                w.println("-- Лёгкий бэкап: строки таблиц с вложениями пропущены");
+            }
             w.println("-- ==========================================");
             w.println();
             while (rs.next()) {
-                w.println(rs.getString(1));
+                String line = rs.getString(1);
+                if (light && line != null && isH2InsertInto(line, skipInsertTables)) {
+                    continue;
+                }
+                w.println(line);
             }
             w.flush();
             return baos.toByteArray();
         }
     }
 
-    private byte[] buildMariaDbDump(Connection conn) throws Exception {
+    /** Строка H2-SCRIPT {@code INSERT INTO "PUBLIC"."ORDER_ATTACHMENTS" ...} для таблицы из набора. */
+    private boolean isH2InsertInto(String line, Set<String> quotedTablesUpper) {
+        String s = line.trim().toUpperCase(Locale.ROOT);
+        if (!s.startsWith("INSERT INTO ")) {
+            return false;
+        }
+        for (String t : quotedTablesUpper) {
+            if (s.contains(t)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private byte[] buildMariaDbDump(Connection conn, BackupLevel level) throws Exception {
+        boolean light = level == BackupLevel.LIGHT;
         ByteArrayOutputStream baos = new ByteArrayOutputStream(32 * 1024);
         try (PrintWriter w = new PrintWriter(new OutputStreamWriter(baos, StandardCharsets.UTF_8))) {
 
@@ -124,6 +167,14 @@ public class DatabaseBackupService {
                     }
                 }
                 w.println();
+
+                // Лёгкий бэкап: таблицы с бинарными колонками (фото, вложения) —
+                // только структура, без данных.
+                if (light && hasBinaryColumn(conn, table)) {
+                    w.println("-- (лёгкий бэкап: данные пропущены — таблица с бинарными вложениями)");
+                    w.println();
+                    continue;
+                }
 
                 try (Statement st = conn.createStatement();
                      ResultSet rs = st.executeQuery("SELECT * FROM `" + table + "`")) {
@@ -227,6 +278,35 @@ public class DatabaseBackupService {
             while (rs.next()) list.add(rs.getString(1));
         }
         return list;
+    }
+
+    /** Есть ли у таблицы BLOB/BINARY-колонка (в неё складываются фото/вложения). */
+    boolean hasBinaryColumn(Connection conn, String table) {
+        // MariaDB понимает `backtick`, H2 (LEGACY) — "двойные кавычки"; пробуем оба + без кавычек.
+        for (String ref : new String[] { "`" + table + "`", "\"" + table + "\"", table }) {
+            try (Statement st = conn.createStatement();
+                 ResultSet rs = st.executeQuery("SELECT * FROM " + ref + " WHERE 1 = 0")) {
+                ResultSetMetaData meta = rs.getMetaData();
+                for (int i = 1; i <= meta.getColumnCount(); i++) {
+                    int type = meta.getColumnType(i);
+                    if (type == Types.BLOB || type == Types.LONGVARBINARY
+                            || type == Types.VARBINARY || type == Types.BINARY) {
+                        return true;
+                    }
+                    String typeName = meta.getColumnTypeName(i);
+                    if (typeName != null) {
+                        String upper = typeName.toUpperCase(Locale.ROOT);
+                        if (upper.contains("BLOB") || upper.contains("BINARY")) {
+                            return true;
+                        }
+                    }
+                }
+                return false; // запрос сработал, бинарных колонок нет
+            } catch (SQLException ignored) {
+                // не тот стиль кавычек — пробуем следующий
+            }
+        }
+        return false;
     }
 
     // ===== ВОССТАНОВЛЕНИЕ =====

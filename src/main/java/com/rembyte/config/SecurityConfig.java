@@ -58,7 +58,8 @@ public class SecurityConfig {
             )
             // Отключить CSRF для API и H2 консоли
             .csrf(csrf -> csrf
-                .ignoringRequestMatchers("/api/**", "/public/chat/**", "/h2-console/**", "/admin/restore")
+                .ignoringRequestMatchers("/api/**", "/public/chat/**", "/h2-console/**",
+                        "/admin/restore", "/admin/backup/**")
             )
             // Разрешить iframe, чтобы внешний чат-виджет можно было встроить на сайт
             .headers(headers -> headers

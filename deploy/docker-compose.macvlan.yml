@@ -64,6 +64,12 @@ services:
       FIXBYTE_ADMIN_PASSWORD: ${FIXBYTE_ADMIN_PASSWORD:-changeme}
       FIXBYTE_OPERATOR_USERNAME: ${FIXBYTE_OPERATOR_USERNAME:-operator}
       FIXBYTE_OPERATOR_PASSWORD: ${FIXBYTE_OPERATOR_PASSWORD:-changeme}
+      FIXBYTE_BACKUP_DIR: ${FIXBYTE_BACKUP_DIR:-/backups}
+      FIXBYTE_BACKUP_KEEP: ${FIXBYTE_BACKUP_KEEP:-14}
+      FIXBYTE_BACKUP_CRON: ${FIXBYTE_BACKUP_CRON:--}
+    volumes:
+      # Хранилище полных бэкапов (bind-mount на хост или CIFS-volume crm_backups ниже).
+      - ${BACKUP_HOST_DIR:-./backups}:/backups
     networks:
       crm_lan:
         ipv4_address: ${CRM_IP}
@@ -77,3 +83,10 @@ services:
 volumes:
   fixbyte-db-data:
     driver: local
+  # Полные бэкапы напрямую на шару Samba/CIFS (раскомментируйте, подставьте свои
+  # данные и в app.volumes замените bind-mount на:  - crm_backups:/backups)
+  # crm_backups:
+  #   driver_opts:
+  #     type: cifs
+  #     o: "username=USER,password=PASS,uid=1000,vers=3.0"
+  #     device: "//NAS/backups"

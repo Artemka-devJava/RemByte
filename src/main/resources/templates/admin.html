@@ -304,16 +304,46 @@
             <div class="card-body">
               <div class="settings-section">
                 <div class="backup-info">
-                  Полный бэкап выгружается в ZIP и включает дамп базы + legacy-папку uploads (если есть).<br>
-                  Можно скачать облегченный вариант только с БД.
+                  <strong>Лёгкий</strong> — только записи БД, без фото и вложений. Файл маленький,
+                  подходит для частого бэкапа.<br>
+                  <strong>Полный</strong> — всё целиком: записи + все фото, картинки и вложения
+                  (дамп БД с BLOB + legacy-папка uploads). Из него восстанавливается вообще всё.
                 </div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
-                  <a href="/admin/backup?mode=full" class="btn btn-primary" style="text-decoration:none;">
-                    ⬇️ Скачать полный бэкап (.zip)
+                  <a href="/admin/backup?level=full" class="btn btn-primary" style="text-decoration:none;">
+                    ⬇️ Полный бэкап (.zip)
                   </a>
-                  <a href="/admin/backup?mode=db" class="btn btn-secondary" style="text-decoration:none;">
-                    ⬇️ Скачать только БД (.zip)
+                  <a href="/admin/backup?level=light" class="btn btn-secondary" style="text-decoration:none;">
+                    ⬇️ Лёгкий бэкап (.zip)
                   </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><h2>💾 Хранилище полных бэкапов</h2></div>
+            <div class="card-body">
+              <div class="settings-section">
+                <div class="backup-info" id="storeInfo">Загрузка…</div>
+
+                <div id="storeControls" style="display:none;">
+                  <button class="btn btn-primary" id="btnStoreNow" onclick="storeFullBackupNow()">
+                    💾 Сохранить полный бэкап в хранилище
+                  </button>
+                  <table class="data-table" id="storeTable" style="margin-top:10px;">
+                    <thead><tr><th>Файл</th><th>Размер</th><th>Дата</th><th></th></tr></thead>
+                    <tbody id="storeTableBody">
+                      <tr><td colspan="4" class="empty">—</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div id="storeDisabled" class="danger-box" style="display:none;">
+                  Хранилище не настроено. Задайте <code>FIXBYTE_BACKUP_DIR</code> — путь к каталогу
+                  для бэкапов. Это может быть смонтированная сетевая шара Samba/CIFS
+                  (<code>mount -t cifs //NAS/backups /mnt/crm-backups …</code> или volume
+                  <code>driver_opts: type: cifs</code> в docker-compose).
                 </div>
               </div>
             </div>
@@ -893,6 +923,106 @@ async function restoreDatabase() {
         setTimeout(() => { if (progBlock) progBlock.style.display = 'none'; }, 2500);
     }
 }
+
+// ════════════════════════════════════════════════════════
+//  ХРАНИЛИЩЕ ПОЛНЫХ БЭКАПОВ (каталог / Samba-моунт)
+// ════════════════════════════════════════════════════════
+function humanSize(bytes) {
+    if (bytes == null || bytes < 0) return '—';
+    const u = ['Б', 'КБ', 'МБ', 'ГБ']; let i = 0, n = bytes;
+    while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+    return (i === 0 ? n : n.toFixed(1)) + ' ' + u[i];
+}
+function fmtDate(iso) {
+    const d = new Date(iso);
+    return isNaN(d) ? iso : d.toLocaleString('ru-RU');
+}
+
+async function loadBackupStore() {
+    const info = document.getElementById('storeInfo');
+    try {
+        const r = await fetch('/admin/backup/store');
+        const data = await r.json();
+        const controls = document.getElementById('storeControls');
+        const disabled = document.getElementById('storeDisabled');
+
+        if (!data.configured) {
+            if (info) info.textContent = 'Хранилище выключено.';
+            if (controls) controls.style.display = 'none';
+            if (disabled) disabled.style.display = 'block';
+            return;
+        }
+        if (disabled) disabled.style.display = 'none';
+        if (controls) controls.style.display = 'block';
+        if (info) info.innerHTML =
+            'Куда: <code>' + data.target + '</code><br>Хранить последних: <strong>' + data.keep + '</strong>';
+
+        const tb = document.getElementById('storeTableBody');
+        const list = data.backups || [];
+        if (!list.length) {
+            tb.innerHTML = '<tr><td colspan="4" class="empty">Пока нет сохранённых бэкапов</td></tr>';
+            return;
+        }
+        tb.innerHTML = list.map(b => `
+            <tr>
+              <td><code style="font-size:12px;">${b.name}</code></td>
+              <td>${humanSize(b.size)}</td>
+              <td>${fmtDate(b.modified)}</td>
+              <td style="white-space:nowrap;text-align:right;">
+                <a class="btn btn-sm btn-secondary" style="text-decoration:none;"
+                   href="/admin/backup/store/${encodeURIComponent(b.name)}">⬇️</a>
+                <button class="btn btn-sm btn-danger" onclick="restoreStored('${b.name}')">↩ Восстановить</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteStored('${b.name}')">🗑</button>
+              </td>
+            </tr>`).join('');
+    } catch (e) {
+        if (info) info.textContent = 'Не удалось получить состояние хранилища.';
+    }
+}
+
+async function storeFullBackupNow() {
+    const btn = document.getElementById('btnStoreNow');
+    if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Сохранение…'; }
+    try {
+        const r = await fetch('/admin/backup/store', { method: 'POST' });
+        const data = await r.json().catch(() => ({}));
+        if (r.ok) {
+            showNotification('Сохранено: ' + data.name + ' (' + humanSize(data.size) + ')', 'success');
+            loadBackupStore();
+        } else {
+            showNotification(data.error || 'Ошибка сохранения', 'error');
+        }
+    } catch (e) {
+        showNotification('Ошибка сети: ' + e.message, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '💾 Сохранить полный бэкап в хранилище'; }
+    }
+}
+
+async function restoreStored(name) {
+    if (!confirm('⚠️ Восстановление из «' + name + '» полностью заменит текущие данные. Продолжить?')) return;
+    showNotification('Восстановление…', 'info');
+    try {
+        const r = await fetch('/admin/backup/store/' + encodeURIComponent(name) + '/restore', { method: 'POST' });
+        const text = await r.text();
+        showNotification(text, r.ok ? 'success' : 'error');
+    } catch (e) {
+        showNotification('Ошибка сети: ' + e.message, 'error');
+    }
+}
+
+async function deleteStored(name) {
+    if (!confirm('Удалить бэкап «' + name + '» из хранилища?')) return;
+    try {
+        const r = await fetch('/admin/backup/store/' + encodeURIComponent(name), { method: 'DELETE' });
+        showNotification(await r.text(), r.ok ? 'success' : 'error');
+        loadBackupStore();
+    } catch (e) {
+        showNotification('Ошибка сети: ' + e.message, 'error');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadBackupStore);
 
 // ════════════════════════════════════════════════════════
 //  ИНИЦИАЛИЗАЦИЯ
