@@ -26,12 +26,30 @@ class LoginActivity : AppCompatActivity() {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
 
-        // Форма скрыта, пока не проверим сессию — чтобы поля логина/пароля не
-        // «мелькали» на экране, если уже есть валидный вход.
+        autoLoginOrShowForm()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Вернулись из «Настроек», где могли вписать логин/пароль — пробуем войти.
+        if (b.loginForm.visibility == View.VISIBLE && Api.prefs.hasCredentials()) {
+            autoLoginOrShowForm()
+        }
+    }
+
+    /**
+     * Форма входа скрыта, пока идёт проверка — чтобы поля не «мелькали», если
+     * вход уже возможен. Если есть сохранённые логин/пароль, приложение входит
+     * само; форма показывается только когда автоматически войти не удалось.
+     */
+    private fun autoLoginOrShowForm() {
+        b.loginForm.visibility = View.GONE
+        b.startupProgress.visibility = View.VISIBLE
         lifecycleScope.launch {
-            if (Api.isLoggedIn()) {
+            if (Api.ensureLoggedIn()) {
                 openClients()
             } else {
+                b.username.setText(Api.prefs.lastUsername)
                 b.startupProgress.visibility = View.GONE
                 b.loginForm.visibility = View.VISIBLE
             }
@@ -50,8 +68,7 @@ class LoginActivity : AppCompatActivity() {
         setBusy(true)
         lifecycleScope.launch {
             try {
-                Api.login(user, pass)
-                Api.prefs.lastUsername = user
+                Api.login(user, pass)   // логин/пароль сохраняются внутри — вход дальше автоматический
                 openClients()
             } catch (e: ApiException) {
                 Toast.makeText(this@LoginActivity, e.message, Toast.LENGTH_LONG).show()

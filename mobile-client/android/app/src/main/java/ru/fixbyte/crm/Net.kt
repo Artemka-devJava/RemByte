@@ -6,12 +6,14 @@ import kotlinx.coroutines.withContext
 import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.HttpUrl
+import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 // HttpUrl используется в сигнатуре CookieJar
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
@@ -91,9 +93,26 @@ object Api {
     val http: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .cookieJar(PrefsCookieJar(prefs))
+            // Не идти автоматически по 302 → /login: иначе неавторизованный
+            // ответ выглядит как успешный (200 + HTML формы входа).
+            .followRedirects(false)
+            .followSslRedirects(false)
+            // Сессия протухла → войти повторно сохранёнными данными и повторить запрос.
+            .addInterceptor(ReauthInterceptor())
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)
+            .build()
+    }
+
+    /** Клиент без интерцептора повторного входа — только для самого /api/auth/login. */
+    private val bareHttp: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .cookieJar(PrefsCookieJar(prefs))
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
             .build()
     }
 
@@ -103,6 +122,63 @@ object Api {
     /** Полный URL для картинки (photo.url приходит относительным). */
     fun absoluteUrl(path: String) = if (path.startsWith("http")) path else base() + path
 
+    // ── Повторный вход при протухшей сессии ───────────────────
+
+    private val reauthLock = Any()
+    @Volatile private var lastReauthAt = 0L
+
+    /** Признак того, что ответ — это «нужно авторизоваться» (401/403 или редирект на /login). */
+    private fun isAuthFailure(r: Response): Boolean {
+        if (r.code == 401 || r.code == 403) return true
+        if (r.isRedirect) return (r.header("Location") ?: "").contains("/login")
+        return false
+    }
+
+    /** Синхронный вход сохранёнными данными. Вызывается из интерцептора. */
+    private fun loginSync(username: String, password: String): Boolean {
+        val body = JSONObject().put("username", username).put("password", password)
+            .toString().toRequestBody(JSON)
+        return runCatching {
+            bareHttp.newCall(Request.Builder().url(u("/api/auth/login")).post(body).build())
+                .execute().use { it.isSuccessful }
+        }.getOrDefault(false)
+    }
+
+    private fun tryReauth(): Boolean {
+        synchronized(reauthLock) {
+            // Другой поток только что успешно перелогинился — просто повторяем запрос.
+            if (System.currentTimeMillis() - lastReauthAt < 3000) return true
+            val user = prefs.lastUsername
+            val pass = prefs.password
+            if (user.isBlank() || pass.isBlank()) return false
+            val ok = loginSync(user, pass)
+            if (ok) lastReauthAt = System.currentTimeMillis()
+            return ok
+        }
+    }
+
+    private class ReauthInterceptor : Interceptor {
+        override fun intercept(chain: Interceptor.Chain): Response {
+            val request = chain.request()
+            val response = chain.proceed(request)
+            if (!Api.isAuthFailure(response)) return response
+            if (request.url.encodedPath.startsWith("/api/auth/")) return response
+            if (!Api.tryReauth()) return response
+            response.close()
+            return chain.proceed(request)
+        }
+    }
+
+    /**
+     * Убедиться, что вход выполнен: если серверная сессия недействительна,
+     * попробовать войти сохранёнными логином/паролем.
+     */
+    suspend fun ensureLoggedIn(): Boolean = withContext(Dispatchers.IO) {
+        if (isLoggedIn()) return@withContext true
+        if (!prefs.hasCredentials()) return@withContext false
+        runCatching { login(prefs.lastUsername, prefs.password); true }.getOrDefault(false)
+    }
+
     // ── Аутентификация ────────────────────────────────────────
 
     suspend fun login(username: String, password: String) = withContext(Dispatchers.IO) {
@@ -111,6 +187,9 @@ object Api {
         http.newCall(Request.Builder().url(u("/api/auth/login")).post(body).build()).execute().use { r ->
             if (!r.isSuccessful) throw ApiException(errorText(r) ?: "Не удалось войти (${r.code})")
         }
+        // Запоминаем — чтобы дальше входить автоматически (в т.ч. после протухания сессии).
+        prefs.lastUsername = username
+        prefs.password = password
     }
 
     suspend fun isLoggedIn(): Boolean = withContext(Dispatchers.IO) {
@@ -124,6 +203,7 @@ object Api {
             http.newCall(Request.Builder().url(u("/api/auth/logout")).post(EMPTY).build()).execute().close()
         }
         prefs.clearCookies()
+        prefs.clearCredentials()
     }
 
     // ── Клиенты ───────────────────────────────────────────────
@@ -261,6 +341,7 @@ object Api {
 
         http.newCall(Request.Builder().url(u("/api/clients/$clientId/photos")).post(part.build()).build())
             .execute().use { r ->
+                if (isAuthFailure(r)) throw ApiException("Сессия истекла — проверьте логин и пароль в настройках")
                 if (!r.isSuccessful) throw ApiException(errorText(r) ?: "Не удалось загрузить фото (${r.code})")
             }
     }
@@ -277,7 +358,7 @@ object Api {
 
     private fun get(path: String): String {
         http.newCall(Request.Builder().url(u(path)).build()).execute().use { r ->
-            if (r.code == 401 || r.code == 302 || r.code == 403) throw ApiException("Сессия истекла, войдите заново")
+            if (isAuthFailure(r)) throw ApiException("Сессия истекла, войдите заново")
             if (!r.isSuccessful) throw ApiException("Ошибка запроса (${r.code})")
             return r.body?.string().orEmpty()
         }

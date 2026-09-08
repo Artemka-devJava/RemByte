@@ -34,7 +34,15 @@ class ClientActivity : AppCompatActivity() {
 
     private val takePicture =
         registerForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
-            if (ok) pendingCameraUri?.let { uploadFromUri(it, "camera.jpg", "image/jpeg") }
+            val uri = pendingCameraUri
+            pendingCameraUri = null
+            when {
+                !ok -> Unit // пользователь отменил съёмку — молча
+                uri == null ->
+                    // Activity пересоздали, пока была открыта камера, — адрес файла потерян.
+                    Toast.makeText(this, "Не удалось получить фото с камеры, попробуйте ещё раз", Toast.LENGTH_LONG).show()
+                else -> uploadFromUri(uri, "camera.jpg", "image/jpeg")
+            }
         }
 
     private val pickImage =
@@ -49,6 +57,8 @@ class ClientActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         b = ActivityClientBinding.inflate(layoutInflater)
         setContentView(b.root)
+
+        pendingCameraUri = savedInstanceState?.getString(STATE_CAMERA_URI)?.let(Uri::parse)
 
         clientId = intent.getLongExtra(ClientsActivity.EXTRA_CLIENT_ID, 0)
         if (clientId == 0L) { finish(); return }
@@ -69,6 +79,13 @@ class ClientActivity : AppCompatActivity() {
         b.writeButton.setOnClickListener { write() }
 
         loadAll()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        // Пока открыта камера, система может убить эту Activity — сохраняем адрес
+        // файла снимка, иначе после возврата загружать будет нечего.
+        pendingCameraUri?.let { outState.putString(STATE_CAMERA_URI, it.toString()) }
     }
 
     private fun loadAll() {
@@ -266,5 +283,9 @@ class ClientActivity : AppCompatActivity() {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         })
         finish()
+    }
+
+    private companion object {
+        const val STATE_CAMERA_URI = "pending_camera_uri"
     }
 }

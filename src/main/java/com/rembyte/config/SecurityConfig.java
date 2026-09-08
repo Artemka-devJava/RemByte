@@ -3,12 +3,21 @@ package com.rembyte.config;
 import com.rembyte.service.AppUserService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.DelegatingAuthenticationEntryPoint;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
+
+import java.util.LinkedHashMap;
 
 /**
  * Конфигурация безопасности FixByte CRM
@@ -49,6 +58,12 @@ public class SecurityConfig {
                 .passwordParameter("password")
                 .permitAll()
             )
+            // Неавторизованный запрос к /api/** — это 401 (без редиректа на HTML
+            // страницу входа). Иначе мобильный/нативный клиент по умолчанию идёт
+            // за 302 → /login → 200 (HTML) и принимает это за успешный ответ:
+            // например, «фото загружено», хотя на сервер ничего не попало.
+            // Обычные (не /api) страницы по-прежнему редиректят на форму входа.
+            .exceptionHandling(ex -> ex.authenticationEntryPoint(apiAwareEntryPoint()))
             .logout(logout -> logout
                 .logoutUrl("/logout")
                 .logoutSuccessUrl("/login?logout")
@@ -72,5 +87,17 @@ public class SecurityConfig {
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
         return configuration.getAuthenticationManager();
+    }
+
+    /**
+     * Для путей /api/** отдаём чистый 401, для остальных — редирект на /login.
+     */
+    private AuthenticationEntryPoint apiAwareEntryPoint() {
+        LinkedHashMap<RequestMatcher, AuthenticationEntryPoint> mappings = new LinkedHashMap<>();
+        mappings.put(new AntPathRequestMatcher("/api/**"), new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED));
+
+        DelegatingAuthenticationEntryPoint entryPoint = new DelegatingAuthenticationEntryPoint(mappings);
+        entryPoint.setDefaultEntryPoint(new LoginUrlAuthenticationEntryPoint("/login"));
+        return entryPoint;
     }
 }
