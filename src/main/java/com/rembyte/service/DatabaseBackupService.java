@@ -32,7 +32,7 @@ public class DatabaseBackupService {
     private final DataSource dataSource;
 
     @Value("${fixbyte.upload.dir:uploads}")
-    private String uploadDir;
+    private String uploadDir = "uploads";
 
     public DatabaseBackupService(DataSource dataSource) {
         this.dataSource = dataSource;
@@ -142,7 +142,7 @@ public class DatabaseBackupService {
         return false;
     }
 
-    private byte[] buildMariaDbDump(Connection conn, BackupLevel level) throws Exception {
+    byte[] buildMariaDbDump(Connection conn, BackupLevel level) throws Exception {
         boolean light = level == BackupLevel.LIGHT;
         ByteArrayOutputStream baos = new ByteArrayOutputStream(32 * 1024);
         try (PrintWriter w = new PrintWriter(new OutputStreamWriter(baos, StandardCharsets.UTF_8))) {
@@ -178,24 +178,7 @@ public class DatabaseBackupService {
 
                 try (Statement st = conn.createStatement();
                      ResultSet rs = st.executeQuery("SELECT * FROM `" + table + "`")) {
-
-                    ResultSetMetaData meta = rs.getMetaData();
-                    int cols = meta.getColumnCount();
-
-                    List<String> columns = new ArrayList<>();
-                    for (int i = 1; i <= cols; i++) {
-                        columns.add("`" + meta.getColumnName(i) + "`");
-                    }
-                    String colList = String.join(", ", columns);
-
-                    while (rs.next()) {
-                        List<String> values = new ArrayList<>(cols);
-                        for (int i = 1; i <= cols; i++) {
-                            Object val = rs.getObject(i);
-                            values.add(toSqlValue(val));
-                        }
-                        w.println("INSERT INTO `" + table + "` (" + colList + ") VALUES (" + String.join(", ", values) + ");");
-                    }
+                    writeRowInserts(rs, table, w);
                 }
                 w.println();
             }
@@ -203,6 +186,38 @@ public class DatabaseBackupService {
             w.println("SET FOREIGN_KEY_CHECKS = 1;");
             w.flush();
             return baos.toByteArray();
+        }
+    }
+
+    /**
+     * Пишет {@code INSERT}-ы для всех строк результата {@code rs}.
+     * Бинарные колонки (фото/вложения) сериализуются как hex-литерал {@code 0x…}
+     * через {@link ResultSet#getBytes(int)} — независимо от того, что вернул бы
+     * {@code getObject} у конкретного JDBC-драйвера.
+     */
+    void writeRowInserts(ResultSet rs, String table, PrintWriter w) throws SQLException {
+        ResultSetMetaData meta = rs.getMetaData();
+        int cols = meta.getColumnCount();
+
+        List<String> columns = new ArrayList<>();
+        boolean[] binary = new boolean[cols + 1];
+        for (int i = 1; i <= cols; i++) {
+            columns.add("`" + meta.getColumnName(i) + "`");
+            binary[i] = isBinaryType(meta, i);
+        }
+        String colList = String.join(", ", columns);
+
+        while (rs.next()) {
+            List<String> values = new ArrayList<>(cols);
+            for (int i = 1; i <= cols; i++) {
+                if (binary[i]) {
+                    byte[] b = rs.getBytes(i);
+                    values.add(b == null ? "NULL" : (b.length == 0 ? "''" : "0x" + toHex(b)));
+                } else {
+                    values.add(toSqlValue(rs.getObject(i)));
+                }
+            }
+            w.println("INSERT INTO `" + table + "` (" + colList + ") VALUES (" + String.join(", ", values) + ");");
         }
     }
 
@@ -217,17 +232,19 @@ public class DatabaseBackupService {
             return val.toString();
         }
         if (val instanceof byte[] bytes) {
-            return "0x" + toHex(bytes);
+            return bytes.length == 0 ? "''" : "0x" + toHex(bytes);
         }
         if (val instanceof Blob blob) {
-            long len = blob.length();
-            if (len <= 0) {
-                return "0x";
+            // Читаем через поток: length() у некоторых драйверов возвращает 0/-1
+            // для потоковых BLOB, из-за чего фото пропадали из бэкапа.
+            try (InputStream is = blob.getBinaryStream()) {
+                byte[] bytes = is.readAllBytes();
+                return bytes.length == 0 ? "''" : "0x" + toHex(bytes);
+            } catch (IOException e) {
+                throw new SQLException("Не удалось прочитать BLOB для дампа", e);
+            } finally {
+                try { blob.free(); } catch (RuntimeException | SQLException ignored) { /* no-op */ }
             }
-            if (len > Integer.MAX_VALUE) {
-                throw new SQLException("Слишком большой BLOB для дампа: " + len);
-            }
-            return "0x" + toHex(blob.getBytes(1, (int) len));
         }
         return "'" + escapeSql(val.toString()) + "'";
     }
@@ -280,6 +297,21 @@ public class DatabaseBackupService {
         return list;
     }
 
+    /** Колонка {@code i} — бинарная (BLOB/BINARY/…), т.е. в неё пишутся фото/вложения. */
+    private boolean isBinaryType(ResultSetMetaData meta, int i) throws SQLException {
+        int type = meta.getColumnType(i);
+        if (type == Types.BLOB || type == Types.LONGVARBINARY
+                || type == Types.VARBINARY || type == Types.BINARY) {
+            return true;
+        }
+        String typeName = meta.getColumnTypeName(i);
+        if (typeName != null) {
+            String upper = typeName.toUpperCase(Locale.ROOT);
+            return upper.contains("BLOB") || upper.contains("BINARY");
+        }
+        return false;
+    }
+
     /** Есть ли у таблицы BLOB/BINARY-колонка (в неё складываются фото/вложения). */
     boolean hasBinaryColumn(Connection conn, String table) {
         // MariaDB понимает `backtick`, H2 (LEGACY) — "двойные кавычки"; пробуем оба + без кавычек.
@@ -288,17 +320,8 @@ public class DatabaseBackupService {
                  ResultSet rs = st.executeQuery("SELECT * FROM " + ref + " WHERE 1 = 0")) {
                 ResultSetMetaData meta = rs.getMetaData();
                 for (int i = 1; i <= meta.getColumnCount(); i++) {
-                    int type = meta.getColumnType(i);
-                    if (type == Types.BLOB || type == Types.LONGVARBINARY
-                            || type == Types.VARBINARY || type == Types.BINARY) {
+                    if (isBinaryType(meta, i)) {
                         return true;
-                    }
-                    String typeName = meta.getColumnTypeName(i);
-                    if (typeName != null) {
-                        String upper = typeName.toUpperCase(Locale.ROOT);
-                        if (upper.contains("BLOB") || upper.contains("BINARY")) {
-                            return true;
-                        }
                     }
                 }
                 return false; // запрос сработал, бинарных колонок нет
