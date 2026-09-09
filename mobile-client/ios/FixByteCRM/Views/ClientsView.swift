@@ -2,6 +2,7 @@ import SwiftUI
 
 enum Route: Hashable {
     case client(Int)
+    case order(orderId: Int, clientId: Int)
 }
 
 struct ClientsView: View {
@@ -34,6 +35,7 @@ struct ClientsView: View {
             .navigationDestination(for: Route.self) { route in
                 switch route {
                 case .client(let id): ClientDetailView(clientId: id)
+                case .order(let oid, let cid): OrderDetailView(orderId: oid, clientId: cid)
                 }
             }
             .toolbar {

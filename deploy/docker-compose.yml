@@ -49,7 +49,14 @@ services:
       FIXBYTE_OPERATOR_PASSWORD: ${FIXBYTE_OPERATOR_PASSWORD:-changeme}
       FIXBYTE_BACKUP_DIR: ${FIXBYTE_BACKUP_DIR:-/backups}
       FIXBYTE_BACKUP_KEEP: ${FIXBYTE_BACKUP_KEEP:-14}
-      FIXBYTE_BACKUP_CRON: ${FIXBYTE_BACKUP_CRON:--}
+      # Реквизиты компании — стартовые значения (дальше правятся в панели «Настройки чека»).
+      FIXBYTE_COMPANY_NAME: ${FIXBYTE_COMPANY_NAME:-FixByte}
+      FIXBYTE_COMPANY_SUBTITLE: ${FIXBYTE_COMPANY_SUBTITLE:-}
+      FIXBYTE_COMPANY_ADDRESS: ${FIXBYTE_COMPANY_ADDRESS:-}
+      FIXBYTE_COMPANY_PHONE: ${FIXBYTE_COMPANY_PHONE:-}
+      FIXBYTE_COMPANY_EMAIL: ${FIXBYTE_COMPANY_EMAIL:-}
+      # Через сколько дней «готовый, но не забранный» заказ попадает в напоминания.
+      FIXBYTE_STALE_ORDER_DAYS: ${FIXBYTE_STALE_ORDER_DAYS:-30}
     volumes:
       # Хранилище полных бэкапов. По умолчанию — каталог на хосте (BACKUP_HOST_DIR).
       # Для сохранения через Samba: замените на volume "crm_backups" ниже

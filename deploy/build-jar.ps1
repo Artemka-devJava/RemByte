@@ -21,4 +21,13 @@ New-Item -ItemType Directory -Force -Path app | Out-Null
 Copy-Item $jar.FullName app\app.jar -Force
 $mb = [math]::Round((Get-Item app\app.jar).Length / 1MB, 1)
 Write-Host "OK: app\app.jar ($mb MB) <- $($jar.Name)" -ForegroundColor Green
+
+# SQL-миграции для prod (ddl-auto=validate)
+$sqlSrc = Join-Path $Src 'sql'
+if (Test-Path $sqlSrc) {
+    New-Item -ItemType Directory -Force -Path sql | Out-Null
+    Copy-Item (Join-Path $sqlSrc '*.sql') sql\ -Force
+    Write-Host "OK: sql\ ($((Get-ChildItem sql\*.sql).Count) files)" -ForegroundColor Green
+}
+
 Write-Host "Next:  Copy-Item .env.example .env ; .\up.ps1"

@@ -49,6 +49,35 @@
           </div>
         </div>
       </div>
+
+      <div class="card" style="margin-top:18px;">
+        <div class="card-header">
+          <h2>🔔 Напоминания <span id="reminderCount" class="count"></span></h2>
+        </div>
+        <div class="card-body">
+          <div id="staleOrdersBlock" style="margin-bottom:14px;display:none;">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--c-muted);margin-bottom:6px;">
+              Готовы, но не забрали
+            </div>
+            <ul id="staleOrders" style="list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13px;"></ul>
+          </div>
+
+          <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--c-muted);margin-bottom:6px;">
+            Задачи
+          </div>
+          <ul id="reminderList" style="list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13.5px;">
+            <li style="color:var(--c-muted)">—</li>
+          </ul>
+
+          <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+            <input id="newReminderText" type="text" placeholder="Напомнить: перезвонить клиенту…"
+                   style="flex:1;min-width:200px;padding:8px 12px;border:1.5px solid var(--c-border);border-radius:7px;font-size:13.5px;font-family:inherit;">
+            <input id="newReminderDate" type="date"
+                   style="padding:8px 12px;border:1.5px solid var(--c-border);border-radius:7px;font-size:13.5px;font-family:inherit;">
+            <button class="btn btn-sm btn-primary" onclick="addReminder()">Добавить</button>
+          </div>
+        </div>
+      </div>
     </main>
     <footer class="page-footer">FixByte CRM © 2026 — Система управления сервисом ремонта ПК</footer>
   </div>

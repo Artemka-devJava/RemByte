@@ -72,7 +72,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:padding="12dp"
-                android:background="#E7EEFB"
+                android:background="@color/surface_alt"
                 android:textColor="@color/text" />
 
             <TextView
@@ -83,66 +83,56 @@
                 android:textColor="@color/text"
                 android:lineSpacingMultiplier="1.2" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:text="Фото проблемы / устройства"
-                android:textStyle="bold"
-                android:textColor="@color/text" />
-
-            <com.google.android.material.textfield.TextInputLayout
+            <View
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:hint="@string/photo_caption_hint">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/photoCaption"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="text" />
-            </com.google.android.material.textfield.TextInputLayout>
+                android:layout_height="1dp"
+                android:layout_marginTop="18dp"
+                android:background="@color/divider" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginTop="8dp">
+                android:gravity="center_vertical"
+                android:layout_marginTop="16dp">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/cameraButton"
+                <TextView
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
-                    android:text="@string/add_photo_camera" />
-
-                <Space android:layout_width="8dp" android:layout_height="1dp" />
+                    android:text="Заказы"
+                    android:textStyle="bold"
+                    android:textColor="@color/text" />
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/galleryButton"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
+                    android:id="@+id/addOrderButton"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/add_photo_gallery" />
+                    android:text="+ Заказ" />
             </LinearLayout>
 
             <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/photosGrid"
+                android:id="@+id/ordersList"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
                 android:nestedScrollingEnabled="false" />
 
             <TextView
-                android:id="@+id/photosEmpty"
+                android:id="@+id/ordersEmpty"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="16dp"
-                android:gravity="center"
-                android:text="Фото пока нет"
+                android:paddingVertical="10dp"
+                android:text="Заказов пока нет"
                 android:textColor="@color/muted" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="Фото делаются внутри заказа — откройте заказ и добавьте снимки там."
+                android:textColor="@color/muted"
+                android:textSize="12sp" />
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

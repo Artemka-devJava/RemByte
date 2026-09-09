@@ -8,12 +8,13 @@
 deploy/
   Dockerfile                    runtime-образ из app/app.jar (без Maven)
   app/app.jar                   ← сюда кладётся собранное приложение
-  build-jar.sh / build-jar.ps1  собрать app/app.jar из исходников
+  build-jar.sh / build-jar.ps1  собрать app/app.jar (+ скопировать sql/)
   .env.example                  шаблон конфигурации
   docker-compose.yml            обычный режим (порт на хосте)
   docker-compose.macvlan.yml    свой IP в локальной сети (Linux)
   up.sh / down.sh / logs.sh     обёртки        up.ps1  (Windows, bridge)
   mariadb/init/01_init.sql      инициализация БД
+  sql/                          SQL-миграции для prod (ddl-auto=validate)
   macvlan/                      host-shim.sh + systemd-юнит + гайд
 ```
 
@@ -90,4 +91,25 @@ docker run --rm -v fixbyte-crm_fixbyte-db-data:/data -v "$PWD":/backup alpine \
 Контейнер запускается с `SPRING_PROFILES_ACTIVE=docker`
 (`application-docker.properties`, `ddl-auto=update` — схема
 создаётся/мигрируется автоматически). Для prod с `validate` выполните SQL
-из `sql/` репозитория до первого запуска новой версии.
+из `deploy/sql/` до первого запуска новой версии.
+
+## Новое в этой сборке (для тестирования на реальных клиентах)
+
+- **Автоматический бэкап** (панель → «База данных»): день / месяц / квартал /
+  год, полный бэкап в хранилище ночью в ~03:30.
+- **Реквизиты компании** (панель → «Настройки чека»): название, адрес,
+  телефон, email, логотип — общая шапка для чека и **акта приёмки**.
+  Стартовые значения — `FIXBYTE_COMPANY_*` в `.env`.
+- **Акт приёма оборудования в ремонт** (PDF) — кнопка в карточке заказа
+  (веб) и на экране заказа (Android). Печать с телефона на сетевой принтер.
+- **Фото — по заказам** (не по клиенту). В мобильном приложении съёмка
+  внутри заказа.
+- **Напоминания** на дашборде: ручные + авто «готово, но не забрали
+  N дней» (`FIXBYTE_STALE_ORDER_DAYS`, по умолчанию 30).
+
+На **свежей** базе (`ddl-auto=update`) все новые таблицы (`backup_schedule`,
+`company_settings`, `reminders`) создаются сами — делать ничего не нужно.
+Если обновляете **существующую** базу с данными и у `order_attachments`
+осталось CHECK-ограничение `attachment_type IN ('PHOTO','VIDEO','FILE')` —
+снимите его, см. `deploy/sql/2026-09-09-acceptance-act.sql` (без этого не
+сохранится акт).

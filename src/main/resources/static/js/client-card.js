@@ -35,7 +35,6 @@ async function init() {
 
     loadSummaryAndOrders();
     loadDevices();
-    loadPhotos();
     loadNotes();
 }
 
@@ -107,7 +106,6 @@ function wireEvents() {
     document.getElementById('btnDelete').addEventListener('click', removeClient);
 
     document.getElementById('btnAddDevice').addEventListener('click', addDevice);
-    document.getElementById('btnUploadPhotos').addEventListener('click', uploadPhotos);
     document.getElementById('btnAddNote').addEventListener('click', addNote);
     document.getElementById('nText').addEventListener('keydown', e => { if (e.key === 'Enter') addNote(); });
     document.getElementById('btnSaveConsent').addEventListener('click', saveConsent);
@@ -238,45 +236,6 @@ async function deleteDevice(id) {
     if (!confirm('Удалить устройство?')) return;
     await ClientAPI.deleteDevice(CLIENT_ID, id);
     loadDevices();
-}
-
-// ===== Фото =====
-
-async function loadPhotos() {
-    const list = await ClientAPI.getPhotos(CLIENT_ID);
-    document.getElementById('photoCount').textContent = list.length ? `(${list.length})` : '';
-    const grid = document.getElementById('photoGrid');
-    grid.innerHTML = list.length ? list.map(p => `
-        <figure class="photo-cell">
-            <img src="${p.url}" alt="${escHtml(p.caption || 'фото')}" loading="lazy"
-                 onclick="openLightbox('${p.url}')">
-            <button class="icon-btn photo-del" title="Удалить" onclick="deletePhoto(${p.id})">×</button>
-            ${p.caption ? `<figcaption>${escHtml(p.caption)}</figcaption>` : ''}
-        </figure>`).join('') : '<div class="empty">Фото пока нет</div>';
-}
-
-async function uploadPhotos() {
-    const input = document.getElementById('photoInput');
-    if (!input.files || !input.files.length) { showNotification('Выберите файлы', 'warning'); return; }
-    const btn = document.getElementById('btnUploadPhotos');
-    btn.disabled = true; btn.textContent = 'Загрузка…';
-    const res = await ClientAPI.uploadPhotos(CLIENT_ID, input.files, val('photoCaption').trim(), null);
-    btn.disabled = false; btn.textContent = 'Загрузить';
-    if (res && res.error) { showNotification('Ошибка: ' + res.error, 'error'); return; }
-    input.value = ''; set('photoCaption', '');
-    loadPhotos();
-    showNotification('Фото загружены', 'success');
-}
-
-async function deletePhoto(id) {
-    if (!confirm('Удалить фото?')) return;
-    await ClientAPI.deletePhoto(CLIENT_ID, id);
-    loadPhotos();
-}
-
-function openLightbox(url) {
-    document.getElementById('lightboxContent').innerHTML = `<img src="${url}" alt="фото">`;
-    document.getElementById('lightbox').style.display = 'flex';
 }
 
 // ===== Журнал =====

@@ -59,17 +59,6 @@
     .field-chip:has(input:checked) { border-color: var(--c-primary); color: var(--c-primary); background: var(--c-primary-l); }
     .field-chip input[type="checkbox"] { width: 14px; height: 14px; margin: 0; accent-color: var(--c-primary); cursor: pointer; }
 
-    /* ── Зона загрузки бэкапа ── */
-    .restore-zone {
-      border: 2px dashed var(--c-border); border-radius: 9px; padding: 20px;
-      text-align: center; cursor: pointer; transition: all .18s;
-      background: color-mix(in srgb, var(--c-primary-l) 25%, var(--c-card) 75%);
-    }
-    .restore-zone:hover, .restore-zone.dragover { border-color: var(--c-primary); background: var(--c-primary-l); }
-    .restore-zone-icon { font-size: 26px; margin-bottom: 6px; }
-    .restore-zone-text { font-size: 13px; color: var(--c-muted); }
-    .restore-zone-file { font-size: 12.5px; font-weight: 600; color: var(--c-primary); margin-top: 4px; }
-
     .danger-box  { background: var(--c-danger-bg); border-left: 4px solid var(--c-danger);  border-radius: 7px; padding: 10px 14px; font-size: 12.5px; color: var(--c-danger); }
     .backup-info { background: var(--c-info-bg);   border-left: 4px solid var(--c-info);    border-radius: 7px; padding: 10px 14px; font-size: 12.5px; color: var(--c-info); }
 
@@ -131,9 +120,18 @@
                   <input type="text" id="settCompanyAddress" placeholder="г. Город, ул. Ремонтная, д. 1">
                 </div>
                 <div class="setting-row">
+                  <label for="settCompanyPhone">Телефон</label>
+                  <input type="text" id="settCompanyPhone" placeholder="+7 900 000-00-00">
+                </div>
+                <div class="setting-row">
+                  <label for="settCompanyEmail">Email</label>
+                  <input type="text" id="settCompanyEmail" placeholder="info@fixbyte.ru">
+                </div>
+                <div class="setting-row">
                   <label for="settEmployee">Имя сотрудника по умолчанию</label>
                   <input type="text" id="settEmployee" placeholder="Имя Фамилия">
                 </div>
+                <p class="setting-hint">Эти реквизиты — общая шапка для чека/квитанции и акта приёмки.</p>
               </div>
             </div>
           </div>
@@ -300,22 +298,28 @@
         <div class="settings-grid">
 
           <div class="card">
-            <div class="card-header"><h2>⬇️ Резервная копия</h2></div>
+            <div class="card-header"><h2>🗓️ Автоматический бэкап</h2></div>
             <div class="card-body">
               <div class="settings-section">
-                <div class="backup-info">
-                  <strong>Лёгкий</strong> — только записи БД, без фото и вложений. Файл маленький,
-                  подходит для частого бэкапа.<br>
-                  <strong>Полный</strong> — всё целиком: записи + все фото, картинки и вложения
-                  (дамп БД с BLOB + legacy-папка uploads). Из него восстанавливается вообще всё.
+                <div class="setting-row">
+                  <label for="backupFrequency">Периодичность</label>
+                  <select id="backupFrequency" onchange="saveBackupSchedule()">
+                    <option value="OFF">Выключен</option>
+                    <option value="DAILY">Раз в день</option>
+                    <option value="MONTHLY">Раз в месяц</option>
+                    <option value="QUARTERLY">Раз в квартал</option>
+                    <option value="YEARLY">Раз в год</option>
+                  </select>
+                  <span class="setting-hint">
+                    Полный бэкап (записи БД + все фото и вложения) сохраняется в хранилище
+                    ночью, около 03:30. Если сервер в это время был выключен — бэкап
+                    сделается при следующей ночной проверке.
+                  </span>
                 </div>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
-                  <a href="/admin/backup?level=full" class="btn btn-primary" style="text-decoration:none;">
-                    ⬇️ Полный бэкап (.zip)
-                  </a>
-                  <a href="/admin/backup?level=light" class="btn btn-secondary" style="text-decoration:none;">
-                    ⬇️ Лёгкий бэкап (.zip)
-                  </a>
+                <div class="backup-info" id="backupScheduleStatus">Плановый бэкап ещё не выполнялся</div>
+                <div class="danger-box" id="backupScheduleNoStore" style="display:none;">
+                  Хранилище не настроено — плановый бэкап выполняться не будет.
+                  Задайте <code>FIXBYTE_BACKUP_DIR</code> (см. блок «Хранилище полных бэкапов»).
                 </div>
               </div>
             </div>
@@ -344,37 +348,6 @@
                   для бэкапов. Это может быть смонтированная сетевая шара Samba/CIFS
                   (<code>mount -t cifs //NAS/backups /mnt/crm-backups …</code> или volume
                   <code>driver_opts: type: cifs</code> в docker-compose).
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-header"><h2>⬆️ Восстановление</h2></div>
-            <div class="card-body">
-              <div class="settings-section">
-                <div class="danger-box">
-                  ⚠️ <strong>Внимание!</strong> Восстановление полностью заменит все
-                  текущие данные. Действие необратимо.
-                </div>
-                <div class="restore-zone" id="restoreZone"
-                     onclick="document.getElementById('restoreFileInput').click()">
-                  <div class="restore-zone-icon">📂</div>
-                  <div class="restore-zone-text">Нажмите или перетащите файл .zip/.sql сюда</div>
-                  <div class="restore-zone-file" id="restoreFileName" style="display:none;"></div>
-                </div>
-                <input type="file" id="restoreFileInput" accept=".zip,.sql" style="display:none;">
-                <button class="btn btn-danger" id="btnRestore" onclick="restoreDatabase()"
-                        style="margin-top:4px;" disabled>
-                  ⬆️ Загрузить и восстановить
-                </button>
-                <div id="restoreProgress" style="display:none;margin-top:8px;">
-                  <div class="upload-progress-track">
-                    <div id="restoreProgressBar" class="upload-progress-bar"
-                         style="width:0%;background:var(--c-danger);"></div>
-                  </div>
-                  <div id="restoreProgressText" class="upload-progress-text"
-                       style="color:var(--c-danger);">0%</div>
                 </div>
               </div>
             </div>
@@ -822,38 +795,63 @@ function buildFieldToggles() {
     });
 }
 
-function applySettingsToForm() {
-    const s = loadSettings();
-    setVal('settCompanyName',    s.companyName    ?? 'FixByte');
-    setVal('settCompanySub',     s.companySub     ?? 'Сервисный центр · Ремонт техники');
-    setVal('settCompanyAddress', s.companyAddress ?? '');
-    setVal('settEmployee',       s.employee       ?? '');
+async function applySettingsToForm() {
+    // Видимость полей чека — по-прежнему локально (настройка интерфейса).
     buildFieldToggles();
+
+    // Реквизиты компании — общие, с сервера (шапка чека и акта приёмки).
+    let c = {};
+    try {
+        const r = await fetch('/api/settings/company', { cache: 'no-store' });
+        if (r.ok) c = await r.json();
+    } catch (e) { /* оставим пустым — покажем плейсхолдеры */ }
+
+    // Разовая подсказка со старых локальных значений, если сервер ещё пуст.
+    const legacy = loadSettings();
+    setVal('settCompanyName',    c.name     || legacy.companyName    || 'FixByte');
+    setVal('settCompanySub',     c.subtitle || legacy.companySub     || 'Сервисный центр · ремонт техники');
+    setVal('settCompanyAddress', c.address  || legacy.companyAddress || '');
+    setVal('settCompanyPhone',   c.phone    || '');
+    setVal('settCompanyEmail',   c.email    || '');
+    setVal('settEmployee',       c.employee || legacy.employee       || '');
 }
 
 function setVal(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
 
-function saveReceiptSettings() {
+async function saveReceiptSettings() {
+    // 1) Видимость полей чека — локально.
     const hiddenFields = RECEIPT_FIELDS
         .filter(f => { const cb = document.getElementById('ftog_' + f.id); return cb && !cb.checked; })
         .map(f => f.id);
+    localStorage.setItem(RECEIPT_SETTINGS_KEY, JSON.stringify({ hiddenFields }));
 
-    const settings = {
-        companyName:    document.getElementById('settCompanyName')?.value.trim()    || 'FixByte',
-        companySub:     document.getElementById('settCompanySub')?.value.trim()     || 'Сервисный центр · Ремонт техники',
-        companyAddress: document.getElementById('settCompanyAddress')?.value.trim() || '',
-        employee:       document.getElementById('settEmployee')?.value.trim()       || '',
-        hiddenFields,
+    // 2) Реквизиты компании — на сервер.
+    const body = {
+        name:     document.getElementById('settCompanyName')?.value.trim()    || 'FixByte',
+        subtitle: document.getElementById('settCompanySub')?.value.trim()     || '',
+        address:  document.getElementById('settCompanyAddress')?.value.trim() || '',
+        phone:    document.getElementById('settCompanyPhone')?.value.trim()   || '',
+        email:    document.getElementById('settCompanyEmail')?.value.trim()   || '',
+        employee: document.getElementById('settEmployee')?.value.trim()       || ''
     };
-    localStorage.setItem(RECEIPT_SETTINGS_KEY, JSON.stringify(settings));
-    showNotification('✅ Настройки чека сохранены', 'success');
+    try {
+        const r = await fetch('/api/settings/company', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        showNotification('✅ Реквизиты сохранены (чек и акт приёмки)', 'success');
+    } catch (e) {
+        showNotification('Не удалось сохранить реквизиты на сервере', 'error');
+    }
 }
 
 function resetReceiptSettings() {
-    if (!confirm('Сбросить все настройки чека до значений по умолчанию?')) return;
+    if (!confirm('Очистить видимость полей чека до значений по умолчанию? Реквизиты компании не затрагиваются.')) return;
     localStorage.removeItem(RECEIPT_SETTINGS_KEY);
-    applySettingsToForm();
-    showNotification('↺ Настройки сброшены', 'info');
+    buildFieldToggles();
+    showNotification('↺ Видимость полей чека сброшена', 'info');
 }
 
 function saveThemeSettings() {
@@ -864,63 +862,48 @@ function saveThemeSettings() {
 }
 
 // ════════════════════════════════════════════════════════
-//  ВОССТАНОВЛЕНИЕ БД
+//  АВТОМАТИЧЕСКИЙ БЭКАП (расписание)
 // ════════════════════════════════════════════════════════
-const restoreZone  = document.getElementById('restoreZone');
-const restoreInput = document.getElementById('restoreFileInput');
-let restoreFile = null;
-
-restoreInput?.addEventListener('change', () => handleRestoreFile(restoreInput.files[0]));
-restoreZone?.addEventListener('dragover', e => { e.preventDefault(); restoreZone.classList.add('dragover'); });
-restoreZone?.addEventListener('dragleave', () => restoreZone.classList.remove('dragover'));
-restoreZone?.addEventListener('drop', e => {
-    e.preventDefault(); restoreZone.classList.remove('dragover');
-    handleRestoreFile(e.dataTransfer?.files[0]);
-});
-
-function handleRestoreFile(file) {
-    if (!file) return;
-    const lower = file.name.toLowerCase();
-    if (!(lower.endsWith('.sql') || lower.endsWith('.zip'))) {
-        showNotification('Допустимы только файлы .zip или .sql', 'error'); return;
+async function loadBackupSchedule() {
+    try {
+        const r = await fetch('/admin/backup/schedule');
+        const d = await r.json();
+        const sel = document.getElementById('backupFrequency');
+        if (sel) sel.value = d.frequency || 'OFF';
+        const st = document.getElementById('backupScheduleStatus');
+        if (st) {
+            if (d.lastRunAt) {
+                st.textContent = 'Последний бэкап: ' + fmtDate(d.lastRunAt)
+                    + (d.lastStatus ? ' · ' + d.lastStatus : '');
+            } else {
+                st.textContent = d.lastStatus || 'Плановый бэкап ещё не выполнялся';
+            }
+        }
+    } catch (e) {
+        /* состояние необязательно */
     }
-    restoreFile = file;
-    const label = document.getElementById('restoreFileName');
-    if (label) { label.textContent = '📄 ' + file.name; label.style.display = 'block'; }
-    const btn = document.getElementById('btnRestore');
-    if (btn) btn.disabled = false;
 }
 
-async function restoreDatabase() {
-    if (!restoreFile) { showNotification('Выберите файл .zip или .sql', 'error'); return; }
-    if (!confirm('⚠️ ВНИМАНИЕ!\n\nВосстановление полностью заменит все текущие данные.\nЭто действие необратимо!\n\nПродолжить?')) return;
-
-    const btn = document.getElementById('btnRestore');
-    const progBlock = document.getElementById('restoreProgress');
-    const progBar   = document.getElementById('restoreProgressBar');
-    const progText  = document.getElementById('restoreProgressText');
-
-    if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Восстановление…'; }
-    if (progBlock) progBlock.style.display = 'block';
-    if (progBar)   progBar.style.width = '30%';
-    if (progText)  progText.textContent = 'Загрузка файла…';
-
+async function saveBackupSchedule() {
+    const sel = document.getElementById('backupFrequency');
+    if (!sel) return;
     try {
-        const formData = new FormData();
-        formData.append('file', restoreFile);
-        if (progBar)  progBar.style.width = '60%';
-        if (progText) progText.textContent = 'Применение…';
-
-        const response = await fetch('/admin/restore', { method: 'POST', body: formData });
-        const text = await response.text();
-        if (progBar)  progBar.style.width = '100%';
-        if (progText) progText.textContent = '100%';
-        showNotification(text, response.ok ? 'success' : 'error');
-    } catch (err) {
-        showNotification('Ошибка сети: ' + err.message, 'error');
-    } finally {
-        if (btn) { btn.disabled = false; btn.innerHTML = '⬆️ Загрузить и восстановить'; }
-        setTimeout(() => { if (progBlock) progBlock.style.display = 'none'; }, 2500);
+        const r = await fetch('/admin/backup/schedule', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ frequency: sel.value })
+        });
+        const d = await r.json().catch(() => ({}));
+        if (r.ok) {
+            showNotification(sel.value === 'OFF'
+                ? 'Автоматический бэкап выключен'
+                : 'Расписание бэкапа сохранено', 'success');
+            loadBackupSchedule();
+        } else {
+            showNotification(d.error || 'Не удалось сохранить расписание', 'error');
+        }
+    } catch (e) {
+        showNotification('Ошибка сети: ' + e.message, 'error');
     }
 }
 
@@ -945,6 +928,9 @@ async function loadBackupStore() {
         const data = await r.json();
         const controls = document.getElementById('storeControls');
         const disabled = document.getElementById('storeDisabled');
+        const schedNoStore = document.getElementById('backupScheduleNoStore');
+
+        if (schedNoStore) schedNoStore.style.display = data.configured ? 'none' : 'block';
 
         if (!data.configured) {
             if (info) info.textContent = 'Хранилище выключено.';
@@ -1022,7 +1008,7 @@ async function deleteStored(name) {
     }
 }
 
-document.addEventListener('DOMContentLoaded', loadBackupStore);
+document.addEventListener('DOMContentLoaded', () => { loadBackupStore(); loadBackupSchedule(); });
 
 // ════════════════════════════════════════════════════════
 //  ИНИЦИАЛИЗАЦИЯ

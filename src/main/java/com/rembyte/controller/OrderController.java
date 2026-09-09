@@ -2,10 +2,12 @@ package com.rembyte.controller;
 
 import com.rembyte.model.Order;
 import com.rembyte.model.OrderLine;
+import com.rembyte.service.AcceptanceActService;
 import com.rembyte.service.FileStorageService;
 import com.rembyte.service.OrderService;
 import com.rembyte.service.OrderStatistics;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,10 +26,14 @@ import java.util.List;
 public class OrderController {
     private final OrderService orderService;
     private final FileStorageService fileStorageService;
+    private final AcceptanceActService acceptanceActService;
 
-    public OrderController(OrderService orderService, FileStorageService fileStorageService) {
+    public OrderController(OrderService orderService,
+                          FileStorageService fileStorageService,
+                          AcceptanceActService acceptanceActService) {
         this.orderService = orderService;
         this.fileStorageService = fileStorageService;
+        this.acceptanceActService = acceptanceActService;
     }
 
     @PostMapping
@@ -139,6 +145,23 @@ public class OrderController {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
+
+    /**
+     * Акт приёма оборудования в ремонт (PDF). Формируется по актуальным данным
+     * заказа и сохраняется в заказ как вложение (одна копия, перезаписывается).
+     */
+    @GetMapping("/{id}/act")
+    public ResponseEntity<byte[]> acceptanceAct(@PathVariable Long id) {
+        try {
+            byte[] pdf = acceptanceActService.renderAndStore(id);
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"acceptance-act.pdf\"")
+                    .body(pdf);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
         }
     }
 

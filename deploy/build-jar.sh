@@ -22,4 +22,12 @@ JAR="$(ls "$SRC"/target/rembyte-crm-*.jar 2>/dev/null | grep -vE 'sources|javado
 mkdir -p app
 cp "$JAR" app/app.jar
 echo "OK: app/app.jar  ($(du -h app/app.jar | cut -f1))  <- $(basename "$JAR")"
+
+# SQL-миграции для prod (ddl-auto=validate) — кладём рядом, чтобы папка была самодостаточной.
+if [ -d "$SRC/sql" ]; then
+    mkdir -p sql
+    cp "$SRC"/sql/*.sql sql/ 2>/dev/null || true
+    echo "OK: sql/  ($(ls sql/*.sql 2>/dev/null | wc -l | tr -d ' ') файлов)"
+fi
+
 echo "Дальше:  cp .env.example .env  &&  ./up.sh"

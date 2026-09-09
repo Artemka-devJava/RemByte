@@ -110,6 +110,18 @@
         </div>
       </div>
 
+      <div class="form-group" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button class="btn btn-secondary" type="button" onclick="openAcceptanceAct()">
+          📄 Акт приёмки (PDF)
+        </button>
+        <button class="btn btn-secondary" type="button" onclick="remindAboutOrder()">
+          🔔 Напомнить перезвонить
+        </button>
+        <span style="font-size:12px;color:var(--c-muted);">
+          акт формируется по данным заказа и сохраняется в него
+        </span>
+      </div>
+
       <hr class="order-detail-divider">
 
       <!-- Состав заказа -->
@@ -306,6 +318,7 @@
               <div id="rSectionAddress">
                 <div class="receipt-brand-sub" id="rCompanyAddress" data-editable style="color:var(--c-muted,#64748b);">г. Город, ул. Ремонтная, д. 1</div>
               </div>
+              <div class="receipt-brand-sub" id="rCompanyContacts" style="color:var(--c-muted,#64748b);"></div>
             </div>
           </div>
           <div class="receipt-meta">

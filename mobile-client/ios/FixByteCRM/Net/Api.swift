@@ -124,8 +124,6 @@ final class Api {
 
     func summary(_ id: Int) async throws -> ClientSummary { try await getJSON("/api/clients/\(id)/summary") }
 
-    func photos(_ id: Int) async throws -> [ClientPhoto] { try await getJSON("/api/clients/\(id)/photos") }
-
     /// Создать клиента. При заданных `problem` / `estimate` следом заводится
     /// первичная заявка (заказ NEW): описание = проблема, строка
     /// «Предварительная оценка» = озвученная примерная цена.
@@ -169,13 +167,28 @@ final class Api {
 
     /// Первичная заявка для только что созданного клиента.
     private func createInitialOrder(clientId: Int, problem: String?, estimate: Double?) async throws {
+        _ = try await createOrder(clientId: clientId, deviceDescription: problem, estimate: estimate)
+    }
+
+    // MARK: — заказы
+
+    func clientOrders(_ clientId: Int) async throws -> [OrderBrief] {
+        let list: [OrderBrief] = try await getJSON("/api/orders/client/\(clientId)")
+        return list.sorted { ($0.createdAt ?? "") > ($1.createdAt ?? "") }
+    }
+
+    func order(_ id: Int) async throws -> OrderBrief { try await getJSON("/api/orders/\(id)") }
+
+    /// Создать заявку для клиента (описание неисправности + примерная цена). Возвращает id.
+    @discardableResult
+    func createOrder(clientId: Int, deviceDescription: String?, estimate: Double?) async throws -> Int {
         var order: [String: Any] = [
             "client": ["id": clientId],
             "status": "NEW",
             "paidAmount": 0,
-            "notes": "Первичная заявка (моб. приложение)"
+            "notes": "Заявка (моб. приложение)"
         ]
-        let desc = (problem ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let desc = (deviceDescription ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         if !desc.isEmpty { order["deviceDescription"] = desc }
 
         var lines: [[String: Any]] = []
@@ -193,37 +206,61 @@ final class Api {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try JSONSerialization.data(withJSONObject: order)
 
-        let (_, resp) = try await session.data(for: req)
+        let (data, resp) = try await session.data(for: req)
         let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(code) else {
-            throw ApiError.message("Заявка не создана (\(code))")
+            throw ApiError.message(errorText(data) ?? "Заявка не создана (\(code))")
+        }
+        let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        return intValue(obj?["id"])
+    }
+
+    /// Обновить неисправность и примерную оценку заказа.
+    func updateOrder(orderId: Int, deviceDescription: String?, estimate: Double?) async throws {
+        var body: [String: Any] = ["notes": "Заявка (моб. приложение)"]
+        let desc = (deviceDescription ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !desc.isEmpty { body["deviceDescription"] = desc }
+        var lines: [[String: Any]] = []
+        if (estimate ?? 0) > 0 {
+            lines.append([
+                "name": "Предварительная оценка (со слов клиента)",
+                "unitPrice": estimate!,
+                "quantity": 1
+            ])
+        }
+        body["lines"] = lines
+
+        var req = URLRequest(url: makeURL("/api/orders/\(orderId)"))
+        req.httpMethod = "PUT"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, resp) = try await session.data(for: req)
+        let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(code) else {
+            throw ApiError.message(errorText(data) ?? "Не удалось сохранить заказ (\(code))")
         }
     }
 
-    // MARK: — фото
+    /// PDF акта приёмки по заказу — формируется и сохраняется на сервере.
+    func acceptanceActPdf(orderId: Int) async throws -> Data {
+        try await downloadData(makeURL("/api/orders/\(orderId)/act"))
+    }
 
-    func uploadPhoto(clientId: Int, jpeg: Data, caption: String?) async throws {
+    // MARK: — фото заказа (вложения)
+
+    func uploadOrderPhoto(orderId: Int, jpeg: Data) async throws {
         let boundary = "Boundary-\(UUID().uuidString)"
-        var req = URLRequest(url: makeURL("/api/clients/\(clientId)/photos"))
+        var req = URLRequest(url: makeURL("/api/orders/\(orderId)/attachments"))
         req.httpMethod = "POST"
         req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
 
         var body = Data()
         func append(_ s: String) { body.append(s.data(using: .utf8)!) }
-
         append("--\(boundary)\r\n")
-        append("Content-Disposition: form-data; name=\"files\"; filename=\"photo.jpg\"\r\n")
+        append("Content-Disposition: form-data; name=\"files\"; filename=\"photo_\(Int(Date().timeIntervalSince1970)).jpg\"\r\n")
         append("Content-Type: image/jpeg\r\n\r\n")
         body.append(jpeg)
-        append("\r\n")
-
-        if let caption, !caption.isEmpty {
-            append("--\(boundary)\r\n")
-            append("Content-Disposition: form-data; name=\"caption\"\r\n\r\n")
-            append(caption)
-            append("\r\n")
-        }
-        append("--\(boundary)--\r\n")
+        append("\r\n--\(boundary)--\r\n")
         req.httpBody = body
 
         let (data, resp) = try await session.data(for: req)
@@ -233,8 +270,9 @@ final class Api {
         }
     }
 
-    func deletePhoto(clientId: Int, photoId: Int) async throws {
-        var req = URLRequest(url: makeURL("/api/clients/\(clientId)/photos/\(photoId)"))
+    func deleteOrderAttachment(orderId: Int, url: String) async throws {
+        let q = url.addingPercentEncoding(withAllowedCharacters: .urlHostAllowed) ?? url
+        var req = URLRequest(url: makeURL("/api/orders/\(orderId)/attachments?url=\(q)"))
         req.httpMethod = "DELETE"
         let (_, resp) = try await session.data(for: req)
         let code = (resp as? HTTPURLResponse)?.statusCode ?? 0

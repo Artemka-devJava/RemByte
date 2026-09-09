@@ -19,7 +19,34 @@ public class OrderAttachment {
     public enum AttachmentType {
         PHOTO,
         VIDEO,
-        FILE
+        FILE,
+        /** Сгенерированный акт приёма оборудования в ремонт (PDF). */
+        ACT
+    }
+
+    /**
+     * Храним тип строкой через конвертер, а не {@code @Enumerated}, чтобы Hibernate
+     * не создавал CHECK-ограничение {@code attachment_type IN (...)}: при добавлении
+     * нового значения в enum старое ограничение ломает вставку (ddl-auto=update его
+     * не пересоздаёт). Неизвестное значение из БД читается как {@code null}.
+     */
+    @Converter
+    public static class AttachmentTypeConverter
+            implements AttributeConverter<AttachmentType, String> {
+        @Override
+        public String convertToDatabaseColumn(AttachmentType type) {
+            return type == null ? null : type.name();
+        }
+
+        @Override
+        public AttachmentType convertToEntityAttribute(String value) {
+            if (value == null || value.isBlank()) return null;
+            try {
+                return AttachmentType.valueOf(value.trim());
+            } catch (IllegalArgumentException e) {
+                return null;
+            }
+        }
     }
 
     @Id
@@ -39,7 +66,7 @@ public class OrderAttachment {
     @Column(name = "content_type", nullable = false, length = 150)
     private String contentType;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = AttachmentTypeConverter.class)
     @Column(name = "attachment_type", nullable = false, length = 12)
     private AttachmentType attachmentType;
 

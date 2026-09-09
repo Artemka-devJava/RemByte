@@ -1,5 +1,4 @@
 import SwiftUI
-import PhotosUI
 
 struct ShareItem: Identifiable {
     let id = UUID()
@@ -11,19 +10,11 @@ struct ClientDetailView: View {
 
     @State private var detail: ClientDetail?
     @State private var summary: ClientSummary?
-    @State private var photos: [ClientPhoto] = []
+    @State private var orders: [OrderBrief] = []
 
-    @State private var caption = ""
     @State private var busy = false
     @State private var error: String?
-
-    @State private var showCamera = false
-    @State private var pickerItem: PhotosPickerItem?
-    @State private var fullscreen: ClientPhoto?
-    @State private var share: ShareItem?
-    @State private var pendingDelete: ClientPhoto?
-
-    private let columns = [GridItem(.adaptive(minimum: 100), spacing: 8)]
+    @State private var showNewOrder = false
 
     var body: some View {
         ScrollView {
@@ -32,7 +23,7 @@ struct ClientDetailView: View {
                 if let s = summary { summaryStrip(s) }
                 if let d = detail { details(d) }
                 Divider()
-                photoSection
+                ordersSection
             }
             .padding()
         }
@@ -40,38 +31,11 @@ struct ClientDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .overlay { if busy { ProgressView().scaleEffect(1.2) } }
         .task { await loadAll() }
-        .fullScreenCover(isPresented: $showCamera) {
-            CameraPicker(
-                onImage: { image in
-                    showCamera = false
-                    Task { await upload(image) }
-                },
-                onCancel: { showCamera = false }
-            )
-            .ignoresSafeArea()
-        }
-        .onChange(of: pickerItem) { item in
-            guard let item else { return }
-            Task {
-                let loaded = (try? await item.loadTransferable(type: Data.self)) ?? nil
-                if let data = loaded, let image = UIImage(data: data) {
-                    await upload(image)
-                }
-                pickerItem = nil
+        .refreshable { await loadOrders() }
+        .sheet(isPresented: $showNewOrder) {
+            NewOrderSheet(clientId: clientId) { _ in
+                Task { await loadOrders() }
             }
-        }
-        .sheet(item: $fullscreen) { p in
-            FullScreenImageView(url: Api.shared.absoluteURL(p.url))
-        }
-        .sheet(item: $share) { item in
-            ActivityView(items: [item.url])
-        }
-        .confirmationDialog("Удалить фото?", isPresented: Binding(
-            get: { pendingDelete != nil },
-            set: { if !$0 { pendingDelete = nil } }
-        ), presenting: pendingDelete) { p in
-            Button("Удалить", role: .destructive) { Task { await deletePhoto(p) } }
-            Button("Отмена", role: .cancel) {}
         }
         .alert("Ошибка", isPresented: Binding(
             get: { error != nil }, set: { if !$0 { error = nil } }
@@ -154,50 +118,55 @@ struct ClientDetailView: View {
         }
     }
 
-    private var photoSection: some View {
+    private var ordersSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Фото проблемы / устройства").font(.headline)
-
-            TextField("Подпись (необязательно)", text: $caption)
-                .textFieldStyle(.roundedBorder)
-
             HStack {
+                Text("Заказы").font(.headline)
+                Spacer()
                 Button {
-                    showCamera = true
+                    showNewOrder = true
                 } label: {
-                    Label("Сфотографировать", systemImage: "camera").frame(maxWidth: .infinity)
+                    Label("Заказ", systemImage: "plus")
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(!UIImagePickerController.isSourceTypeAvailable(.camera))
-
-                PhotosPicker(selection: $pickerItem, matching: .images) {
-                    Label("Галерея", systemImage: "photo").frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
             }
 
-            if photos.isEmpty {
-                Text("Фото пока нет").foregroundStyle(.secondary).padding(.vertical, 8)
+            if orders.isEmpty {
+                Text("Заказов пока нет").foregroundStyle(.secondary).padding(.vertical, 6)
             } else {
-                LazyVGrid(columns: columns, spacing: 8) {
-                    ForEach(photos) { p in
-                        RemoteImage(url: Api.shared.absoluteURL(p.url))
-                            .frame(height: 100)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                            .contentShape(Rectangle())
-                            .onTapGesture { fullscreen = p }
-                            .contextMenu {
-                                Button {
-                                    Task { await sharePhoto(p) }
-                                } label: { Label("Поделиться", systemImage: "square.and.arrow.up") }
-                                Button(role: .destructive) {
-                                    pendingDelete = p
-                                } label: { Label("Удалить", systemImage: "trash") }
-                            }
+                VStack(spacing: 0) {
+                    ForEach(orders) { o in
+                        NavigationLink(value: Route.order(orderId: o.id, clientId: clientId)) {
+                            orderRow(o)
+                        }
+                        .buttonStyle(.plain)
+                        Divider()
                     }
                 }
             }
+
+            Text("Фото делаются внутри заказа — откройте заказ и добавьте снимки там.")
+                .font(.caption).foregroundStyle(.secondary).padding(.top, 4)
         }
+    }
+
+    private func orderRow(_ o: OrderBrief) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(o.number).font(.subheadline).bold()
+                Spacer()
+                Text(o.statusRu).font(.caption).foregroundStyle(Color.accentColor)
+            }
+            if let dev = o.deviceDescription, !dev.isEmpty {
+                Text(dev).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+            }
+            Text([
+                o.total > 0 ? money(o.total) : "оценка не задана",
+                o.createdAt?.prefix(10).split(separator: "-").reversed().joined(separator: ".") ?? ""
+            ].filter { !$0.isEmpty }.joined(separator: "  ·  "))
+                .font(.caption2).foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
     }
 
     // MARK: — действия
@@ -209,49 +178,11 @@ struct ClientDetailView: View {
             self.error = error.localizedDescription
         }
         summary = try? await Api.shared.summary(clientId)
-        photos = (try? await Api.shared.photos(clientId)) ?? []
+        await loadOrders()
     }
 
-    private func reloadPhotos() async {
-        photos = (try? await Api.shared.photos(clientId)) ?? []
-    }
-
-    private func upload(_ image: UIImage) async {
-        guard let jpeg = image.downscaled().jpeg() else { return }
-        busy = true; defer { busy = false }
-        do {
-            try await Api.shared.uploadPhoto(
-                clientId: clientId, jpeg: jpeg,
-                caption: caption.trimmingCharacters(in: .whitespaces)
-            )
-            caption = ""
-            await reloadPhotos()
-        } catch {
-            self.error = error.localizedDescription
-        }
-    }
-
-    private func deletePhoto(_ p: ClientPhoto) async {
-        do {
-            try await Api.shared.deletePhoto(clientId: clientId, photoId: p.id)
-            await reloadPhotos()
-        } catch {
-            self.error = error.localizedDescription
-        }
-    }
-
-    /// Скачать фото из CRM и отдать в системный «Поделиться».
-    private func sharePhoto(_ p: ClientPhoto) async {
-        busy = true; defer { busy = false }
-        do {
-            let data = try await Api.shared.downloadData(Api.shared.absoluteURL(p.url))
-            let tmp = FileManager.default.temporaryDirectory
-                .appendingPathComponent("photo_\(p.id).jpg")
-            try data.write(to: tmp, options: .atomic)
-            share = ShareItem(url: tmp)
-        } catch {
-            self.error = error.localizedDescription
-        }
+    private func loadOrders() async {
+        orders = (try? await Api.shared.clientOrders(clientId)) ?? []
     }
 
     private func writeURL(_ d: ClientDetail) -> URL? {

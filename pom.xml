@@ -76,6 +76,13 @@
             <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
 
+        <!-- PDF (акт приёмки) -->
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>1.3.43</version>
+        </dependency>
+
         <!-- Testing -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -101,6 +108,31 @@
                             <artifactId>lombok</artifactId>
                         </exclude>
                     </excludes>
+                </configuration>
+            </plugin>
+
+            <!--
+              Компиляция и тесты выполняются на JDK 17 (проект targets 17), даже
+              если Maven запущен на более новой JVM. Требуется запись про JDK 17
+              в ~/.m2/toolchains.xml (см. OPERATIONS.md). Это, среди прочего,
+              чинит Mockito: его inline-mock-maker не инструментирует классы на
+              свежих JDK (25) — на 17 всё работает без обходных путей.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-toolchains-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <goals><goal>toolchain</goal></goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <toolchains>
+                        <jdk>
+                            <version>17</version>
+                        </jdk>
+                    </toolchains>
                 </configuration>
             </plugin>
         </plugins>

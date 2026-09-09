@@ -5,18 +5,21 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import ru.fixbyte.crm.Api
-import ru.fixbyte.crm.ClientPhoto
 import ru.fixbyte.crm.databinding.ItemPhotoBinding
 
+/**
+ * Сетка фотографий по списку URL (относительных или абсолютных).
+ * Используется для вложений-фото заказа.
+ */
 class PhotosAdapter(
-    private val onOpen: (ClientPhoto) -> Unit,
-    private val onShare: (ClientPhoto) -> Unit,
-    private val onDelete: (ClientPhoto) -> Unit
+    private val onOpen: (String) -> Unit,
+    private val onShare: (String) -> Unit,
+    private val onDelete: (String) -> Unit
 ) : RecyclerView.Adapter<PhotosAdapter.VH>() {
 
-    private val items = mutableListOf<ClientPhoto>()
+    private val items = mutableListOf<String>()
 
-    fun submit(list: List<ClientPhoto>) {
+    fun submit(list: List<String>) {
         items.clear()
         items.addAll(list)
         notifyDataSetChanged()
@@ -32,11 +35,11 @@ class PhotosAdapter(
     override fun onBindViewHolder(holder: VH, position: Int) = holder.bind(items[position])
 
     inner class VH(private val b: ItemPhotoBinding) : RecyclerView.ViewHolder(b.root) {
-        fun bind(p: ClientPhoto) {
-            b.photo.load(Api.absoluteUrl(p.url))
-            b.photo.setOnClickListener { onOpen(p) }
-            b.sharePhoto.setOnClickListener { onShare(p) }
-            b.deletePhoto.setOnClickListener { onDelete(p) }
+        fun bind(url: String) {
+            b.photo.load(Api.absoluteUrl(url))
+            b.photo.setOnClickListener { onOpen(url) }
+            b.sharePhoto.setOnClickListener { onShare(url) }
+            b.deletePhoto.setOnClickListener { onDelete(url) }
         }
     }
 }

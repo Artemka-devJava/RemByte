@@ -1,6 +1,8 @@
 package com.rembyte.controller;
 
-import com.rembyte.service.BackupLevel;
+import com.rembyte.model.BackupSchedule;
+import com.rembyte.service.BackupFrequency;
+import com.rembyte.service.BackupScheduleService;
 import com.rembyte.service.BackupStorageService;
 import com.rembyte.service.BackupStorageService.StoredBackup;
 import com.rembyte.service.DatabaseBackupService;
@@ -10,12 +12,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -30,10 +29,14 @@ public class AdminController {
 
     private final DatabaseBackupService backupService;
     private final BackupStorageService backupStorage;
+    private final BackupScheduleService backupSchedule;
 
-    public AdminController(DatabaseBackupService backupService, BackupStorageService backupStorage) {
+    public AdminController(DatabaseBackupService backupService,
+                          BackupStorageService backupStorage,
+                          BackupScheduleService backupSchedule) {
         this.backupService = backupService;
         this.backupStorage = backupStorage;
+        this.backupSchedule = backupSchedule;
     }
 
     // ── Страница настроек ──────────────────────────────────────────────────
@@ -43,45 +46,34 @@ public class AdminController {
         return "admin";
     }
 
-    // ── Скачать резервную копию (level=light|full; mode= для совместимости) ─
+    // ── Автоматический полный бэкап (расписание) ──────────────────────────
 
-    @GetMapping("/backup")
-    public void downloadBackup(
-            @RequestParam(name = "level", required = false) String level,
-            @RequestParam(name = "mode", required = false) String mode,
-            HttpServletResponse response
-    ) throws Exception {
-        BackupLevel backupLevel = BackupLevel.parse(level != null ? level : mode);
-        String filename = "rembyte_backup_"
-                + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
-                + backupLevel.fileSuffix() + ".zip";
-        response.setContentType("application/octet-stream");
-        response.setCharacterEncoding("UTF-8");
-        response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
-        response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-        backupService.backupToStream(response.getOutputStream(), backupLevel);
-        response.flushBuffer();
+    @GetMapping("/backup/schedule")
+    @ResponseBody
+    public Map<String, Object> backupScheduleInfo() {
+        return scheduleInfo(backupSchedule.current());
     }
 
-    // ── Восстановить из загруженного файла ────────────────────────────────
-
-    @PostMapping("/restore")
+    @PutMapping("/backup/schedule")
     @ResponseBody
-    public ResponseEntity<String> restoreBackup(@RequestParam("file") MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            return ResponseEntity.badRequest().body("Файл не выбран");
-        }
-        String name = file.getOriginalFilename() == null ? "" : file.getOriginalFilename().toLowerCase();
-        if (!name.endsWith(".sql") && !name.endsWith(".zip")) {
-            return ResponseEntity.badRequest().body("Допустимы только файлы .zip или .sql");
-        }
+    public ResponseEntity<?> setBackupSchedule(@RequestBody Map<String, String> body) {
+        String raw = body == null ? null : body.get("frequency");
+        BackupFrequency freq;
         try {
-            backupService.restoreFromStream(file.getInputStream());
-            return ResponseEntity.ok("✅ Резервная копия успешно восстановлена");
-        } catch (Exception e) {
-            return ResponseEntity.status(500)
-                    .body("❌ Ошибка восстановления: " + e.getMessage());
+            freq = BackupFrequency.valueOf(raw == null ? "" : raw.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Неизвестная периодичность"));
         }
+        return ResponseEntity.ok(scheduleInfo(backupSchedule.setFrequency(freq)));
+    }
+
+    private static Map<String, Object> scheduleInfo(BackupSchedule s) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("frequency", s.getFrequency().name());
+        m.put("frequencyLabel", s.getFrequency().label());
+        m.put("lastRunAt", s.getLastRunAt() == null ? null : s.getLastRunAt().toString());
+        m.put("lastStatus", s.getLastStatus());
+        return m;
     }
 
     // ── Хранилище полных бэкапов (каталог / Samba-моунт) ──────────────────

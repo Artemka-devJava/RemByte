@@ -2,5 +2,6 @@
 <paths>
     <cache-path name="camera" path="camera/" />
     <cache-path name="share" path="share/" />
+    <cache-path name="acts" path="acts/" />
     <files-path name="images" path="images/" />
 </paths>

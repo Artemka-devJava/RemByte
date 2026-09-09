@@ -117,20 +117,6 @@
           </div>
         </details>
 
-        <!-- Фото -->
-        <details class="card card-section">
-          <summary>Фото <span class="count" id="photoCount"></span></summary>
-          <div class="section-body">
-            <div id="photoGrid" class="photo-grid"></div>
-            <div class="inline-add">
-              <input type="file" id="photoInput" accept="image/*" multiple>
-              <input id="photoCaption" placeholder="Подпись (необязательно)" style="flex:1;">
-              <button class="btn btn-secondary btn-sm" id="btnUploadPhotos">Загрузить</button>
-            </div>
-            <small class="hint">Изображения до 15 МБ. Эти же фото можно будет присылать из мобильного приложения.</small>
-          </div>
-        </details>
-
         <!-- Журнал -->
         <details class="card card-section">
           <summary>Журнал <span class="count" id="noteCount"></span></summary>
@@ -163,11 +149,6 @@
   </div>
 </div>
 
-<!-- Лайтбокс фото -->
-<div id="lightbox" class="media-lightbox" style="display:none;">
-  <button class="media-lightbox-close" type="button" onclick="document.getElementById('lightbox').style.display='none'">&times;</button>
-  <div id="lightboxContent" class="media-lightbox-content"></div>
-</div>
 
 <span id="adminMarker" sec:authorize="hasRole('ADMIN')" style="display:none;"></span>
 <div id="toast-container"></div>

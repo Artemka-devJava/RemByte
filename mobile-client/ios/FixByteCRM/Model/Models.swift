@@ -30,11 +30,33 @@ struct ClientSummary: Decodable {
     let debt: Double
 }
 
-struct ClientPhoto: Identifiable, Decodable, Hashable {
+struct OrderBrief: Identifiable, Decodable, Hashable {
     let id: Int
-    let url: String
-    let caption: String?
+    let orderNumber: String?
+    let status: String?
+    let deviceDescription: String?
+    let totalPrice: Double?
+    let paidAmount: Double?
     let createdAt: String?
+    let photoUrls: [String]?
+
+    var number: String { (orderNumber?.isEmpty == false ? orderNumber! : "Заказ №\(id)") }
+    var total: Double { totalPrice ?? 0 }
+    var paid: Double { paidAmount ?? 0 }
+    var photos: [String] { photoUrls ?? [] }
+
+    var statusRu: String {
+        switch (status ?? "").uppercased() {
+        case "NEW": return "новый"
+        case "IN_PROGRESS", "IN-PROGRESS": return "в работе"
+        case "WAITING", "ON_HOLD", "WAITING_FOR_PARTS": return "ожидание"
+        case "READY": return "готов к выдаче"
+        case "COMPLETED", "DONE": return "готов"
+        case "CANCELLED", "CANCELED": return "отменён"
+        case "ISSUED", "CLOSED": return "выдан"
+        default: return (status ?? "—").lowercased()
+        }
+    }
 }
 
 struct AuthInfo: Decodable {

@@ -33,9 +33,84 @@ function calculateMonthlyTotals(orders, monthStart, monthEnd) {
 // Загрузить статистику при загрузке страницы
 document.addEventListener('DOMContentLoaded', () => {
     loadDashboardData();
+    loadReminders();
     // Обновлять статистику каждые 30 секунд
-    setInterval(loadDashboardData, 30000);
+    setInterval(() => { loadDashboardData(); loadReminders(); }, 30000);
 });
+
+// ===== Напоминания =====
+
+async function loadReminders() {
+    try {
+        const r = await fetch('/api/reminders', { cache: 'no-store' });
+        if (!r.ok) return;
+        const data = await r.json();
+        const reminders = Array.isArray(data.reminders) ? data.reminders : [];
+        const stale = Array.isArray(data.staleOrders) ? data.staleOrders : [];
+
+        const count = reminders.length + stale.length;
+        document.getElementById('reminderCount').textContent = count ? `(${count})` : '';
+
+        const staleBlock = document.getElementById('staleOrdersBlock');
+        const staleUl = document.getElementById('staleOrders');
+        if (stale.length) {
+            staleBlock.style.display = 'block';
+            staleUl.innerHTML = stale.map(s => `
+                <li>
+                  <a href="/orders" style="color:var(--c-primary);text-decoration:none;">№ ${escHtmlD(s.orderNumber || s.orderId)}</a>
+                  — ${escHtmlD(s.clientName || '')}
+                  <span style="color:var(--c-muted);">· лежит с ${fmtDateD(s.since)}</span>
+                </li>`).join('');
+        } else {
+            staleBlock.style.display = 'none';
+        }
+
+        const list = document.getElementById('reminderList');
+        list.innerHTML = reminders.length ? reminders.map(x => `
+            <li style="display:flex;align-items:center;gap:8px;">
+              <button class="btn btn-sm btn-secondary" title="Выполнено" onclick="doneReminder(${x.id})">✓</button>
+              <span>${escHtmlD(x.text)}${x.dueAt ? ` <span style="color:var(--c-muted);">· до ${fmtDateD(x.dueAt)}</span>` : ''}</span>
+            </li>`).join('') : '<li style="color:var(--c-muted)">Нет активных задач</li>';
+    } catch (e) {
+        /* напоминания необязательны */
+    }
+}
+
+async function addReminder() {
+    const textEl = document.getElementById('newReminderText');
+    const dateEl = document.getElementById('newReminderDate');
+    const text = (textEl.value || '').trim();
+    if (!text) { showNotification('Введите текст напоминания', 'warning'); return; }
+    const body = { text };
+    if (dateEl.value) body.dueAt = dateEl.value + 'T09:00:00';
+    try {
+        const r = await fetch('/api/reminders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (!r.ok) { showNotification('Не удалось добавить', 'error'); return; }
+        textEl.value = ''; dateEl.value = '';
+        loadReminders();
+    } catch (e) {
+        showNotification('Ошибка сети: ' + e.message, 'error');
+    }
+}
+
+async function doneReminder(id) {
+    try {
+        await fetch('/api/reminders/' + id + '/done', { method: 'PUT' });
+        loadReminders();
+    } catch (e) { /* ignore */ }
+}
+
+function escHtmlD(s) {
+    return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function fmtDateD(iso) {
+    const d = new Date(iso);
+    return isNaN(d) ? String(iso).slice(0, 10) : d.toLocaleDateString('ru-RU');
+}
 
 // Загрузить данные панели управления
 async function loadDashboardData() {

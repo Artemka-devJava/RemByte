@@ -3,7 +3,6 @@ package com.rembyte.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -135,22 +134,6 @@ public class BackupStorageService {
 
     public void delete(String name) throws IOException {
         Files.deleteIfExists(resolveExisting(name));
-    }
-
-    // ── Расписание (по умолчанию выключено: cron = '-') ──────
-
-    @Scheduled(cron = "${fixbyte.backup.schedule.cron:-}")
-    public void scheduledFullBackup() {
-        if (!isConfigured()) {
-            log.warn("Плановый бэкап пропущен: не задан FIXBYTE_BACKUP_DIR");
-            return;
-        }
-        try {
-            StoredBackup b = storeFullBackup();
-            log.info("Плановый полный бэкап готов: {}", b.name());
-        } catch (Exception e) {
-            log.error("Плановый бэкап не выполнен: {}", e.getMessage(), e);
-        }
     }
 
     // ── Внутреннее ───────────────────────────────────────────

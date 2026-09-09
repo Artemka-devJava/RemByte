@@ -45,6 +45,18 @@ data class ClientDetail(
 
 data class ClientSummary(val ordersCount: Long, val revenue: Double, val debt: Double)
 
+data class OrderBrief(
+    val id: Long,
+    val number: String,
+    val status: String,
+    val deviceDescription: String?,
+    val total: Double,
+    val paid: Double,
+    val estimate: String?,
+    val createdAt: String?,
+    val photoUrls: List<String> = emptyList()
+)
+
 data class ClientPhoto(val id: Long, val url: String, val caption: String?, val createdAt: String?)
 
 sealed interface CreateClientResult {
@@ -270,12 +282,20 @@ object Api {
 
     /** Первичная заявка для только что созданного клиента. */
     private fun createInitialOrder(clientId: Long, deviceDescription: String?, estimatePrice: Double?) {
+        createOrderSync(clientId, deviceDescription, estimatePrice)
+    }
+
+    /** Создать заявку для клиента (описание неисправности + примерная цена). Возвращает id заказа. */
+    suspend fun createOrder(clientId: Long, deviceDescription: String?, estimatePrice: Double?): Long =
+        withContext(Dispatchers.IO) { createOrderSync(clientId, deviceDescription, estimatePrice) }
+
+    private fun createOrderSync(clientId: Long, deviceDescription: String?, estimatePrice: Double?): Long {
         val order = JSONObject()
             .put("client", JSONObject().put("id", clientId))
             .put("status", "NEW")
             .put("paidAmount", 0)
-            .put("notes", "Первичная заявка (моб. приложение)")
-        if (!deviceDescription.isNullOrBlank()) order.put("deviceDescription", deviceDescription)
+            .put("notes", "Заявка (моб. приложение)")
+        if (!deviceDescription.isNullOrBlank()) order.put("deviceDescription", deviceDescription.trim())
 
         val lines = JSONArray()
         if ((estimatePrice ?: 0.0) > 0.0) {
@@ -291,9 +311,104 @@ object Api {
         http.newCall(
             Request.Builder().url(u("/api/orders")).post(order.toString().toRequestBody(JSON)).build()
         ).execute().use { r ->
-            if (!r.isSuccessful) throw ApiException("Заявка не создана (${r.code})")
+            val txt = r.body?.string().orEmpty()
+            if (!r.isSuccessful) throw ApiException(parseErr(txt) ?: "Заявка не создана (${r.code})")
+            return runCatching { JSONObject(txt).getLong("id") }.getOrDefault(0L)
         }
     }
+
+    // ── Заказы клиента ────────────────────────────────────────
+
+    suspend fun clientOrders(clientId: Long): List<OrderBrief> = withContext(Dispatchers.IO) {
+        val arr = JSONArray(get("/api/orders/client/$clientId"))
+        (0 until arr.length()).map { orderBrief(arr.getJSONObject(it)) }
+            .sortedByDescending { it.createdAt ?: "" }
+    }
+
+    suspend fun order(id: Long): OrderBrief = withContext(Dispatchers.IO) {
+        orderBrief(JSONObject(get("/api/orders/$id")))
+    }
+
+    /** Обновить неисправность и примерную оценку заказа. */
+    suspend fun updateOrder(orderId: Long, deviceDescription: String?, estimatePrice: Double?) =
+        withContext(Dispatchers.IO) {
+            val body = JSONObject().put("notes", "Заявка (моб. приложение)")
+            if (!deviceDescription.isNullOrBlank()) body.put("deviceDescription", deviceDescription.trim())
+            val lines = JSONArray()
+            if ((estimatePrice ?: 0.0) > 0.0) {
+                lines.put(
+                    JSONObject()
+                        .put("name", "Предварительная оценка (со слов клиента)")
+                        .put("unitPrice", estimatePrice)
+                        .put("quantity", 1)
+                )
+            }
+            body.put("lines", lines)
+            http.newCall(
+                Request.Builder().url(u("/api/orders/$orderId")).put(body.toString().toRequestBody(JSON)).build()
+            ).execute().use { r ->
+                if (!r.isSuccessful) throw ApiException(errorText(r) ?: "Не удалось сохранить заказ (${r.code})")
+            }
+        }
+
+    /** PDF акта приёмки по заказу — формируется и сохраняется на сервере. */
+    suspend fun acceptanceActPdf(orderId: Long): ByteArray = downloadBytes(u("/api/orders/$orderId/act"))
+
+    private fun orderBrief(o: JSONObject): OrderBrief {
+        val lines = o.optJSONArray("lines")
+        val estimate = buildString {
+            if (lines != null) for (i in 0 until lines.length()) {
+                val ln = lines.getJSONObject(i)
+                if (isNotEmpty()) append("; ")
+                append(ln.optString("name")).append(" — ")
+                    .append(fmtMoney(ln.optDouble("unitPrice", 0.0) * ln.optInt("quantity", 1)))
+            }
+        }
+        val photos = mutableListOf<String>()
+        o.optJSONArray("photoUrls")?.let { pa ->
+            for (i in 0 until pa.length()) pa.optString(i).takeIf { it.isNotBlank() }?.let(photos::add)
+        }
+        return OrderBrief(
+            o.getLong("id"),
+            o.optString("orderNumber", ""),
+            o.optString("status", ""),
+            o.optStringOrNull("deviceDescription"),
+            o.optDouble("totalPrice", 0.0),
+            o.optDouble("paidAmount", 0.0),
+            estimate.ifBlank { null },
+            o.optStringOrNull("createdAt"),
+            photos
+        )
+    }
+
+    // ── Фото заказа (вложения) ───────────────────────────────
+
+    suspend fun uploadOrderPhoto(orderId: Long, bytes: ByteArray, filename: String) =
+        withContext(Dispatchers.IO) {
+            val part = MultipartBody.Builder().setType(MultipartBody.FORM)
+                .addFormDataPart(
+                    "files", if (filename.endsWith(".jpg")) filename else "$filename.jpg",
+                    bytes.toRequestBody("image/jpeg".toMediaType(), 0, bytes.size)
+                )
+            http.newCall(
+                Request.Builder().url(u("/api/orders/$orderId/attachments")).post(part.build()).build()
+            ).execute().use { r ->
+                if (isAuthFailure(r)) throw ApiException("Сессия истекла — проверьте логин и пароль в настройках")
+                if (!r.isSuccessful) throw ApiException(errorText(r) ?: "Не удалось загрузить фото (${r.code})")
+            }
+        }
+
+    suspend fun deleteOrderAttachment(orderId: Long, url: String) = withContext(Dispatchers.IO) {
+        val q = URLEncoder.encode(url, "UTF-8")
+        http.newCall(
+            Request.Builder().url(u("/api/orders/$orderId/attachments?url=$q")).delete().build()
+        ).execute().use { r ->
+            if (!r.isSuccessful && r.code != 204) throw ApiException("Не удалось удалить (${r.code})")
+        }
+    }
+
+    private fun fmtMoney(v: Double): String =
+        if (v == v.toLong().toDouble()) "${v.toLong()} ₽" else "$v ₽"
 
     /** Скачать файл (например фото) тем же клиентом — с cookie сессии. */
     suspend fun downloadBytes(url: String): ByteArray = withContext(Dispatchers.IO) {

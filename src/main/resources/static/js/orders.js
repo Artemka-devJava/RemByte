@@ -409,6 +409,38 @@ async function buildLinesPayload() {
 
 // ===== ПРОСМОТР ЗАКАЗА (МОДАЛ С ВОЗМОЖНОСТЬЮ МЕНЯТЬ СТАТУС) =====
 
+/** Открыть/сформировать акт приёма оборудования в ремонт (PDF). */
+function openAcceptanceAct() {
+    if (!currentViewOrderId) { showNotification('Сначала откройте заказ', 'error'); return; }
+    window.open('/api/orders/' + currentViewOrderId + '/act', '_blank', 'noopener');
+}
+
+/** Создать напоминание «перезвонить по заказу» (появится на дашборде). */
+async function remindAboutOrder() {
+    if (!currentViewOrderId) { showNotification('Сначала откройте заказ', 'error'); return; }
+    const num = currentViewOrder?.orderNumber || ('№' + currentViewOrderId);
+    const client = currentViewOrder?.client?.name || '';
+    const when = prompt('Когда напомнить? (дата ГГГГ-ММ-ДД, пусто — без даты)', '');
+    if (when === null) return;
+    const body = {
+        text: `Перезвонить по заказу ${num}${client ? ' — ' + client : ''}`,
+        orderId: currentViewOrderId,
+        clientId: currentViewOrder?.client?.id || null
+    };
+    const d = (when || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) body.dueAt = d + 'T09:00:00';
+    try {
+        const r = await fetch('/api/reminders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        showNotification(r.ok ? 'Напоминание добавлено' : 'Не удалось добавить напоминание', r.ok ? 'success' : 'error');
+    } catch (e) {
+        showNotification('Ошибка сети: ' + e.message, 'error');
+    }
+}
+
 async function viewOrder(id) {
     const order = await OrderAPI.getById(id);
     if (!order) { showNotification('Заказ не найден', 'error'); return; }
@@ -1203,19 +1235,35 @@ function openCurrentReceipt() {
     if (currentViewOrder) openReceiptModal(currentViewOrder);
 }
 
-function openReceiptModal(order) {
+let companySettingsCache = null;
+async function getCompanySettings() {
+    if (companySettingsCache) return companySettingsCache;
+    try {
+        const r = await fetch('/api/settings/company', { cache: 'no-store' });
+        companySettingsCache = r.ok ? await r.json() : {};
+    } catch (e) { companySettingsCache = {}; }
+    return companySettingsCache;
+}
+
+async function openReceiptModal(order) {
     if (!order) return;
     const isAdmin = (typeof IS_ADMIN !== 'undefined' && IS_ADMIN);
     const ce = isAdmin ? 'true' : 'false';
 
     const cfg = loadReceiptSettings();
+    const company = await getCompanySettings();
 
     const hint = document.getElementById('receiptEditHint');
     if (hint) hint.style.display = isAdmin ? 'block' : 'none';
 
-    setRField('rCompanyName',    cfg.companyName    || 'FixByte');
-    setRField('rCompanySub',     cfg.companySub     || 'Сервисный центр · Ремонт техники');
-    setRField('rCompanyAddress', cfg.companyAddress || '');
+    setRField('rCompanyName',    company.name     || cfg.companyName    || 'FixByte');
+    setRField('rCompanySub',     company.subtitle || cfg.companySub     || 'Сервисный центр · ремонт техники');
+    setRField('rCompanyAddress', company.address  || cfg.companyAddress || '');
+    const contacts = [
+        company.phone ? 'тел. ' + company.phone : '',
+        company.email || ''
+    ].filter(Boolean).join('   ');
+    setRField('rCompanyContacts', contacts);
     setRField('rOrderNumber',    order.orderNumber  || '—');
     setRField('rOrderDate',      formatDate(order.completedAt || order.updatedAt || order.createdAt || ''));
     setRField('rClientName',     order.client?.name    || '—');
@@ -1225,7 +1273,7 @@ function openReceiptModal(order) {
     setRField('rNotes',          order.notes || '—');
     setRField('rTotal',          formatCurrency(order.totalPrice  || 0));
     setRField('rPaid',           formatCurrency(order.paidAmount  || 0));
-    setRField('rEmployee',       cfg.employee || '________________');
+    setRField('rEmployee',       company.employee || cfg.employee || '________________');
 
     const balance = (order.totalPrice || 0) - (order.paidAmount || 0);
     setRField('rBalance', formatCurrency(balance));
