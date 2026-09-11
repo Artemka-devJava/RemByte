@@ -64,7 +64,7 @@ services:
       FIXBYTE_ADMIN_PASSWORD: ${FIXBYTE_ADMIN_PASSWORD:-changeme}
       FIXBYTE_OPERATOR_USERNAME: ${FIXBYTE_OPERATOR_USERNAME:-operator}
       FIXBYTE_OPERATOR_PASSWORD: ${FIXBYTE_OPERATOR_PASSWORD:-changeme}
-      FIXBYTE_BACKUP_DIR: ${FIXBYTE_BACKUP_DIR:-/backups}
+      FIXBYTE_BACKUP_DIR: ${FIXBYTE_BACKUP_DIR:-/mnt}
       FIXBYTE_BACKUP_KEEP: ${FIXBYTE_BACKUP_KEEP:-14}
       FIXBYTE_COMPANY_NAME: ${FIXBYTE_COMPANY_NAME:-FixByte}
       FIXBYTE_COMPANY_SUBTITLE: ${FIXBYTE_COMPANY_SUBTITLE:-}
@@ -74,7 +74,7 @@ services:
       FIXBYTE_STALE_ORDER_DAYS: ${FIXBYTE_STALE_ORDER_DAYS:-30}
     volumes:
       # Хранилище полных бэкапов (bind-mount на хост или CIFS-volume crm_backups ниже).
-      - ${BACKUP_HOST_DIR:-./backups}:/backups
+      - ${BACKUP_HOST_DIR:-./backups}:/mnt
     networks:
       crm_lan:
         ipv4_address: ${CRM_IP}
@@ -89,7 +89,7 @@ volumes:
   fixbyte-db-data:
     driver: local
   # Полные бэкапы напрямую на шару Samba/CIFS (раскомментируйте, подставьте свои
-  # данные и в app.volumes замените bind-mount на:  - crm_backups:/backups)
+  # данные и в app.volumes замените bind-mount на:  - crm_backups:/mnt)
   # crm_backups:
   #   driver_opts:
   #     type: cifs

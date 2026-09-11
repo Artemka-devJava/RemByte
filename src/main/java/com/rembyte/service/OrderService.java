@@ -5,6 +5,8 @@ import com.rembyte.model.OrderLine;
 import com.rembyte.model.RepairService;
 import com.rembyte.repository.OrderAttachmentRepository;
 import com.rembyte.repository.OrderRepository;
+import com.rembyte.repository.PaymentRepository;
+import com.rembyte.repository.ReminderRepository;
 import com.rembyte.repository.RepairServiceRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,13 +28,19 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final OrderAttachmentRepository orderAttachmentRepository;
     private final RepairServiceRepository repairServiceRepository;
+    private final PaymentRepository paymentRepository;
+    private final ReminderRepository reminderRepository;
 
     public OrderService(OrderRepository orderRepository,
                         OrderAttachmentRepository orderAttachmentRepository,
-                        RepairServiceRepository repairServiceRepository) {
+                        RepairServiceRepository repairServiceRepository,
+                        PaymentRepository paymentRepository,
+                        ReminderRepository reminderRepository) {
         this.orderRepository = orderRepository;
         this.orderAttachmentRepository = orderAttachmentRepository;
         this.repairServiceRepository = repairServiceRepository;
+        this.paymentRepository = paymentRepository;
+        this.reminderRepository = reminderRepository;
     }
 
     /**
@@ -194,6 +202,8 @@ public class OrderService {
     }
 
     public void deleteOrder(Long id) {
+        paymentRepository.deleteByOrderId(id);
+        reminderRepository.deleteByOrderId(id);
         orderAttachmentRepository.deleteByOrderId(id);
         orderRepository.deleteById(id);
     }

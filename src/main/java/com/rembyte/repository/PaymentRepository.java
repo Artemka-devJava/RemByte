@@ -11,5 +11,6 @@ import java.util.List;
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
     List<Payment> findByOrderId(Long orderId);
     List<Payment> findByPaymentDateBetween(LocalDateTime start, LocalDateTime end);
+    long deleteByOrderId(Long orderId);
 }
 

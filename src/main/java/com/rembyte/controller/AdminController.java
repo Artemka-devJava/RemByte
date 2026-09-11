@@ -84,9 +84,22 @@ public class AdminController {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("configured", backupStorage.isConfigured());
         m.put("target", backupStorage.targetDescription());
+        m.put("baseDir", backupStorage.baseDir());
+        m.put("dirOverride", backupStorage.directoryOverride());
         m.put("keep", backupStorage.keepCount());
         m.put("backups", backupStorage.list().stream().map(AdminController::toMap).toList());
         return m;
+    }
+
+    @PutMapping("/backup/dir")
+    @ResponseBody
+    public ResponseEntity<?> setBackupDir(@RequestBody Map<String, String> body) {
+        try {
+            backupStorage.setDirectory(body == null ? null : body.get("dir"));
+            return ResponseEntity.ok(storeInfo());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     @PostMapping("/backup/store")
@@ -94,7 +107,7 @@ public class AdminController {
     public ResponseEntity<?> storeFullBackup() {
         if (!backupStorage.isConfigured()) {
             return ResponseEntity.badRequest().body(Map.of("error",
-                    "Хранилище не настроено. Задайте FIXBYTE_BACKUP_DIR (можно смонтированную шару Samba)."));
+                    "Хранилище не настроено. Выберите путь в панели или задайте FIXBYTE_BACKUP_DIR."));
         }
         try {
             StoredBackup b = backupStorage.storeFullBackup();

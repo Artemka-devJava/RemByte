@@ -1,5 +1,6 @@
 package com.rembyte.service;
 
+import com.rembyte.repository.BackupScheduleRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -9,8 +10,10 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 
 class BackupStorageServiceTest {
 
@@ -18,6 +21,7 @@ class BackupStorageServiceTest {
     Path storeDir;
 
     private BackupStorageService storage;
+    private BackupScheduleRepository scheduleRepository;
 
     /** Заглушка: пишет предсказуемое содержимое вместо реального дампа БД. */
     static class StubBackup extends DatabaseBackupService {
@@ -30,17 +34,26 @@ class BackupStorageServiceTest {
 
     @BeforeEach
     void setUp() {
-        storage = new BackupStorageService(new StubBackup());
-        ReflectionTestUtils.setField(storage, "backupDir", storeDir.toString());
+        scheduleRepository = mock(BackupScheduleRepository.class); // findById() -> Optional.empty() без стаба
+        storage = new BackupStorageService(new StubBackup(), scheduleRepository);
+        ReflectionTestUtils.setField(storage, "legacyBackupDir", storeDir.toString());
         ReflectionTestUtils.setField(storage, "keep", 3);
     }
 
     @Test
     void notConfiguredWhenDirBlank() {
-        var s = new BackupStorageService(new StubBackup());
-        ReflectionTestUtils.setField(s, "backupDir", "");
+        var s = new BackupStorageService(new StubBackup(), mock(BackupScheduleRepository.class));
+        ReflectionTestUtils.setField(s, "legacyBackupDir", "");
         assertThat(s.isConfigured()).isFalse();
         assertThat(s.list()).isEmpty();
+    }
+
+    @Test
+    void adminOverrideMustBeUnderBaseDir() {
+        ReflectionTestUtils.setField(storage, "baseDirProperty", storeDir.toString());
+        assertThatThrownBy(() -> storage.setDirectory("/some/other/place"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(storeDir.toString());
     }
 
     @Test

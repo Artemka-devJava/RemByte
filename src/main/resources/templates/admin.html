@@ -331,7 +331,20 @@
               <div class="settings-section">
                 <div class="backup-info" id="storeInfo">Загрузка…</div>
 
-                <div id="storeControls" style="display:none;">
+                <div class="setting-row">
+                  <label for="backupDirInput">Каталог для бэкапов</label>
+                  <input id="backupDirInput" type="text" placeholder="/mnt">
+                </div>
+                <div class="backup-info" id="backupDirHint">
+                  Должен быть внутри <code id="backupBaseDir">/mnt</code> — это каталог,
+                  примонтированный в docker-compose (см. <code>BACKUP_HOST_DIR</code> в
+                  <code>.env</code>). Можно указать подпапку, например
+                  <code id="backupBaseDirExample">/mnt/nas</code>. Пусто — использовать
+                  <code>FIXBYTE_BACKUP_DIR</code>.
+                </div>
+                <button class="btn btn-sm btn-secondary" onclick="saveBackupDir()">💾 Сохранить путь</button>
+
+                <div id="storeControls" style="display:none;margin-top:14px;">
                   <button class="btn btn-primary" id="btnStoreNow" onclick="storeFullBackupNow()">
                     💾 Сохранить полный бэкап в хранилище
                   </button>
@@ -343,11 +356,11 @@
                   </table>
                 </div>
 
-                <div id="storeDisabled" class="danger-box" style="display:none;">
-                  Хранилище не настроено. Задайте <code>FIXBYTE_BACKUP_DIR</code> — путь к каталогу
-                  для бэкапов. Это может быть смонтированная сетевая шара Samba/CIFS
-                  (<code>mount -t cifs //NAS/backups /mnt/crm-backups …</code> или volume
-                  <code>driver_opts: type: cifs</code> в docker-compose).
+                <div id="storeDisabled" class="danger-box" style="display:none;margin-top:14px;">
+                  Хранилище не настроено. Укажите каталог выше (например <code>/mnt</code>
+                  или подпапку в нём) либо задайте <code>FIXBYTE_BACKUP_DIR</code>. Это может
+                  быть смонтированная сетевая шара Samba/CIFS
+                  (<code>mount -t cifs //NAS/backups /mnt …</code> на хосте Linux).
                 </div>
               </div>
             </div>
@@ -932,6 +945,17 @@ async function loadBackupStore() {
 
         if (schedNoStore) schedNoStore.style.display = data.configured ? 'none' : 'block';
 
+        const baseDir = data.baseDir || '/mnt';
+        const dirInput = document.getElementById('backupDirInput');
+        if (dirInput && document.activeElement !== dirInput) {
+            dirInput.value = data.dirOverride || '';
+            dirInput.placeholder = baseDir;
+        }
+        const baseDirEl = document.getElementById('backupBaseDir');
+        if (baseDirEl) baseDirEl.textContent = baseDir;
+        const baseDirExampleEl = document.getElementById('backupBaseDirExample');
+        if (baseDirExampleEl) baseDirExampleEl.textContent = baseDir.replace(/\/$/, '') + '/nas';
+
         if (!data.configured) {
             if (info) info.textContent = 'Хранилище выключено.';
             if (controls) controls.style.display = 'none';
@@ -963,6 +987,27 @@ async function loadBackupStore() {
             </tr>`).join('');
     } catch (e) {
         if (info) info.textContent = 'Не удалось получить состояние хранилища.';
+    }
+}
+
+async function saveBackupDir() {
+    const input = document.getElementById('backupDirInput');
+    const dir = input ? input.value.trim() : '';
+    try {
+        const r = await fetch('/admin/backup/dir', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dir })
+        });
+        const data = await r.json().catch(() => ({}));
+        if (r.ok) {
+            showNotification('Путь для бэкапов сохранён: ' + data.target, 'success');
+            loadBackupStore();
+        } else {
+            showNotification(data.error || 'Не удалось сохранить путь', 'error');
+        }
+    } catch (e) {
+        showNotification('Ошибка сети: ' + e.message, 'error');
     }
 }
 

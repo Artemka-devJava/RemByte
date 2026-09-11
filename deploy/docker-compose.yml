@@ -47,7 +47,7 @@ services:
       FIXBYTE_ADMIN_PASSWORD: ${FIXBYTE_ADMIN_PASSWORD:-changeme}
       FIXBYTE_OPERATOR_USERNAME: ${FIXBYTE_OPERATOR_USERNAME:-operator}
       FIXBYTE_OPERATOR_PASSWORD: ${FIXBYTE_OPERATOR_PASSWORD:-changeme}
-      FIXBYTE_BACKUP_DIR: ${FIXBYTE_BACKUP_DIR:-/backups}
+      FIXBYTE_BACKUP_DIR: ${FIXBYTE_BACKUP_DIR:-/mnt}
       FIXBYTE_BACKUP_KEEP: ${FIXBYTE_BACKUP_KEEP:-14}
       # Реквизиты компании — стартовые значения (дальше правятся в панели «Настройки чека»).
       FIXBYTE_COMPANY_NAME: ${FIXBYTE_COMPANY_NAME:-FixByte}
@@ -58,10 +58,13 @@ services:
       # Через сколько дней «готовый, но не забранный» заказ попадает в напоминания.
       FIXBYTE_STALE_ORDER_DAYS: ${FIXBYTE_STALE_ORDER_DAYS:-30}
     volumes:
-      # Хранилище полных бэкапов. По умолчанию — каталог на хосте (BACKUP_HOST_DIR).
+      # Хранилище полных бэкапов, смонтировано в /mnt. По умолчанию — каталог
+      # на хосте (BACKUP_HOST_DIR); конкретную подпапку внутри /mnt можно
+      # выбрать в панели администратора («База данных» → «Хранилище
+      # полных бэкапов»), либо переменной FIXBYTE_BACKUP_DIR.
       # Для сохранения через Samba: замените на volume "crm_backups" ниже
-      # (driver_opts: type: cifs) и смонтируйте его сюда: - crm_backups:/backups
-      - ${BACKUP_HOST_DIR:-./backups}:/backups
+      # (driver_opts: type: cifs) и смонтируйте его сюда: - crm_backups:/mnt
+      - ${BACKUP_HOST_DIR:-./backups}:/mnt
     networks: [crm_net]
     depends_on:
       db:
@@ -75,7 +78,7 @@ volumes:
   fixbyte-db-data:
     driver: local
   # Полные бэкапы напрямую на шару Samba/CIFS (раскомментируйте и подставьте свои
-  # данные, затем в app.volumes замените bind-mount на:  - crm_backups:/backups)
+  # данные, затем в app.volumes замените bind-mount на:  - crm_backups:/mnt)
   # crm_backups:
   #   driver_opts:
   #     type: cifs

@@ -101,24 +101,36 @@ sudo ./macvlan/host-shim.sh up     # доступ с самого хоста
 был выключен, бэкап сделается при следующей ночной проверке.
 
 Настройка хранится в БД (таблица `backup_schedule`, одна строка). На **prod**
-(`ddl-auto=validate`) перед деплоем выполнить `sql/2026-09-09-backup-schedule.sql`.
+(`ddl-auto=validate`) перед деплоем выполнить `sql/2026-09-09-backup-schedule.sql`
+и (для этой сборки) `sql/2026-09-11-backup-dir.sql`.
 
 ### Хранилище полных бэкапов (в т.ч. Samba)
 
-Если задан `FIXBYTE_BACKUP_DIR` — в панели работает блок «Хранилище полных
-бэкапов»: кнопка «Сохранить полный бэкап в хранилище», список сохранённых
-архивов со скачиванием / восстановлением / удалением, авто-ротация
-(`FIXBYTE_BACKUP_KEEP`, по умолчанию 14). Восстановление — кнопкой «Восстановить»
-у нужного архива в списке.
+Контейнер монтирует `/mnt` на каталог хоста, заданный `BACKUP_HOST_DIR`
+(docker-compose). Если задан `FIXBYTE_BACKUP_DIR` (по умолчанию `/mnt`) —
+в панели работает блок «Хранилище полных бэкапов»: кнопка «Сохранить полный
+бэкап в хранилище», список сохранённых архивов со скачиванием /
+восстановлением / удалением, авто-ротация (`FIXBYTE_BACKUP_KEEP`, по
+умолчанию 14). Восстановление — кнопкой «Восстановить» у нужного архива
+в списке.
 
-`FIXBYTE_BACKUP_DIR` может быть **смонтированной шарой Samba/CIFS** — тогда
-полные бэкапы «сохраняются через samba» без доп. кода:
+**Путь можно выбрать прямо в панели** (поле «Каталог для бэкапов» в том же
+блоке) — например, указать конкретную подпапку внутри `/mnt`, если туда
+смонтировано несколько шар/дисков. Путь обязан лежать внутри `/mnt`
+(`fixbyte.backup.base-dir`, см. `BackupStorageService`) — сервер вернёт
+ошибку на любой путь снаружи, поскольку только `/mnt` гарантированно
+примонтирован в контейнер. Выбор хранится в БД (`backup_schedule.backup_dir`)
+и имеет приоритет над `FIXBYTE_BACKUP_DIR`; пустое значение в панели —
+откат на переменную окружения.
+
+`/mnt` может быть **смонтированной шарой Samba/CIFS** — тогда полные бэкапы
+«сохраняются через samba» без доп. кода:
 
 ```bash
 # Linux-хост
 sudo mount -t cifs //NAS/backups /mnt/crm-backups \
      -o username=USER,password=PASS,uid=$(id -u),vers=3.0
-export FIXBYTE_BACKUP_DIR=/mnt/crm-backups
+# в deploy/.env:  BACKUP_HOST_DIR=/mnt/crm-backups
 ```
 
 ```yaml
@@ -126,9 +138,9 @@ export FIXBYTE_BACKUP_DIR=/mnt/crm-backups
 services:
   app:
     environment:
-      FIXBYTE_BACKUP_DIR: /backups
+      FIXBYTE_BACKUP_DIR: /mnt
     volumes:
-      - crm_backups:/backups
+      - crm_backups:/mnt
 volumes:
   crm_backups:
     driver_opts:

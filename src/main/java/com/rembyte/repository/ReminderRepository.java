@@ -8,4 +8,6 @@ import java.util.List;
 public interface ReminderRepository extends JpaRepository<Reminder, Long> {
     List<Reminder> findByDoneFalseOrderByDueAtAscIdAsc();
     List<Reminder> findByOrderIdOrderByIdDesc(Long orderId);
+    long deleteByOrderId(Long orderId);
+    long deleteByClientId(Long clientId);
 }

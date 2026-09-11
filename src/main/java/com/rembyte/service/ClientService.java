@@ -10,6 +10,7 @@ import com.rembyte.repository.ClientNoteRepository;
 import com.rembyte.repository.ClientPhotoRepository;
 import com.rembyte.repository.ClientRepository;
 import com.rembyte.repository.OrderRepository;
+import com.rembyte.repository.ReminderRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,20 +30,26 @@ public class ClientService {
 
     private final ClientRepository clientRepository;
     private final OrderRepository orderRepository;
+    private final OrderService orderService;
     private final ClientNoteRepository noteRepository;
     private final ClientDeviceRepository deviceRepository;
     private final ClientPhotoRepository photoRepository;
+    private final ReminderRepository reminderRepository;
 
     public ClientService(ClientRepository clientRepository,
                          OrderRepository orderRepository,
+                         OrderService orderService,
                          ClientNoteRepository noteRepository,
                          ClientDeviceRepository deviceRepository,
-                         ClientPhotoRepository photoRepository) {
+                         ClientPhotoRepository photoRepository,
+                         ReminderRepository reminderRepository) {
         this.clientRepository = clientRepository;
         this.orderRepository = orderRepository;
+        this.orderService = orderService;
         this.noteRepository = noteRepository;
         this.deviceRepository = deviceRepository;
         this.photoRepository = photoRepository;
+        this.reminderRepository = reminderRepository;
     }
 
     // ── Карточка ────────────────────────────────────────────────
@@ -131,6 +138,10 @@ public class ClientService {
     }
 
     public void deleteClient(Long id) {
+        for (Order order : orderRepository.findByClientId(id)) {
+            orderService.deleteOrder(order.getId());
+        }
+        reminderRepository.deleteByClientId(id);
         noteRepository.deleteByClient_Id(id);
         photoRepository.deleteByClient_Id(id);
         deviceRepository.deleteByClient_Id(id);

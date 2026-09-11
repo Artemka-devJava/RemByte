@@ -7,7 +7,7 @@
 
     <groupId>com.rembyte</groupId>
     <artifactId>rembyte-crm</artifactId>
-    <version>1.0.4</version>
+    <version>1.0.5</version>
     <packaging>jar</packaging>
 
     <name>RemByte CRM - Сервис управления ремонтом ПК</name>
@@ -109,6 +109,16 @@
                         </exclude>
                     </excludes>
                 </configuration>
+                <executions>
+                    <!-- Пишет META-INF/build-info.properties (версия из <version> POM),
+                         чтобы приложение могло показать свою версию в UI (см. WebController /
+                         sidebar-shell.html), а не хранить её в шаблоне отдельной строкой. -->
+                    <execution>
+                        <goals>
+                            <goal>build-info</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
 
             <!--

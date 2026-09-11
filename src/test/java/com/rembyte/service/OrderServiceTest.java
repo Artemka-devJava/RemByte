@@ -5,6 +5,8 @@ import com.rembyte.model.OrderLine;
 import com.rembyte.model.RepairService;
 import com.rembyte.repository.OrderAttachmentRepository;
 import com.rembyte.repository.OrderRepository;
+import com.rembyte.repository.PaymentRepository;
+import com.rembyte.repository.ReminderRepository;
 import com.rembyte.repository.RepairServiceRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,12 +29,15 @@ class OrderServiceTest {
     @Mock OrderRepository orderRepository;
     @Mock OrderAttachmentRepository orderAttachmentRepository;
     @Mock RepairServiceRepository repairServiceRepository;
+    @Mock PaymentRepository paymentRepository;
+    @Mock ReminderRepository reminderRepository;
 
     OrderService service;
 
     @BeforeEach
     void setUp() {
-        service = new OrderService(orderRepository, orderAttachmentRepository, repairServiceRepository);
+        service = new OrderService(orderRepository, orderAttachmentRepository, repairServiceRepository,
+                paymentRepository, reminderRepository);
         lenient().when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
     }
 
@@ -54,6 +59,16 @@ class OrderServiceTest {
         assertThat(out.getOrderNumber()).startsWith("ФБ-");
         assertThat(out.getStatus()).isEqualTo("NEW");
         assertThat(out.getPaidAmount()).isEqualTo(0.0);
+    }
+
+    @Test
+    void deleteOrder_cascadesPaymentsRemindersAndAttachments() {
+        service.deleteOrder(7L);
+
+        org.mockito.Mockito.verify(paymentRepository).deleteByOrderId(7L);
+        org.mockito.Mockito.verify(reminderRepository).deleteByOrderId(7L);
+        org.mockito.Mockito.verify(orderAttachmentRepository).deleteByOrderId(7L);
+        org.mockito.Mockito.verify(orderRepository).deleteById(7L);
     }
 
     @Test

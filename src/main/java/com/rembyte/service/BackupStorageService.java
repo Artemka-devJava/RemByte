@@ -1,9 +1,12 @@
 package com.rembyte.service;
 
+import com.rembyte.model.BackupSchedule;
+import com.rembyte.repository.BackupScheduleRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -20,19 +23,23 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
- * Хранилище ПОЛНЫХ резервных копий в каталоге {@code fixbyte.backup.dir}.
+ * Хранилище ПОЛНЫХ резервных копий.
  * <p>
+ * Каталог задаётся одним из двух способов (в таком порядке приоритета):
+ * <ol>
+ *   <li>выбран администратором в панели («База данных» → «Хранилище
+ *       полных бэкапов») — хранится в {@link BackupSchedule#getBackupDir()},
+ *       обязан лежать внутри {@link #baseDir()} ({@code fixbyte.backup.base-dir},
+ *       по умолчанию {@code /mnt} — это то, что смонтировано в docker-compose);</li>
+ *   <li>иначе — переменная окружения {@code FIXBYTE_BACKUP_DIR} (старый способ,
+ *       путь не ограничен {@link #baseDir()}, для обратной совместимости).</li>
+ * </ol>
  * Каталог может быть смонтированной сетевой шарой Samba/CIFS — тогда полные
  * бэкапы «сохраняются через samba» без дополнительного кода:
  * <pre>
  *   # Linux-хост
  *   mount -t cifs //NAS/backups /mnt/crm-backups -o user=…,pass=…,uid=1000
- *   FIXBYTE_BACKUP_DIR=/mnt/crm-backups
- *
- *   # docker-compose: volume с драйвером cifs
- *   volumes:
- *     crm_backups:
- *       driver_opts: { type: cifs, o: "username=…,password=…,uid=1000", device: "//NAS/backups" }
+ *   # выбрать в админке путь "/mnt/crm-backups" (или переменной FIXBYTE_BACKUP_DIR)
  * </pre>
  */
 @Service
@@ -46,31 +53,89 @@ public class BackupStorageService {
     private static final String PREFIX = "rembyte_backup_";
 
     private final DatabaseBackupService backupService;
+    private final BackupScheduleRepository scheduleRepository;
 
+    /** Старый способ задать каталог — переменной окружения (без ограничения на baseDir). */
     @Value("${fixbyte.backup.dir:}")
-    private String backupDir;
+    private String legacyBackupDir;
+
+    /** Каталог, смонтированный в docker-compose — единственное разрешённое место для пути из админки. */
+    @Value("${fixbyte.backup.base-dir:/mnt}")
+    private String baseDirProperty;
 
     @Value("${fixbyte.backup.keep:14}")
     private int keep;
 
-    public BackupStorageService(DatabaseBackupService backupService) {
+    public BackupStorageService(DatabaseBackupService backupService, BackupScheduleRepository scheduleRepository) {
         this.backupService = backupService;
+        this.scheduleRepository = scheduleRepository;
     }
 
     // ── Состояние ─────────────────────────────────────────────
 
+    /** Каталог, смонтированный в docker-compose (напр. {@code /mnt}) — граница для выбора в админке. */
+    public String baseDir() {
+        return Paths.get(baseDirProperty).toAbsolutePath().normalize().toString();
+    }
+
+    /** Путь, выбранный администратором в панели (как хранится в БД), либо {@code null}. */
+    public String directoryOverride() {
+        BackupSchedule s = scheduleRepository.findById(BackupSchedule.SINGLETON_ID).orElse(null);
+        return s == null ? null : s.getBackupDir();
+    }
+
+    private String configuredDir() {
+        String override = directoryOverride();
+        if (override != null && !override.isBlank()) {
+            return override;
+        }
+        return legacyBackupDir;
+    }
+
     public boolean isConfigured() {
-        return backupDir != null && !backupDir.isBlank();
+        String dir = configuredDir();
+        return dir != null && !dir.isBlank();
     }
 
     public String targetDescription() {
         return isConfigured()
-                ? Paths.get(backupDir).toAbsolutePath().normalize().toString()
-                : "не настроено (задайте FIXBYTE_BACKUP_DIR)";
+                ? Paths.get(configuredDir()).toAbsolutePath().normalize().toString()
+                : "не настроено (выберите путь в панели или задайте FIXBYTE_BACKUP_DIR)";
     }
 
     public int keepCount() {
         return keep;
+    }
+
+    /**
+     * Сохранить выбранный администратором каталог. {@code null}/пусто — сбросить
+     * на переменную окружения {@code FIXBYTE_BACKUP_DIR}. Иначе путь обязан
+     * лежать внутри {@link #baseDir()} — только он гарантированно примонтирован
+     * в docker-compose, произвольный путь внутри контейнера писать некуда.
+     */
+    @Transactional
+    public String setDirectory(String raw) {
+        BackupSchedule s = scheduleRepository.findById(BackupSchedule.SINGLETON_ID)
+                .orElseGet(() -> {
+                    BackupSchedule n = new BackupSchedule();
+                    n.setId(BackupSchedule.SINGLETON_ID);
+                    return n;
+                });
+        s.setBackupDir(raw == null || raw.isBlank() ? null : validateUnderBase(raw));
+        s.setUpdatedAt(LocalDateTime.now());
+        scheduleRepository.save(s);
+        return targetDescription();
+    }
+
+    private String validateUnderBase(String raw) {
+        Path base = Paths.get(baseDirProperty).toAbsolutePath().normalize();
+        Path candidate = Paths.get(raw.trim());
+        Path resolved = (candidate.isAbsolute() ? candidate : base.resolve(candidate)).normalize();
+        if (!resolved.equals(base) && !resolved.startsWith(base)) {
+            throw new IllegalArgumentException(
+                    "Путь должен быть внутри " + base + " — это каталог, примонтированный в docker-compose");
+        }
+        return resolved.toString();
     }
 
     // ── Запись ────────────────────────────────────────────────
@@ -108,7 +173,7 @@ public class BackupStorageService {
 
     public List<StoredBackup> list() {
         if (!isConfigured()) return List.of();
-        Path dir = Paths.get(backupDir).toAbsolutePath().normalize();
+        Path dir = Paths.get(configuredDir()).toAbsolutePath().normalize();
         if (!Files.isDirectory(dir)) return List.of();
 
         List<StoredBackup> out = new ArrayList<>();
@@ -142,7 +207,7 @@ public class BackupStorageService {
         if (!isConfigured()) {
             throw new IllegalStateException("Хранилище бэкапов не настроено (FIXBYTE_BACKUP_DIR)");
         }
-        Path dir = Paths.get(backupDir).toAbsolutePath().normalize();
+        Path dir = Paths.get(configuredDir()).toAbsolutePath().normalize();
         Files.createDirectories(dir);
         return dir;
     }
@@ -154,7 +219,7 @@ public class BackupStorageService {
         if (name == null || !SAFE_NAME.matcher(name).matches()) {
             throw new IllegalArgumentException("Недопустимое имя файла бэкапа");
         }
-        Path dir = Paths.get(backupDir).toAbsolutePath().normalize();
+        Path dir = Paths.get(configuredDir()).toAbsolutePath().normalize();
         Path p = dir.resolve(name).normalize();
         if (!p.startsWith(dir) || !Files.isRegularFile(p)) {
             throw new NoSuchFileException(name);

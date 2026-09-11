@@ -11,7 +11,7 @@
 
     <nav class="sidebar-nav" th:replace="~{fragments/sidebar-nav :: mainNav}"></nav>
 
-    <div class="sidebar-footer">FixByte CRM © 2026</div>
+    <div class="sidebar-footer" th:text="'FixByte CRM © 2026 · v' + ${appVersion}">FixByte CRM © 2026</div>
     <th:block th:replace="~{fragments/sidebar-user :: userPanel}"></th:block>
   </aside>
 </th:block>

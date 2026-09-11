@@ -29,6 +29,15 @@ public class BackupSchedule {
     @Column(length = 500)
     private String lastStatus;
 
+    /**
+     * Каталог для полных бэкапов, выбранный администратором в панели
+     * (абсолютный путь, уже проверенный на попадание внутрь
+     * {@code fixbyte.backup.base-dir}). {@code null} — используется
+     * значение из переменной окружения {@code FIXBYTE_BACKUP_DIR}.
+     */
+    @Column(name = "backup_dir", length = 500)
+    private String backupDir;
+
     @Column(nullable = false)
     private LocalDateTime updatedAt = LocalDateTime.now();
 
@@ -62,6 +71,14 @@ public class BackupSchedule {
 
     public void setLastStatus(String lastStatus) {
         this.lastStatus = lastStatus;
+    }
+
+    public String getBackupDir() {
+        return backupDir;
+    }
+
+    public void setBackupDir(String backupDir) {
+        this.backupDir = backupDir;
     }
 
     public LocalDateTime getUpdatedAt() {

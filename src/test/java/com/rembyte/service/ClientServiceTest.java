@@ -8,6 +8,7 @@ import com.rembyte.repository.ClientNoteRepository;
 import com.rembyte.repository.ClientPhotoRepository;
 import com.rembyte.repository.ClientRepository;
 import com.rembyte.repository.OrderRepository;
+import com.rembyte.repository.ReminderRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,16 +30,18 @@ class ClientServiceTest {
 
     @Mock ClientRepository clientRepository;
     @Mock OrderRepository orderRepository;
+    @Mock OrderService orderService;
     @Mock ClientNoteRepository noteRepository;
     @Mock ClientDeviceRepository deviceRepository;
     @Mock ClientPhotoRepository photoRepository;
+    @Mock ReminderRepository reminderRepository;
 
     ClientService service;
 
     @BeforeEach
     void setUp() {
-        service = new ClientService(clientRepository, orderRepository, noteRepository,
-                deviceRepository, photoRepository);
+        service = new ClientService(clientRepository, orderRepository, orderService, noteRepository,
+                deviceRepository, photoRepository, reminderRepository);
     }
 
     // ── normalizePhone ──────────────────────────────────────
@@ -168,6 +171,24 @@ class ClientServiceTest {
         assertThatThrownBy(() -> service.addNote(99L, "NOTE", "текст", "admin"))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("не найден");
+    }
+
+    // ── удаление ────────────────────────────────────────────
+
+    @Test
+    void deleteClient_cascadesOrdersAndReminders() {
+        Order o1 = new Order();
+        o1.setId(11L);
+        Order o2 = new Order();
+        o2.setId(12L);
+        when(orderRepository.findByClientId(1L)).thenReturn(List.of(o1, o2));
+
+        service.deleteClient(1L);
+
+        org.mockito.Mockito.verify(orderService).deleteOrder(11L);
+        org.mockito.Mockito.verify(orderService).deleteOrder(12L);
+        org.mockito.Mockito.verify(reminderRepository).deleteByClientId(1L);
+        org.mockito.Mockito.verify(clientRepository).deleteById(1L);
     }
 
     // ── дубли ───────────────────────────────────────────────
