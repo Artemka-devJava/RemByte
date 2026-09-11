@@ -57,6 +57,33 @@ class BackupStorageServiceTest {
     }
 
     @Test
+    void browseListsSubfoldersAndParent() throws Exception {
+        ReflectionTestUtils.setField(storage, "baseDirProperty", storeDir.toString());
+        Files.createDirectory(storeDir.resolve("nas"));
+        Files.createDirectory(storeDir.resolve("usb"));
+        Files.writeString(storeDir.resolve("not-a-folder.txt"), "x"); // не должен попасть в список
+
+        var atBase = storage.browse(null);
+        assertThat(atBase.path()).isEqualTo(storeDir.toString());
+        assertThat(atBase.parent()).isNull(); // на границе baseDir — «вверх» запрещён
+        assertThat(atBase.folders()).extracting(BackupStorageService.BrowseEntry::name)
+                .containsExactly("nas", "usb"); // отсортировано
+
+        var nasPath = atBase.folders().get(0).path();
+        var inNas = storage.browse(nasPath);
+        assertThat(inNas.parent()).isEqualTo(storeDir.toString());
+        assertThat(inNas.folders()).isEmpty();
+    }
+
+    @Test
+    void browseRejectsPathOutsideBase() {
+        ReflectionTestUtils.setField(storage, "baseDirProperty", storeDir.toString());
+        assertThatThrownBy(() -> storage.browse("/some/other/place"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(storeDir.toString());
+    }
+
+    @Test
     void storesFullBackupAndListsIt() throws Exception {
         var b = storage.storeFullBackup();
 

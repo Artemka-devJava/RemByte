@@ -73,8 +73,12 @@ services:
       FIXBYTE_COMPANY_EMAIL: ${FIXBYTE_COMPANY_EMAIL:-}
       FIXBYTE_STALE_ORDER_DAYS: ${FIXBYTE_STALE_ORDER_DAYS:-30}
     volumes:
-      # Хранилище полных бэкапов (bind-mount на хост или CIFS-volume crm_backups ниже).
-      - ${BACKUP_HOST_DIR:-./backups}:/mnt
+      # Хранилище полных бэкапов: контейнер видит РЕАЛЬНЫЙ /mnt Linux-хоста —
+      # папку внутри выбирайте в панели администратора (кнопка «Обзор») либо
+      # переменной FIXBYTE_BACKUP_DIR. Нужна не вся /mnt, а одна конкретная
+      # папка — замените на: - ${BACKUP_HOST_DIR:-./backups}:/mnt
+      # (или CIFS-volume crm_backups ниже).
+      - /mnt:/mnt
     networks:
       crm_lan:
         ipv4_address: ${CRM_IP}

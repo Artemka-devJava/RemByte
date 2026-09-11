@@ -128,6 +128,10 @@ public class BackupStorageService {
     }
 
     private String validateUnderBase(String raw) {
+        return resolveWithinBase(raw).toString();
+    }
+
+    private Path resolveWithinBase(String raw) {
         Path base = Paths.get(baseDirProperty).toAbsolutePath().normalize();
         Path candidate = Paths.get(raw.trim());
         Path resolved = (candidate.isAbsolute() ? candidate : base.resolve(candidate)).normalize();
@@ -135,8 +139,41 @@ public class BackupStorageService {
             throw new IllegalArgumentException(
                     "Путь должен быть внутри " + base + " — это каталог, примонтированный в docker-compose");
         }
-        return resolved.toString();
+        return resolved;
     }
+
+    // ── Обзор каталогов (для кнопки «Обзор» в панели) ──────────
+
+    /**
+     * Список подпапок каталога {@code raw} (или {@link #baseDir()}, если
+     * {@code raw} пусто) — только для навигации внутри {@link #baseDir()}
+     * (реального смонтированного в контейнер каталога Linux-хоста, а не
+     * файловой системы контейнера в целом).
+     */
+    public BrowseResult browse(String raw) {
+        Path base = Paths.get(baseDirProperty).toAbsolutePath().normalize();
+        Path dir = (raw == null || raw.isBlank()) ? base : resolveWithinBase(raw);
+        if (!Files.isDirectory(dir)) {
+            throw new IllegalArgumentException("Каталог не найден: " + dir);
+        }
+
+        List<BrowseEntry> folders;
+        try (Stream<Path> s = Files.list(dir)) {
+            folders = s.filter(Files::isDirectory)
+                    .map(p -> new BrowseEntry(p.getFileName().toString(), p.toString()))
+                    .sorted(Comparator.comparing(e -> e.name().toLowerCase(java.util.Locale.ROOT)))
+                    .toList();
+        } catch (IOException e) {
+            throw new IllegalStateException("Не удалось прочитать каталог " + dir + ": " + e.getMessage());
+        }
+
+        Path parent = dir.equals(base) ? null : dir.getParent();
+        return new BrowseResult(dir.toString(), parent == null ? null : parent.toString(), folders);
+    }
+
+    public record BrowseEntry(String name, String path) {}
+
+    public record BrowseResult(String path, String parent, List<BrowseEntry> folders) {}
 
     // ── Запись ────────────────────────────────────────────────
 

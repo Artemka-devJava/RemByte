@@ -62,6 +62,11 @@
     .danger-box  { background: var(--c-danger-bg); border-left: 4px solid var(--c-danger);  border-radius: 7px; padding: 10px 14px; font-size: 12.5px; color: var(--c-danger); }
     .backup-info { background: var(--c-info-bg);   border-left: 4px solid var(--c-info);    border-radius: 7px; padding: 10px 14px; font-size: 12.5px; color: var(--c-info); }
 
+    /* ── Обзор каталога для бэкапов ── */
+    .backup-browse-row { padding: 9px 12px; cursor: pointer; border-bottom: 1px solid var(--c-border); font-size: 13px; }
+    .backup-browse-row:last-child { border-bottom: none; }
+    .backup-browse-row:hover { background: var(--c-primary-l); }
+
     /* ── Плагины ── */
     .plugin-list { display: flex; flex-direction: column; gap: 10px; }
     .plugin-item { border: 1px solid var(--c-border); border-radius: 8px; padding: 10px 12px; background: var(--c-card); }
@@ -333,12 +338,18 @@
 
                 <div class="setting-row">
                   <label for="backupDirInput">Каталог для бэкапов</label>
-                  <input id="backupDirInput" type="text" placeholder="/mnt">
+                  <div style="display:flex;gap:8px;">
+                    <input id="backupDirInput" type="text" placeholder="/mnt" style="flex:1;">
+                    <button type="button" class="btn btn-sm btn-secondary" style="white-space:nowrap;"
+                            onclick="openBackupBrowseModal()">📁 Обзор</button>
+                  </div>
                 </div>
                 <div class="backup-info" id="backupDirHint">
-                  Должен быть внутри <code id="backupBaseDir">/mnt</code> — это каталог,
-                  примонтированный в docker-compose (см. <code>BACKUP_HOST_DIR</code> в
-                  <code>.env</code>). Можно указать подпапку, например
+                  Должен быть внутри <code id="backupBaseDir">/mnt</code> — это каталог
+                  Linux-хоста, примонтированный в контейнер docker-compose (см.
+                  <code>BACKUP_HOST_DIR</code> в <code>.env</code>). Кнопка «Обзор»
+                  показывает реальные папки хоста внутри <code id="backupBaseDirExample2">/mnt</code>
+                  (не файлы контейнера). Можно указать подпапку, например
                   <code id="backupBaseDirExample">/mnt/nas</code>. Пусто — использовать
                   <code>FIXBYTE_BACKUP_DIR</code>.
                 </div>
@@ -445,6 +456,26 @@
         <br>
         <button type="submit" class="btn btn-primary btn-block">💾 Сохранить</button>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- ════ Модал: Обзор каталога хоста для бэкапов ════ -->
+<div id="backupBrowseModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:520px;">
+    <div class="modal-header">
+      <h2>📁 Выбор каталога на хосте</h2>
+      <button class="close" onclick="closeBackupBrowseModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="backup-info" id="backupBrowsePath" style="word-break:break-all;">/mnt</div>
+      <div id="backupBrowseList"
+           style="max-height:280px;overflow-y:auto;border:1.5px solid var(--c-border);border-radius:7px;margin:10px 0;">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:space-between;">
+        <button type="button" class="btn btn-sm btn-secondary" id="backupBrowseUpBtn" onclick="backupBrowseUp()">⬆ Вверх</button>
+        <button type="button" class="btn btn-primary" onclick="chooseBackupBrowsePath()">✅ Выбрать этот каталог</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1011,6 +1042,68 @@ async function saveBackupDir() {
     }
 }
 
+// ── Обзор каталогов хоста (кнопка «Обзор») ──────────────────
+
+let backupBrowseCurrentPath = null;
+
+function openBackupBrowseModal() {
+    document.getElementById('backupBrowseModal').style.display = 'block';
+    backupBrowseTo(null); // null = каталог, примонтированный в docker-compose (/mnt)
+}
+
+function closeBackupBrowseModal() {
+    document.getElementById('backupBrowseModal').style.display = 'none';
+}
+
+async function backupBrowseTo(path) {
+    try {
+        const url = '/admin/backup/dir/browse' + (path ? ('?path=' + encodeURIComponent(path)) : '');
+        const r = await fetch(url);
+        const data = await r.json();
+        if (!r.ok) {
+            showNotification(data.error || 'Не удалось открыть каталог', 'error');
+            return;
+        }
+        backupBrowseCurrentPath = data.path;
+        document.getElementById('backupBrowsePath').textContent = data.path;
+
+        const upBtn = document.getElementById('backupBrowseUpBtn');
+        upBtn.disabled = !data.parent;
+        upBtn.dataset.parent = data.parent || '';
+
+        const list = document.getElementById('backupBrowseList');
+        list.innerHTML = '';
+        if (!data.folders.length) {
+            const empty = document.createElement('div');
+            empty.className = 'empty';
+            empty.style.padding = '14px';
+            empty.textContent = 'Нет подпапок';
+            list.appendChild(empty);
+            return;
+        }
+        data.folders.forEach(f => {
+            const row = document.createElement('div');
+            row.className = 'backup-browse-row';
+            row.textContent = '📁 ' + f.name;
+            row.onclick = () => backupBrowseTo(f.path);
+            list.appendChild(row);
+        });
+    } catch (e) {
+        showNotification('Ошибка сети: ' + e.message, 'error');
+    }
+}
+
+function backupBrowseUp() {
+    const parent = document.getElementById('backupBrowseUpBtn').dataset.parent;
+    if (parent) backupBrowseTo(parent);
+}
+
+function chooseBackupBrowsePath() {
+    if (!backupBrowseCurrentPath) return;
+    document.getElementById('backupDirInput').value = backupBrowseCurrentPath;
+    closeBackupBrowseModal();
+}
+
 async function storeFullBackupNow() {
     const btn = document.getElementById('btnStoreNow');
     if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Сохранение…'; }
@@ -1082,6 +1175,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.onclick = e => {
     if (e.target === document.getElementById('userModal')) closeUserModal();
+    if (e.target === document.getElementById('backupBrowseModal')) closeBackupBrowseModal();
 };
 </script>
 </body>

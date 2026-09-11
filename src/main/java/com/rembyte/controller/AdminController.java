@@ -102,6 +102,17 @@ public class AdminController {
         }
     }
 
+    /** Обзор подпапок внутри {@code fixbyte.backup.base-dir} — для кнопки «Обзор» в панели. */
+    @GetMapping("/backup/dir/browse")
+    @ResponseBody
+    public ResponseEntity<?> browseBackupDir(@RequestParam(required = false) String path) {
+        try {
+            return ResponseEntity.ok(backupStorage.browse(path));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @PostMapping("/backup/store")
     @ResponseBody
     public ResponseEntity<?> storeFullBackup() {
