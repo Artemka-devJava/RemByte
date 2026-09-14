@@ -34,11 +34,65 @@ function calculateMonthlyTotals(orders, monthStart, monthEnd) {
 document.addEventListener('DOMContentLoaded', () => {
     loadDashboardData();
     loadReminders();
+    setupReminderClientAutocomplete();
     // Обновлять статистику каждые 30 секунд
     setInterval(() => { loadDashboardData(); loadReminders(); }, 30000);
 });
 
 // ===== Напоминания =====
+
+let reminderClientId = null;
+let reminderClientAc = null;
+
+function setupReminderClientAutocomplete() {
+    const input = document.getElementById('reminderClientSearch');
+    const menu = document.getElementById('reminderClientComboMenu');
+    if (!input || !menu || !window.Autocomplete) return;
+
+    reminderClientAc = Autocomplete.attach(input, {
+        menu,
+        minChars: 0,
+        emptyText: 'Клиенты не найдены',
+        getItems: async (query) => {
+            const list = query ? await ClientAPI.search(query) : await ClientAPI.getActive();
+            return (list || []).slice(0, 20).map(c => ({
+                id: c.id,
+                label: c.name,
+                sublabel: c.phone || '',
+                data: c
+            }));
+        },
+        onSelect: (item) => {
+            selectReminderClient(item.data);
+            reminderClientAc.close();
+        }
+    });
+}
+
+function selectReminderClient(client) {
+    reminderClientId = client.id;
+    const box = document.getElementById('reminderClientChosen');
+    box.innerHTML =
+        `<strong>${escHtmlD(client.name)}</strong>` +
+        (client.phone ? `<span class="combo-chosen-phone">· ${escHtmlD(client.phone)}</span>` : '') +
+        `<button type="button" title="Сбросить" onclick="clearReminderClient()">&times;</button>`;
+    box.hidden = false;
+
+    const search = document.getElementById('reminderClientSearch');
+    search.value = '';
+    search.hidden = true;
+
+    const textEl = document.getElementById('newReminderText');
+    if (textEl && !textEl.value.trim()) textEl.value = `Перезвонить клиенту ${client.name}`;
+}
+
+function clearReminderClient() {
+    reminderClientId = null;
+    document.getElementById('reminderClientChosen').hidden = true;
+    const search = document.getElementById('reminderClientSearch');
+    search.hidden = false;
+    search.value = '';
+}
 
 async function loadReminders() {
     try {
@@ -83,6 +137,7 @@ async function addReminder() {
     if (!text) { showNotification('Введите текст напоминания', 'warning'); return; }
     const body = { text };
     if (dateEl.value) body.dueAt = dateEl.value + 'T09:00:00';
+    if (reminderClientId) body.clientId = reminderClientId;
     try {
         const r = await fetch('/api/reminders', {
             method: 'POST',
@@ -91,6 +146,7 @@ async function addReminder() {
         });
         if (!r.ok) { showNotification('Не удалось добавить', 'error'); return; }
         textEl.value = ''; dateEl.value = '';
+        clearReminderClient();
         loadReminders();
     } catch (e) {
         showNotification('Ошибка сети: ' + e.message, 'error');

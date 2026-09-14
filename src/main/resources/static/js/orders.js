@@ -420,14 +420,13 @@ async function remindAboutOrder() {
     if (!currentViewOrderId) { showNotification('Сначала откройте заказ', 'error'); return; }
     const num = currentViewOrder?.orderNumber || ('№' + currentViewOrderId);
     const client = currentViewOrder?.client?.name || '';
-    const when = prompt('Когда напомнить? (дата ГГГГ-ММ-ДД, пусто — без даты)', '');
-    if (when === null) return;
+    const dateInput = document.getElementById('vReminderDate');
+    const d = (dateInput?.value || '').trim();
     const body = {
         text: `Перезвонить по заказу ${num}${client ? ' — ' + client : ''}`,
         orderId: currentViewOrderId,
         clientId: currentViewOrder?.client?.id || null
     };
-    const d = (when || '').trim();
     if (/^\d{4}-\d{2}-\d{2}$/.test(d)) body.dueAt = d + 'T09:00:00';
     try {
         const r = await fetch('/api/reminders', {
@@ -480,6 +479,8 @@ async function viewOrder(id) {
     document.getElementById('vPaymentAmount').value = '';
     const vsearch = document.getElementById('vServiceSearch');
     if (vsearch) vsearch.value = '';
+    const vReminderDate = document.getElementById('vReminderDate');
+    if (vReminderDate) vReminderDate.value = '';
 
     document.getElementById('viewOrderModal').style.display = 'block';
 }

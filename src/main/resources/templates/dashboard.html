@@ -69,7 +69,13 @@
             <li style="color:var(--c-muted)">—</li>
           </ul>
 
-          <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+          <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center;">
+            <div class="combo" id="reminderClientCombo" style="min-width:180px;">
+              <input type="text" id="reminderClientSearch" placeholder="Клиент (необязательно)…"
+                     style="padding:8px 12px;border:1.5px solid var(--c-border);border-radius:7px;font-size:13.5px;font-family:inherit;">
+              <div id="reminderClientComboMenu" class="combo-menu" hidden></div>
+            </div>
+            <div id="reminderClientChosen" class="combo-chosen" hidden></div>
             <input id="newReminderText" type="text" placeholder="Напомнить: перезвонить клиенту…"
                    style="flex:1;min-width:200px;padding:8px 12px;border:1.5px solid var(--c-border);border-radius:7px;font-size:13.5px;font-family:inherit;">
             <input id="newReminderDate" type="date"
@@ -84,6 +90,7 @@
 </div>
 <th:block th:replace="~{fragments/common-scripts :: uiBase}"></th:block>
 <script src="/js/api.js"></script>
+<script src="/js/combobox.js"></script>
 <script src="/js/dashboard.js"></script>
 </body>
 </html>
