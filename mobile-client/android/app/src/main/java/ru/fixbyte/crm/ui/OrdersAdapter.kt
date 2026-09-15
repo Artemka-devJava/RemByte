@@ -49,8 +49,9 @@ class OrdersAdapter(
         fun statusRu(s: String): String = when (s.uppercase()) {
             "NEW" -> "новый"
             "IN_PROGRESS", "IN-PROGRESS" -> "в работе"
-            "WAITING", "ON_HOLD" -> "ожидание"
-            "COMPLETED", "DONE" -> "готов"
+            "WAITING_FOR_PARTS", "WAITING", "ON_HOLD" -> "ожидание деталей"
+            "READY" -> "готов"
+            "COMPLETED", "DONE" -> "завершён"
             "CANCELLED", "CANCELED" -> "отменён"
             "ISSUED", "CLOSED" -> "выдан"
             else -> s.lowercase().ifBlank { "—" }
