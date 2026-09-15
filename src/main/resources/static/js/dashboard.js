@@ -123,7 +123,7 @@ async function loadReminders() {
         list.innerHTML = reminders.length ? reminders.map(x => `
             <li style="display:flex;align-items:center;gap:8px;">
               <button class="btn btn-sm btn-secondary" title="Выполнено" onclick="doneReminder(${x.id})">✓</button>
-              <span>${escHtmlD(x.text)}${x.dueAt ? ` <span style="color:var(--c-muted);">· до ${fmtDateD(x.dueAt)}</span>` : ''}</span>
+              <span>${escHtmlD(x.text)}${x.dueAt ? ` <span style="color:var(--c-muted);">· до ${fmtDateTimeD(x.dueAt)}</span>` : ''}</span>
             </li>`).join('') : '<li style="color:var(--c-muted)">Нет активных задач</li>';
     } catch (e) {
         /* напоминания необязательны */
@@ -136,7 +136,8 @@ async function addReminder() {
     const text = (textEl.value || '').trim();
     if (!text) { showNotification('Введите текст напоминания', 'warning'); return; }
     const body = { text };
-    if (dateEl.value) body.dueAt = dateEl.value + 'T09:00:00';
+    // datetime-local отдаёт "YYYY-MM-DDTHH:mm" (без секунд) — дополняем под ISO.
+    if (dateEl.value) body.dueAt = dateEl.value.length === 16 ? dateEl.value + ':00' : dateEl.value;
     if (reminderClientId) body.clientId = reminderClientId;
     try {
         const r = await fetch('/api/reminders', {
@@ -166,6 +167,12 @@ function escHtmlD(s) {
 function fmtDateD(iso) {
     const d = new Date(iso);
     return isNaN(d) ? String(iso).slice(0, 10) : d.toLocaleDateString('ru-RU');
+}
+
+function fmtDateTimeD(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return String(iso).slice(0, 10);
+    return d.toLocaleDateString('ru-RU') + ' ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 }
 
 // Загрузить данные панели управления

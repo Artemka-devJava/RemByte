@@ -465,7 +465,8 @@ async function remindAboutOrder() {
         orderId: currentViewOrderId,
         clientId: currentViewOrder?.client?.id || null
     };
-    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) body.dueAt = d + 'T09:00:00';
+    // datetime-local отдаёт "YYYY-MM-DDTHH:mm" (без секунд) — дополняем под ISO.
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(d)) body.dueAt = d + ':00';
     try {
         const r = await fetch('/api/reminders', {
             method: 'POST',
