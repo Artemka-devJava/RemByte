@@ -29,6 +29,14 @@ public class LoginAttemptService {
         volatile Instant lockedUntil;
     }
 
+    /**
+     * Верхняя граница на число отслеживаемых логинов. Без неё сканер, перебирающий
+     * много разных (в т.ч. несуществующих) логинов по 1-4 неудачных попытки —
+     * ниже порога блокировки — оставлял бы в мапе запись навсегда (очищается
+     * только по успешному входу или по достижении блокировки и её истечению).
+     */
+    private static final int MAX_TRACKED_LOGINS = 1000;
+
     private final ConcurrentHashMap<String, Attempt> attempts = new ConcurrentHashMap<>();
     private final int maxAttempts;
     private final Duration lockDuration;
@@ -57,11 +65,25 @@ public class LoginAttemptService {
         String username = event.getAuthentication() != null ? event.getAuthentication().getName() : null;
         if (username == null || username.isBlank()) return;
 
-        Attempt attempt = attempts.computeIfAbsent(key(username), k -> new Attempt());
+        String k = key(username);
+        if (!attempts.containsKey(k) && attempts.size() >= MAX_TRACKED_LOGINS) {
+            pruneUnlocked();
+        }
+
+        Attempt attempt = attempts.computeIfAbsent(k, x -> new Attempt());
         int count = attempt.failures.incrementAndGet();
         if (count >= maxAttempts) {
             attempt.lockedUntil = Instant.now().plus(lockDuration);
         }
+    }
+
+    /** Убрать записи без активной блокировки — освобождает место под новые. */
+    private void pruneUnlocked() {
+        Instant now = Instant.now();
+        attempts.entrySet().removeIf(e -> {
+            Instant until = e.getValue().lockedUntil;
+            return until == null || now.isAfter(until);
+        });
     }
 
     @EventListener
@@ -72,5 +94,10 @@ public class LoginAttemptService {
 
     private String key(String username) {
         return username.trim().toLowerCase(Locale.ROOT);
+    }
+
+    /** Только для тестов: сколько логинов сейчас отслеживается. */
+    int trackedCount() {
+        return attempts.size();
     }
 }

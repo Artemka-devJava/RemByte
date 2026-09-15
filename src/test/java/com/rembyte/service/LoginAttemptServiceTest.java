@@ -60,4 +60,27 @@ class LoginAttemptServiceTest {
         fail(service, "admin");
         assertThat(service.isLocked("admin")).isFalse();
     }
+
+    // ── защита от неограниченного роста карты (сканер по многим логинам) ──
+
+    @Test
+    void trackedMapStaysBounded_whenFloodedWithDistinctUsernames() {
+        LoginAttemptService service = new LoginAttemptService(100, 15); // высокий порог — никто не блокируется
+        for (int i = 0; i < 1001; i++) fail(service, "user" + i);
+
+        // Как только карта достигла лимита, очередная новая запись подчищает
+        // все незаблокированные — иначе сканер по логинам рос бы бесконечно.
+        assertThat(service.trackedCount()).isLessThan(1001);
+    }
+
+    @Test
+    void pruneOnGrowth_doesNotDropAnActiveLock() {
+        LoginAttemptService service = new LoginAttemptService(3, 15);
+        for (int i = 0; i < 3; i++) fail(service, "admin");
+        assertThat(service.isLocked("admin")).isTrue();
+
+        for (int i = 0; i < 1001; i++) fail(service, "scanner" + i);
+
+        assertThat(service.isLocked("admin")).isTrue();
+    }
 }

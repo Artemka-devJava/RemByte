@@ -4,6 +4,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.ErrorResponse;
@@ -45,6 +46,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
     public ModelAndView handleBadRequest(RuntimeException ex, HttpServletRequest request) {
         return respond(request, HttpStatus.BAD_REQUEST, message(ex, "Некорректный запрос"));
+    }
+
+    // Нарушение ограничения БД (уникальность, NOT NULL и т.п.) — например,
+    // гонка двух одновременных запросов мимо прикладной проверки дублей.
+    // ex.getMessage() тут — сырой текст JDBC/Hibernate (имя constraint-а,
+    // иногда кусок SQL) и клиенту не показывается, только в лог.
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ModelAndView handleDataIntegrityViolation(DataIntegrityViolationException ex, HttpServletRequest request) {
+        log.warn("Нарушение целостности данных на {}: {}", request.getRequestURI(), ex.getMostSpecificCause().getMessage());
+        return respond(request, HttpStatus.CONFLICT, "Операция конфликтует с текущими данными (например, значение уже занято)");
     }
 
     // Встроенные исключения Spring MVC (ErrorResponseException — например,
