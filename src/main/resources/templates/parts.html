@@ -40,7 +40,10 @@
       <div class="filter-bar">
         <button class="btn btn-sm" id="viewTabItems" onclick="switchView('items')">📦 Детали</button>
         <button class="btn btn-sm" id="viewTabLots" onclick="switchView('lots')">🧩 Лоты</button>
-        <select id="itemStatusFilter" onchange="loadItems()" style="margin-left:auto;">
+        <select id="itemCategoryFilter" onchange="renderItemsGrouped()" style="margin-left:auto;">
+          <option value="">Все категории</option>
+        </select>
+        <select id="itemStatusFilter" onchange="loadItems()">
           <option value="">Все статусы</option>
           <option value="IN_STOCK">В наличии</option>
           <option value="SOLD">Продано</option>
@@ -79,7 +82,8 @@
         </div>
         <div class="form-group">
           <label>Категория:</label>
-          <input type="text" id="itemCategory" placeholder="Видеокарта">
+          <input type="text" id="itemCategory" list="categoryList" placeholder="Видеокарта">
+          <datalist id="categoryList"></datalist>
         </div>
         <div class="form-group">
           <label>Источник:</label>

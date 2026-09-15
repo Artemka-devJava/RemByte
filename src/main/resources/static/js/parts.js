@@ -65,10 +65,57 @@ async function loadItems() {
     selectedItemIds.clear();
     updateMakeLotButton();
 
+    populateCategoryOptions(items);
+    renderItemsGrouped();
+}
+
+function getItemCategories() {
+    return Array.from(new Set(allItemsCache.map(i => (i.category || '').trim()).filter(c => c)))
+        .sort((a, b) => a.localeCompare(b, 'ru'));
+}
+
+function populateCategoryOptions(items) {
+    const select = document.getElementById('itemCategoryFilter');
+    const current = select.value;
+    const categories = getItemCategories();
+    select.innerHTML = '<option value="">Все категории</option>' +
+        categories.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+    if (categories.includes(current)) select.value = current;
+
+    const datalist = document.getElementById('categoryList');
+    if (datalist) datalist.innerHTML = categories.map(c => `<option value="${escHtml(c)}">`).join('');
+}
+
+function renderItemsGrouped() {
+    const categoryFilter = document.getElementById('itemCategoryFilter').value;
     const grid = document.getElementById('itemsGrid');
+    const items = categoryFilter
+        ? allItemsCache.filter(i => (i.category || '').trim() === categoryFilter)
+        : allItemsCache;
+
     if (!items.length) { grid.innerHTML = '<p class="empty">Пока нет деталей</p>'; return; }
 
-    grid.innerHTML = items.map(renderItemCard).join('');
+    if (categoryFilter) {
+        grid.innerHTML = items.map(renderItemCard).join('');
+        return;
+    }
+
+    const groups = new Map();
+    items.forEach(i => {
+        const cat = (i.category || '').trim() || 'Без категории';
+        if (!groups.has(cat)) groups.set(cat, []);
+        groups.get(cat).push(i);
+    });
+    const sortedCats = Array.from(groups.keys()).sort((a, b) => {
+        if (a === 'Без категории') return 1;
+        if (b === 'Без категории') return -1;
+        return a.localeCompare(b, 'ru');
+    });
+
+    grid.innerHTML = sortedCats.map(cat => `
+        <div class="parts-category-header">${escHtml(cat)}<span class="parts-category-count">${groups.get(cat).length}</span></div>
+        ${groups.get(cat).map(renderItemCard).join('')}
+    `).join('');
 }
 
 function renderItemCard(item) {
