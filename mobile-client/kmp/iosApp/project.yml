@@ -1,0 +1,39 @@
+# XcodeGen — генерирует FixByteCrmNext.xcodeproj из этого описания.
+#   brew install xcodegen && xcodegen generate && open FixByteCrmNext.xcodeproj
+#
+# ВНИМАНИЕ: не проверено сборкой (нет macOS/Xcode в среде разработки) —
+# см. mobile-client/kmp/composeApp/src/iosMain/.../Platform.ios.kt.
+name: FixByteCrmNext
+options:
+  bundleIdPrefix: ru.fixbyte.crm.next
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.9"
+    DEVELOPMENT_TEAM: ""            # подставь свой Team ID в Xcode → Signing
+targets:
+  FixByteCrmNext:
+    type: application
+    platform: iOS
+    sources:
+      - path: iosApp
+        excludes:
+          - "Resources/Info.plist"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ru.fixbyte.crm.next
+        INFOPLIST_FILE: iosApp/Resources/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+    preBuildScripts:
+      - name: "Compile Kotlin Framework"
+        script: |
+          cd "$SRCROOT/.."
+          ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode
+        basedOnDependencyAnalysis: false

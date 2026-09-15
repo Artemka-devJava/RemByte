@@ -1,0 +1,18 @@
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build
+/composeApp/build
+/captures
+.externalNativeBuild
+.cxx
+.kotlin/
+*.apk
+*.aab
+
+# iOS/Xcode — сгенерировано xcodegen, не хранится в репозитории.
+/iosApp/*.xcodeproj
+/iosApp/*.xcworkspace
+/iosApp/Pods/

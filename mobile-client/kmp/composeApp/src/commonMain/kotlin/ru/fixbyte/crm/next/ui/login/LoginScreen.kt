@@ -1,0 +1,110 @@
+package ru.fixbyte.crm.next.ui.login
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+import ru.fixbyte.crm.next.data.Api
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LoginScreen(onLoggedIn: () -> Unit) {
+    var serverUrl by remember { mutableStateOf(Api.baseUrl) }
+    var username by remember { mutableStateOf(Api.lastUsername) }
+    var password by remember { mutableStateOf("") }
+    var showPassword by remember { mutableStateOf(false) }
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    fun submit() {
+        if (serverUrl.isBlank() || username.isBlank() || password.isBlank()) {
+            error = "Заполните все поля"
+            return
+        }
+        error = null
+        loading = true
+        Api.baseUrl = serverUrl
+        scope.launch {
+            runCatching { Api.login(username.trim(), password) }
+                .onSuccess { loading = false; onLoggedIn() }
+                .onFailure { loading = false; error = it.message ?: "Не удалось войти" }
+        }
+    }
+
+    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+        Column(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("FixByte CRM", style = MaterialTheme.typography.headlineMedium)
+            Text("Вход в систему", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            OutlinedTextField(
+                value = serverUrl,
+                onValueChange = { serverUrl = it },
+                label = { Text("Адрес сервера") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = username,
+                onValueChange = { username = it },
+                label = { Text("Логин") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Пароль") },
+                singleLine = true,
+                visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    IconButton(onClick = { showPassword = !showPassword }) {
+                        Icon(if (showPassword) Icons.Filled.VisibilityOff else Icons.Filled.Visibility, contentDescription = null)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+
+            Button(onClick = ::submit, enabled = !loading, modifier = Modifier.fillMaxWidth()) {
+                if (loading) CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary)
+                else Text("Войти")
+            }
+        }
+    }
+}
