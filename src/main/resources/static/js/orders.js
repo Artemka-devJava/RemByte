@@ -2,8 +2,11 @@
  * FixByte CRM — Управление заказами
  */
 
-let allOrders   = [];
+let allOrders   = []; // текущая страница заказов (не вся таблица — см. loadOrders)
 let allServices = [];
+
+// Состояние серверной пагинации/фильтра таблицы заказов
+const ordersPage = { page: 0, size: 20, totalPages: 0, totalElements: 0, status: '', q: '' };
 let currentViewOrderId = null; // ID заказа в модале просмотра
 let currentViewOrder   = null; // полный объект заказа для чека
 
@@ -77,13 +80,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function loadOrders() {
     try {
-        const orders = await OrderAPI.getAll();
-        allOrders = orders;
-        renderOrdersTable(orders);
+        const result = await OrderAPI.getPage({
+            page: ordersPage.page,
+            size: ordersPage.size,
+            status: ordersPage.status,
+            q: ordersPage.q
+        });
+        allOrders = Array.isArray(result.content) ? result.content : [];
+        ordersPage.totalPages = result.totalPages || 0;
+        ordersPage.totalElements = result.totalElements || 0;
+        renderOrdersTable(allOrders);
+        renderOrdersPagination();
     } catch (error) {
         console.error('Error loading orders:', error);
         showNotification('Ошибка загрузки заказов', 'error');
     }
+}
+
+function renderOrdersPagination() {
+    const el = document.getElementById('ordersPagination');
+    if (!el) return;
+
+    if (ordersPage.totalElements === 0) {
+        el.innerHTML = '';
+        return;
+    }
+
+    const from = ordersPage.page * ordersPage.size + 1;
+    const to = Math.min(ordersPage.totalElements, from + allOrders.length - 1);
+    const hasPrev = ordersPage.page > 0;
+    const hasNext = ordersPage.page + 1 < ordersPage.totalPages;
+
+    el.innerHTML = `
+        <button class="btn btn-sm btn-secondary" ${hasPrev ? '' : 'disabled'} onclick="goToOrdersPage(${ordersPage.page - 1})">← Назад</button>
+        <span class="pagination-info">${from}–${to} из ${ordersPage.totalElements}</span>
+        <button class="btn btn-sm btn-secondary" ${hasNext ? '' : 'disabled'} onclick="goToOrdersPage(${ordersPage.page + 1})">Вперёд →</button>
+    `;
+}
+
+function goToOrdersPage(page) {
+    if (page < 0 || page >= ordersPage.totalPages) return;
+    ordersPage.page = page;
+    loadOrders();
 }
 
 async function loadServicesForSelect() {
@@ -111,7 +149,7 @@ function renderOrdersTable(orders) {
         return `
         <tr>
             <td><strong>${order.orderNumber}</strong></td>
-            <td>${order.client?.name || '—'}</td>
+            <td>${order.clientName || '—'}</td>
             <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
                 title="${order.deviceDescription || ''}">${(order.deviceDescription || '—').substring(0,30)}</td>
             <td><span class="status-badge status-${(order.status || 'new').toLowerCase()}">${STATUS_LABELS[order.status] || order.status}</span></td>
@@ -573,12 +611,8 @@ function afterOpenOrderLinesChanged(order) {
     balEl.textContent = formatCurrency(balance);
     balEl.style.color = balance > 0 ? 'var(--c-danger)' : 'var(--c-success)';
 
-    const idx = allOrders.findIndex(o => o.id === order.id);
-    if (idx !== -1) {
-        allOrders[idx].totalPrice = order.totalPrice;
-        allOrders[idx].lines = order.lines;
-    }
-    renderOrdersTable(applyCurrentFilter());
+    // Сумма заказа могла измениться — обновляем текущую страницу таблицы с сервера.
+    loadOrders();
 }
 
 function closeViewOrderModal() {
@@ -602,9 +636,7 @@ async function saveOrderStatus() {
             showNotification(`Статус изменён: ${STATUS_LABELS[newStatus] || newStatus}`, 'success');
             togglePrintReceiptBtn(newStatus === 'COMPLETED');
             if (currentViewOrder) currentViewOrder.status = newStatus;
-            const idx = allOrders.findIndex(o => o.id === currentViewOrderId);
-            if (idx !== -1) { allOrders[idx].status = newStatus; }
-            renderOrdersTable(applyCurrentFilter());
+            loadOrders();
             document.getElementById('viewOrderTitle').textContent = `Заказ ${result.orderNumber}`;
         } else {
             showNotification('Не удалось изменить статус', 'error');
@@ -633,9 +665,7 @@ async function addPaymentFromModal() {
             const balEl = document.getElementById('vOrderBalance');
             balEl.textContent = formatCurrency(balance);
             balEl.style.color = balance > 0 ? 'var(--c-danger)' : 'var(--c-success)';
-            const idx = allOrders.findIndex(o => o.id === currentViewOrderId);
-            if (idx !== -1) { allOrders[idx].paidAmount = result.paidAmount; }
-            renderOrdersTable(applyCurrentFilter());
+            loadOrders();
         } else {
             showNotification('Ошибка при добавлении оплаты', 'error');
         }
@@ -651,18 +681,6 @@ function openEditFromView() {
     editOrder(id);
 }
 
-// ===== ПРИМЕНИТЬ ТЕКУЩИЙ ФИЛЬТР =====
-function applyCurrentFilter() {
-    const status = document.getElementById('statusFilter')?.value;
-    const search = document.getElementById('searchOrder')?.value?.toLowerCase().trim();
-    let result = allOrders;
-    if (status) result = result.filter(o => o.status === status);
-    if (search) result = result.filter(o =>
-        o.orderNumber.toLowerCase().includes(search) ||
-        (o.client?.name || '').toLowerCase().includes(search)
-    );
-    return result;
-}
 
 // ===== СОЗДАНИЕ / РЕДАКТИРОВАНИЕ ЗАКАЗА =====
 
@@ -777,14 +795,18 @@ async function editOrder(id) {
     renderOrderLines();
 }
 
-// ===== ПОИСК И ФИЛЬТР =====
+// ===== ПОИСК И ФИЛЬТР (на сервере — см. OrderRepository.searchOrders) =====
 
 function searchOrders() {
-    renderOrdersTable(applyCurrentFilter());
+    ordersPage.q = document.getElementById('searchOrder')?.value?.trim() || '';
+    ordersPage.page = 0;
+    loadOrders();
 }
 
 function filterOrders() {
-    renderOrdersTable(applyCurrentFilter());
+    ordersPage.status = document.getElementById('statusFilter')?.value || '';
+    ordersPage.page = 0;
+    loadOrders();
 }
 
 // ===== ПРЕДЗАПОЛНЕНИЕ ИЗ КАЛЬКУЛЯТОРА =====
@@ -1024,12 +1046,7 @@ async function uploadAttachmentsFromView() {
         if (input) input.value = '';
         clearPendingFiles('vAttachmentFiles');
         renderSelectedFileList('vAttachmentFiles', 'vAttachmentFilesList');
-
-        const idx = allOrders.findIndex(o => o.id === currentViewOrderId);
-        if (idx !== -1 && updatedOrder) {
-            allOrders[idx].photoUrls = updatedOrder.photoUrls || [];
-            allOrders[idx].videoUrls = updatedOrder.videoUrls || [];
-        }
+        // Вложения не показаны в таблице списка — обновлять allOrders не нужно.
     } catch (error) {
         console.error('Error uploading attachments from view:', error);
         notify(`Ошибка загрузки: ${error.message || 'неизвестно'}`, 'error');
@@ -1173,13 +1190,7 @@ async function deleteOrderAttachment(attachmentUrl) {
         const updatedOrder = await OrderAPI.deleteAttachment(currentViewOrderId, attachmentUrl);
         showNotification('Вложение удалено', 'success');
         renderOrderMedia(updatedOrder || {});
-
-        const idx = allOrders.findIndex(o => o.id === currentViewOrderId);
-        if (idx !== -1 && updatedOrder) {
-            allOrders[idx].photoUrls = updatedOrder.photoUrls || [];
-            allOrders[idx].videoUrls = updatedOrder.videoUrls || [];
-            allOrders[idx].fileUrls  = updatedOrder.fileUrls  || [];
-        }
+        // Вложения не показаны в таблице списка — обновлять allOrders не нужно.
     } catch (error) {
         console.error('Error deleting attachment:', error);
         showNotification(`Ошибка удаления: ${error.message || 'неизвестно'}`, 'error');
@@ -1448,8 +1459,7 @@ async function saveReceiptAsPdf() {
         const updatedOrder = await response.json();
 
         renderOrderMedia(updatedOrder);
-        const idx = allOrders.findIndex(o => o.id === currentViewOrderId);
-        if (idx !== -1) allOrders[idx].fileUrls = updatedOrder.fileUrls || [];
+        // Вложения не показаны в таблице списка — обновлять allOrders не нужно.
 
         showNotification('✅ PDF создан и прикреплён к заказу!', 'success');
 

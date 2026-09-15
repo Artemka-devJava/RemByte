@@ -4,8 +4,12 @@ import com.rembyte.model.Order;
 import com.rembyte.model.OrderLine;
 import com.rembyte.service.AcceptanceActService;
 import com.rembyte.service.FileStorageService;
+import com.rembyte.service.OrderListItem;
 import com.rembyte.service.OrderService;
 import com.rembyte.service.OrderStatistics;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -52,6 +56,18 @@ public class OrderController {
     @GetMapping
     public ResponseEntity<List<Order>> getAllOrders() {
         return ResponseEntity.ok(orderService.getAllOrders());
+    }
+
+    /**
+     * Списочная страница заказов (таблица /orders): пагинация + фильтр по
+     * статусу/поиску на сервере, а не загрузка всей таблицы в браузер.
+     */
+    @GetMapping("/page")
+    public ResponseEntity<Page<OrderListItem>> getOrdersPage(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String q,
+            @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(orderService.getOrdersPage(status, q, pageable));
     }
 
     @GetMapping("/client/{clientId}")

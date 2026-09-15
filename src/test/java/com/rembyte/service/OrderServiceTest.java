@@ -13,6 +13,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -20,7 +24,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -155,6 +161,29 @@ class OrderServiceTest {
         assertThatThrownBy(() -> service.updateOrderStatus(77L, "NEW")).isInstanceOf(RuntimeException.class);
         assertThatThrownBy(() -> service.addPayment(77L, 10.0)).isInstanceOf(RuntimeException.class);
         assertThatThrownBy(() -> service.addLine(77L, new OrderLine())).isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    void getOrdersPage_normalizesNullStatusAndTrimsQuery() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<OrderListItem> page = new PageImpl<>(List.of());
+        when(orderRepository.searchOrders(eq(""), eq("фб-1"), any())).thenReturn(page);
+
+        Page<OrderListItem> result = service.getOrdersPage(null, "  фб-1  ", pageable);
+
+        assertThat(result).isSameAs(page);
+        verify(orderRepository).searchOrders("", "фб-1", pageable);
+    }
+
+    @Test
+    void getOrdersPage_passesThroughStatusAndBlankQuery() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<OrderListItem> page = new PageImpl<>(List.of());
+        when(orderRepository.searchOrders(eq("COMPLETED"), eq(""), any())).thenReturn(page);
+
+        service.getOrdersPage("COMPLETED", null, pageable);
+
+        verify(orderRepository).searchOrders("COMPLETED", "", pageable);
     }
 
     @Test

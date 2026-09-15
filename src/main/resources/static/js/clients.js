@@ -4,6 +4,9 @@
 
 const TYPE_LABEL = { INDIVIDUAL: 'Физлицо', COMPANY: 'Организация' };
 
+// Состояние серверной пагинации/фильтра таблицы клиентов
+const clientsPage = { page: 0, size: 20, totalPages: 0, totalElements: 0, mode: 'active', q: '' };
+
 document.addEventListener('DOMContentLoaded', () => {
     loadClients();
     const s = document.getElementById('searchClient');
@@ -12,15 +15,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function loadClients() {
     try {
-        const mode = document.getElementById('filterMode')?.value || 'active';
-        const all = await ClientAPI.getAll();
-        let list = Array.isArray(all) ? all : [];
-        if (mode === 'active')   list = list.filter(c => !c.archivedAt);
-        if (mode === 'archived') list = list.filter(c => !!c.archivedAt);
+        clientsPage.mode = document.getElementById('filterMode')?.value || 'active';
+        const result = await ClientAPI.getPage({
+            page: clientsPage.page,
+            size: clientsPage.size,
+            mode: clientsPage.mode,
+            q: clientsPage.q
+        });
+        const list = Array.isArray(result.content) ? result.content : [];
+        clientsPage.totalPages = result.totalPages || 0;
+        clientsPage.totalElements = result.totalElements || 0;
         renderClientsTable(list);
+        renderClientsPagination(list.length);
     } catch (e) {
         console.error('Error loading clients:', e);
     }
+}
+
+function renderClientsPagination(pageItemCount) {
+    const el = document.getElementById('clientsPagination');
+    if (!el) return;
+
+    if (clientsPage.totalElements === 0) {
+        el.innerHTML = '';
+        return;
+    }
+
+    const from = clientsPage.page * clientsPage.size + 1;
+    const to = Math.min(clientsPage.totalElements, from + pageItemCount - 1);
+    const hasPrev = clientsPage.page > 0;
+    const hasNext = clientsPage.page + 1 < clientsPage.totalPages;
+
+    el.innerHTML = `
+        <button class="btn btn-sm btn-secondary" ${hasPrev ? '' : 'disabled'} onclick="goToClientsPage(${clientsPage.page - 1})">← Назад</button>
+        <span class="pagination-info">${from}–${to} из ${clientsPage.totalElements}</span>
+        <button class="btn btn-sm btn-secondary" ${hasNext ? '' : 'disabled'} onclick="goToClientsPage(${clientsPage.page + 1})">Вперёд →</button>
+    `;
+}
+
+function goToClientsPage(page) {
+    if (page < 0 || page >= clientsPage.totalPages) return;
+    clientsPage.page = page;
+    loadClients();
 }
 
 function renderClientsTable(clients) {
@@ -88,10 +124,14 @@ async function submitClient(event) {
 }
 
 async function searchClients() {
-    const term = document.getElementById('searchClient').value.trim();
-    if (!term) { loadClients(); return; }
-    const results = await ClientAPI.search(term);
-    renderClientsTable(results || []);
+    clientsPage.q = document.getElementById('searchClient')?.value?.trim() || '';
+    clientsPage.page = 0;
+    loadClients();
+}
+
+function filterClients() {
+    clientsPage.page = 0;
+    loadClients();
 }
 
 function escHtml(s) { const d = document.createElement('div'); d.appendChild(document.createTextNode(s == null ? '' : s)); return d.innerHTML; }

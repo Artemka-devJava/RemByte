@@ -22,7 +22,7 @@
 
       <div class="filter-bar">
         <label>Показывать:</label>
-        <select id="filterMode" onchange="loadClients()">
+        <select id="filterMode" onchange="filterClients()">
           <option value="active">Активные</option>
           <option value="archived">Архив</option>
           <option value="all">Все</option>
@@ -46,6 +46,7 @@
             </tbody>
           </table>
         </div>
+        <div id="clientsPagination" class="pagination-bar"></div>
         <p class="hint" style="padding:10px 4px 0;">Нажмите на строку — откроется карточка клиента со всей историей.</p>
       </div>
     </main>

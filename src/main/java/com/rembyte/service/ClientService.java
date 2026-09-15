@@ -11,6 +11,8 @@ import com.rembyte.repository.ClientPhotoRepository;
 import com.rembyte.repository.ClientRepository;
 import com.rembyte.repository.OrderRepository;
 import com.rembyte.repository.ReminderRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -72,6 +74,17 @@ public class ClientService {
 
     public List<Client> getActiveClients() {
         return clientRepository.findByIsActiveTrue();
+    }
+
+    /**
+     * Списочная страница клиентов (таблица /clients) с серверными
+     * пагинацией и фильтром вместо загрузки всей таблицы в браузер.
+     * mode: "active" (по умолчанию) | "archived" | "all".
+     */
+    public Page<Client> getClientsPage(String mode, String q, Pageable pageable) {
+        String normalizedMode = (mode == null || mode.isBlank()) ? "active" : mode.trim();
+        String normalizedQ = q == null ? "" : q.trim();
+        return clientRepository.searchPage(normalizedMode, normalizedQ, pageable);
     }
 
     public Optional<Client> findByPhone(String phone) {

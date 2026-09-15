@@ -6,6 +6,9 @@ import com.rembyte.model.ClientNote;
 import com.rembyte.service.ClientService;
 import com.rembyte.service.ClientSummary;
 import com.rembyte.service.DuplicateClientException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -54,6 +57,18 @@ public class ClientController {
     @GetMapping("/active")
     public ResponseEntity<List<Client>> getActiveClients() {
         return ResponseEntity.ok(clientService.getActiveClients());
+    }
+
+    /**
+     * Списочная страница клиентов (таблица /clients): пагинация + фильтр по
+     * активности/поиску на сервере, а не загрузка всей таблицы в браузер.
+     */
+    @GetMapping("/page")
+    public ResponseEntity<Page<Client>> getClientsPage(
+            @RequestParam(required = false) String mode,
+            @RequestParam(required = false) String q,
+            @PageableDefault(size = 20, sort = "name") Pageable pageable) {
+        return ResponseEntity.ok(clientService.getClientsPage(mode, q, pageable));
     }
 
     @GetMapping("/search")

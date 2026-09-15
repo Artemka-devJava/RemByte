@@ -8,6 +8,8 @@ import com.rembyte.repository.OrderRepository;
 import com.rembyte.repository.PaymentRepository;
 import com.rembyte.repository.ReminderRepository;
 import com.rembyte.repository.RepairServiceRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -68,6 +70,16 @@ public class OrderService {
 
     public List<Order> getClientOrders(Long clientId) {
         return orderRepository.findByClientId(clientId);
+    }
+
+    /**
+     * Списочная страница заказов (таблица /orders) с серверными фильтрами
+     * вместо загрузки всей таблицы в память — см. {@link OrderRepository#searchOrders}.
+     */
+    public Page<OrderListItem> getOrdersPage(String status, String q, Pageable pageable) {
+        String normalizedStatus = status == null ? "" : status.trim();
+        String normalizedQ = q == null ? "" : q.trim();
+        return orderRepository.searchOrders(normalizedStatus, normalizedQ, pageable);
     }
 
     public Optional<Order> findByOrderNumber(String orderNumber) {

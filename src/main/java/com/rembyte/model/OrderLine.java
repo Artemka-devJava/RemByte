@@ -25,8 +25,13 @@ public class OrderLine {
     @JsonIgnore
     private Order order;
 
-    /** Справочная услуга. null — разовая позиция, живущая только в этом заказе. */
-    @ManyToOne(fetch = FetchType.EAGER)
+    /**
+     * Справочная услуга. null — разовая позиция, живущая только в этом заказе.
+     * LAZY — тянется явным {@code @EntityGraph} в OrderRepository (заказ +
+     * позиции + услуги одним запросом), а не втихую по одной услуге на строку,
+     * как было с FetchType.EAGER.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "service_id")
     private RepairService service;
 

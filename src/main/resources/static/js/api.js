@@ -105,6 +105,20 @@ const ClientAPI = {
         }
     },
 
+    // Постраничный список для таблицы /clients: серверная пагинация + фильтр
+    getPage: async ({ page = 0, size = 20, mode = 'active', q = '' } = {}) => {
+        try {
+            const params = new URLSearchParams({ page, size, mode });
+            if (q) params.set('q', q);
+            const response = await fetch(`${API_BASE}/clients/page?${params.toString()}`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching clients page:', error);
+            return { content: [], totalPages: 0, totalElements: 0, number: 0 };
+        }
+    },
+
     // Получить активных клиентов
     getActive: async () => {
         try {
@@ -362,6 +376,21 @@ const OrderAPI = {
         } catch (error) {
             console.error('Error fetching orders:', error);
             return [];
+        }
+    },
+
+    // Постраничный список для таблицы /orders: серверная пагинация + фильтр
+    getPage: async ({ page = 0, size = 20, status = '', q = '' } = {}) => {
+        try {
+            const params = new URLSearchParams({ page, size });
+            if (status) params.set('status', status);
+            if (q) params.set('q', q);
+            const response = await fetch(`${API_BASE}/orders/page?${params.toString()}`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching orders page:', error);
+            return { content: [], totalPages: 0, totalElements: 0, number: 0 };
         }
     },
 
