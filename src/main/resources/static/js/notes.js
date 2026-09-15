@@ -23,6 +23,17 @@ function shortDate(value) {
     return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
+function noteExcerpt(content, maxLen = 90) {
+    const plain = String(content ?? '')
+        .replace(/```[\s\S]*?```/g, ' ')
+        .replace(/[#>*`_-]/g, ' ')
+        .replace(/\[([^\]]+)]\([^)]+\)/g, '$1')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!plain) return 'Пустая заметка';
+    return plain.length > maxLen ? plain.slice(0, maxLen) + '…' : plain;
+}
+
 function escapeHtmlPreserve(str) {
     return String(str ?? '')
         .replace(/&/g, '&amp;')
@@ -162,16 +173,66 @@ function renderFolders() {
     if (!box) return;
 
     if (!notesState.folders.length) {
-        box.innerHTML = '<div class="empty">Папок пока нет</div>';
+        box.innerHTML = '<div class="empty"><span class="empty-icon">🗂️</span>Папок пока нет — создайте первую выше</div>';
         return;
     }
 
     box.innerHTML = notesState.folders.map(folder => `
       <div class="folder-item ${folder.id === notesState.selectedFolderId ? 'active' : ''}" data-folder-id="${folder.id}">
-        <p class="folder-name">${escapeHtml(folder.name)}</p>
-        <p class="folder-meta">Заметок: ${folder.notesCount ?? 0} · ${shortDate(folder.updatedAt)}</p>
+        <div class="item-icon">📁</div>
+        <div class="item-info">
+          <p class="folder-name">${escapeHtml(folder.name)}</p>
+          <p class="folder-meta">
+            <span class="count-badge">${folder.notesCount ?? 0}</span>
+            <span>${shortDate(folder.updatedAt)}</span>
+          </p>
+        </div>
+        <div class="item-actions">
+          <button class="icon-btn" data-action="rename" title="Переименовать">✏️</button>
+          <button class="icon-btn danger" data-action="delete" title="Удалить папку">🗑</button>
+        </div>
       </div>
     `).join('');
+}
+
+async function renameFolderPrompt(folderId) {
+    const folder = notesState.folders.find(f => f.id === folderId);
+    if (!folder) return;
+    const name = prompt('Новое название папки:', folder.name);
+    if (name === null) return;
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === folder.name) return;
+
+    const updated = await NotesPluginAPI.updateFolder(folderId, { name: trimmed, description: '' });
+    if (!updated || updated.error) {
+        showNotification(updated?.error || 'Не удалось переименовать папку', 'error');
+        return;
+    }
+    showNotification('Папка переименована', 'success');
+    await loadFolders();
+}
+
+async function deleteFolderPrompt(folderId) {
+    const folder = notesState.folders.find(f => f.id === folderId);
+    if (!folder) return;
+    if (!confirm(`Удалить папку «${folder.name}» вместе со всеми заметками в ней?`)) return;
+
+    const ok = await NotesPluginAPI.deleteFolder(folderId);
+    if (!ok) {
+        showNotification('Не удалось удалить папку', 'error');
+        return;
+    }
+    showNotification('Папка удалена', 'info');
+    if (notesState.selectedFolderId === folderId) {
+        notesState.selectedFolderId = null;
+        notesState.notes = [];
+    }
+    await loadFolders();
+    if (!notesState.selectedFolderId) {
+        document.getElementById('btnCreateNote').disabled = true;
+        renderNotes();
+        hideEditor();
+    }
 }
 
 async function selectFolder(folderId) {
@@ -195,19 +256,23 @@ function renderNotes() {
     if (!box) return;
 
     if (!notesState.selectedFolderId) {
-        box.innerHTML = '<div class="empty">Выберите папку</div>';
+        box.innerHTML = '<div class="empty"><span class="empty-icon">👈</span>Выберите папку слева</div>';
         return;
     }
 
     if (!notesState.notes.length) {
-        box.innerHTML = '<div class="empty">В этой папке пока нет заметок</div>';
+        box.innerHTML = '<div class="empty"><span class="empty-icon">📝</span>В этой папке пока нет заметок</div>';
         return;
     }
 
     box.innerHTML = notesState.notes.map(note => `
       <div class="note-item ${note.id === notesState.selectedNoteId ? 'active' : ''}" data-note-id="${note.id}">
-        <p class="note-name">${escapeHtml(note.title)}</p>
-        <p class="note-meta">Обновлено: ${shortDate(note.updatedAt)}</p>
+        <div class="item-icon">📝</div>
+        <div class="item-info">
+          <p class="note-name">${escapeHtml(note.title)}</p>
+          <p class="note-excerpt">${escapeHtml(noteExcerpt(note.content))}</p>
+          <p class="note-meta">🕒 ${shortDate(note.updatedAt)}</p>
+        </div>
       </div>
     `).join('');
 }
@@ -369,9 +434,22 @@ function bindEvents() {
     });
 
     document.getElementById('foldersList').addEventListener('click', async (e) => {
-        const el = e.target.closest('[data-folder-id]');
-        if (!el) return;
-        await selectFolder(el.getAttribute('data-folder-id'));
+        const item = e.target.closest('[data-folder-id]');
+        if (!item) return;
+        const folderId = Number(item.getAttribute('data-folder-id'));
+
+        const actionBtn = e.target.closest('[data-action]');
+        if (actionBtn) {
+            e.stopPropagation();
+            if (actionBtn.getAttribute('data-action') === 'rename') {
+                await renameFolderPrompt(folderId);
+            } else if (actionBtn.getAttribute('data-action') === 'delete') {
+                await deleteFolderPrompt(folderId);
+            }
+            return;
+        }
+
+        await selectFolder(folderId);
     });
 
     document.getElementById('notesList').addEventListener('click', (e) => {

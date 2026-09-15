@@ -615,7 +615,43 @@ const NotesPluginAPI = {
         }
     },
 
-    // ...existing code...
+    updateFolder: async (folderId, folderData) => {
+        try {
+            const response = await fetch(`${API_BASE}/notes-plugin/folders/${folderId}`, {
+                method: 'PUT',
+                headers: getSecureHeaders(),
+                body: JSON.stringify(folderData)
+            });
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error updating note folder:', error);
+            return null;
+        }
+    },
+
+    deleteFolder: async (folderId) => {
+        try {
+            const response = await fetch(`${API_BASE}/notes-plugin/folders/${folderId}`, {
+                method: 'DELETE',
+                headers: getCsrfOnlyHeaders()
+            });
+            return response.ok;
+        } catch (error) {
+            console.error('Error deleting note folder:', error);
+            return false;
+        }
+    },
+
+    getNotesByFolder: async (folderId) => {
+        try {
+            const response = await fetch(`${API_BASE}/notes-plugin/folders/${folderId}/notes`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching notes:', error);
+            return [];
+        }
+    },
 
     createNote: async (folderId, noteData) => {
         try {
