@@ -111,6 +111,51 @@
   </div>
 </div>
 
+<!-- Модал: карточка детали (просмотр/редактирование) -->
+<div id="itemCardModal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Деталь</h2>
+      <button class="close" onclick="closeModal('itemCardModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="itemCardStatusRow" style="margin-bottom:12px;"></div>
+      <form id="editItemForm" onsubmit="submitEditItem(event)">
+        <div class="form-group">
+          <label>Название:</label>
+          <input type="text" id="editItemTitle" required>
+        </div>
+        <div class="form-group">
+          <label>Категория:</label>
+          <input type="text" id="editItemCategory" list="categoryList">
+        </div>
+        <div class="form-group">
+          <label>Источник:</label>
+          <input type="text" id="editItemSource">
+        </div>
+        <div class="form-group">
+          <label>Цена закупки:</label>
+          <input type="number" id="editItemPurchasePrice" required min="0" step="1">
+        </div>
+        <div class="form-group">
+          <label>Дата закупки:</label>
+          <input type="datetime-local" id="editItemPurchaseDate">
+        </div>
+        <div class="form-group">
+          <label>Заметки:</label>
+          <textarea id="editItemNotes" placeholder="Состояние, комплектация..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Сохранить изменения</button>
+      </form>
+      <div class="card-actions" style="margin-top:14px;">
+        <button class="btn btn-sm btn-secondary" id="itemCardPhotosBtn" onclick="openItemPhotos(currentCardItemId, val('editItemTitle'))">📷 Фото</button>
+        <button class="btn btn-sm btn-success" id="itemCardSellBtn" style="display:none;" onclick="openSell('item', currentCardItemId, val('editItemTitle'))">Продано</button>
+        <button class="btn btn-sm btn-danger" id="itemCardDeleteBtn" style="display:none;" onclick="deleteItemFromCard()">Удалить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Модал: фото детали -->
 <div id="itemPhotosModal" class="modal" style="display:none;">
   <div class="modal-content">

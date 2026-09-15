@@ -7,6 +7,8 @@ let selectedItemIds = new Set();
 let sellContext = null; // { type: 'item'|'lot', id, title }
 let allItemsCache = [];
 
+const SOLD_CATEGORY = '__sold__';
+
 document.addEventListener('DOMContentLoaded', () => {
     switchView('items');
     loadStats();
@@ -74,31 +76,45 @@ function getItemCategories() {
         .sort((a, b) => a.localeCompare(b, 'ru'));
 }
 
+function getInStockCategories() {
+    return Array.from(new Set(allItemsCache.filter(i => i.status !== 'SOLD').map(i => (i.category || '').trim()).filter(c => c)))
+        .sort((a, b) => a.localeCompare(b, 'ru'));
+}
+
 function populateCategoryOptions(items) {
     const select = document.getElementById('itemCategoryFilter');
     const current = select.value;
-    const categories = getItemCategories();
+    const categories = getInStockCategories();
+    const soldCount = allItemsCache.filter(i => i.status === 'SOLD').length;
     select.innerHTML = '<option value="">Все категории</option>' +
-        categories.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
-    if (categories.includes(current)) select.value = current;
+        categories.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('') +
+        (soldCount ? `<option value="${SOLD_CATEGORY}">🔴 Продано (${soldCount})</option>` : '');
+    if (current === SOLD_CATEGORY || categories.includes(current)) select.value = current;
 
     const datalist = document.getElementById('categoryList');
-    if (datalist) datalist.innerHTML = categories.map(c => `<option value="${escHtml(c)}">`).join('');
+    if (datalist) datalist.innerHTML = getItemCategories().map(c => `<option value="${escHtml(c)}">`).join('');
 }
 
 function renderItemsGrouped() {
     const categoryFilter = document.getElementById('itemCategoryFilter').value;
     const grid = document.getElementById('itemsGrid');
-    const items = categoryFilter
-        ? allItemsCache.filter(i => (i.category || '').trim() === categoryFilter)
-        : allItemsCache;
 
-    if (!items.length) { grid.innerHTML = '<p class="empty">Пока нет деталей</p>'; return; }
-
-    if (categoryFilter) {
-        grid.innerHTML = items.map(renderItemCard).join('');
+    if (categoryFilter === SOLD_CATEGORY) {
+        const soldItems = allItemsCache.filter(i => i.status === 'SOLD');
+        grid.innerHTML = soldItems.length ? soldItems.map(renderItemCard).join('') : '<p class="empty">Проданных деталей нет</p>';
         return;
     }
+
+    if (categoryFilter) {
+        const items = allItemsCache.filter(i => i.status !== 'SOLD' && (i.category || '').trim() === categoryFilter);
+        grid.innerHTML = items.length ? items.map(renderItemCard).join('') : '<p class="empty">Пока нет деталей</p>';
+        return;
+    }
+
+    const items = allItemsCache.filter(i => i.status !== 'SOLD');
+    const soldItems = allItemsCache.filter(i => i.status === 'SOLD');
+
+    if (!items.length && !soldItems.length) { grid.innerHTML = '<p class="empty">Пока нет деталей</p>'; return; }
 
     const groups = new Map();
     items.forEach(i => {
@@ -112,10 +128,18 @@ function renderItemsGrouped() {
         return a.localeCompare(b, 'ru');
     });
 
-    grid.innerHTML = sortedCats.map(cat => `
+    let html = sortedCats.map(cat => `
         <div class="parts-category-header">${escHtml(cat)}<span class="parts-category-count">${groups.get(cat).length}</span></div>
         ${groups.get(cat).map(renderItemCard).join('')}
     `).join('');
+
+    if (soldItems.length) {
+        html += `
+        <div class="parts-category-header" style="color:var(--c-muted);">🔴 Продано<span class="parts-category-count">${soldItems.length}</span></div>
+        ${soldItems.map(renderItemCard).join('')}`;
+    }
+
+    grid.innerHTML = html;
 }
 
 function renderItemCard(item) {
@@ -128,7 +152,7 @@ function renderItemCard(item) {
     const lotBadge = item.lotId ? `<span class="badge" style="background:#ede9fe;color:#6d28d9;">В лоте: ${escHtml(item.lotTitle || '')}</span>` : '';
 
     return `
-    <div class="part-card">
+    <div class="part-card" style="cursor:pointer;" onclick="openItemCard(${item.id})">
         <div class="part-title">${escHtml(item.title)}</div>
         <div class="part-meta">${escHtml(item.category || '—')}${item.source ? ' · ' + escHtml(item.source) : ''}</div>
         <div class="part-price">Закупка: ${formatCurrency(item.purchasePrice)} · ${formatDate(item.purchaseDate)}</div>
@@ -137,7 +161,7 @@ function renderItemCard(item) {
             <span class="status-badge status-${item.status.toLowerCase()}">${item.status === 'SOLD' ? 'Продано' : 'В наличии'}</span>
             ${lotBadge}
         </div>
-        <div class="card-actions">
+        <div class="card-actions" onclick="event.stopPropagation();">
             ${canSelect ? `<label class="checkbox-select"><input type="checkbox" onchange="toggleSelect(${item.id}, this.checked)"> в лот</label>` : ''}
             <button class="btn btn-sm btn-secondary" onclick="openItemPhotos(${item.id}, '${escHtml(item.title)}')">📷 Фото</button>
             ${canSell ? `<button class="btn btn-sm btn-success" onclick="openSell('item', ${item.id}, '${escHtml(item.title)}')">Продано</button>` : ''}
@@ -158,6 +182,67 @@ function updateMakeLotButton() {
 async function deleteItem(id) {
     if (!confirm('Удалить деталь без возможности восстановления?')) return;
     await PartsAPI.delete(id);
+    loadItems();
+    loadStats();
+}
+
+// ===== Карточка детали (просмотр/редактирование) =====
+
+let currentCardItemId = null;
+
+function openItemCard(id) {
+    const item = allItemsCache.find(i => i.id === id);
+    if (!item) return;
+    currentCardItemId = id;
+
+    set('editItemTitle', item.title);
+    set('editItemCategory', item.category);
+    set('editItemSource', item.source);
+    set('editItemPurchasePrice', item.purchasePrice);
+    set('editItemPurchaseDate', item.purchaseDate ? toLocalInputValue(item.purchaseDate) : '');
+    set('editItemNotes', item.notes);
+
+    const canSell = item.status === 'IN_STOCK' && !item.lotId;
+    const canDelete = item.status !== 'SOLD' && !item.lotId;
+    document.getElementById('itemCardSellBtn').style.display = canSell ? '' : 'none';
+    document.getElementById('itemCardDeleteBtn').style.display = canDelete ? '' : 'none';
+
+    const lotBadge = item.lotId ? `<span class="badge" style="background:#ede9fe;color:#6d28d9;">В лоте: ${escHtml(item.lotTitle || '')}</span>` : '';
+    const soldInfo = item.salePrice != null ? `
+        <div class="part-price">Продано: ${formatCurrency(item.salePrice)} · ${formatDate(item.saleDate)}
+            <span class="${item.profit >= 0 ? 'profit-pos' : 'profit-neg'}">(${item.profit >= 0 ? '+' : ''}${formatCurrency(item.profit)})</span>
+        </div>` : '';
+    document.getElementById('itemCardStatusRow').innerHTML = `
+        <span class="status-badge status-${item.status.toLowerCase()}">${item.status === 'SOLD' ? 'Продано' : 'В наличии'}</span>
+        ${lotBadge}
+        ${soldInfo}`;
+
+    openModal('itemCardModal');
+}
+
+async function submitEditItem(event) {
+    event.preventDefault();
+    const data = {
+        title: val('editItemTitle').trim(),
+        category: val('editItemCategory').trim(),
+        source: val('editItemSource').trim(),
+        purchasePrice: parseFloat(val('editItemPurchasePrice')),
+        purchaseDate: val('editItemPurchaseDate') ? toLocalDateTimeParam(val('editItemPurchaseDate')) : null,
+        notes: val('editItemNotes').trim()
+    };
+    const res = await PartsAPI.update(currentCardItemId, data);
+    if (!res || res.error) { showNotification('Ошибка: ' + (res ? res.error : 'сервер недоступен'), 'error'); return; }
+
+    closeModal('itemCardModal');
+    showNotification('Деталь обновлена', 'success');
+    loadItems();
+    loadStats();
+}
+
+async function deleteItemFromCard() {
+    if (!confirm('Удалить деталь без возможности восстановления?')) return;
+    await PartsAPI.delete(currentCardItemId);
+    closeModal('itemCardModal');
     loadItems();
     loadStats();
 }
@@ -325,7 +410,12 @@ function val(id) { const el = document.getElementById(id); return el ? el.value 
 function escHtml(s) { const d = document.createElement('div'); d.appendChild(document.createTextNode(s == null ? '' : s)); return d.innerHTML; }
 
 function nowLocalInputValue() {
-    const d = new Date();
+    return toLocalInputValue(new Date());
+}
+
+function toLocalInputValue(value) {
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
     const pad = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
