@@ -38,6 +38,11 @@ USER fixbyte
 
 EXPOSE 9087
 
+# Ждём успешный ответ /actuator/health, прежде чем считать контейнер живым
+# (busybox wget уже есть в alpine, ставить ничего не нужно).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=5 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:9087/actuator/health || exit 1
+
 # Запуск с настройками JVM для контейнера
 ENTRYPOINT ["java", \
   "-XX:+UseContainerSupport", \

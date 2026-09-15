@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title th:text="${status != null} ? ('FixByte CRM — Ошибка ' + ${status}) : 'FixByte CRM — Ошибка'">FixByte CRM — Ошибка</title>
+  <script>
+    (function () {
+      var saved = localStorage.getItem('fixbyte-theme') || 'system';
+      var isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var effective = saved === 'system' ? (isDark ? 'dark' : 'light') : saved;
+      document.documentElement.setAttribute('data-theme', effective);
+    })();
+  </script>
+  <link rel='icon' type='image/x-icon' href='/images/favicon.ico'>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      background: #0f172a;
+      padding: 24px;
+    }
+    [data-theme='light'] body { background: #e2e8f0; }
+
+    .error-card {
+      width: 100%; max-width: 440px;
+      background: #1e293b; border-radius: 16px;
+      padding: 44px 40px; text-align: center;
+      box-shadow: 0 24px 60px rgba(0,0,0,.35);
+      animation: fadeUp .4s ease both;
+    }
+    [data-theme='light'] .error-card { background: #fff; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .error-code {
+      font-size: 13px; font-weight: 700; color: #f87171;
+      letter-spacing: .8px; text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .error-title {
+      font-size: 24px; font-weight: 800; color: #fff;
+      margin-bottom: 12px; letter-spacing: -0.5px;
+    }
+    [data-theme='light'] .error-title { color: #0f172a; }
+
+    .error-message {
+      font-size: 14px; color: #94a3b8;
+      line-height: 1.6; margin-bottom: 30px;
+    }
+    [data-theme='light'] .error-message { color: #64748b; }
+
+    .error-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      padding: 12px 22px; border-radius: 10px;
+      font-size: 14px; font-weight: 700; font-family: inherit;
+      text-decoration: none; border: none; cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-secondary { background: #334155; color: #e2e8f0; }
+    .btn-secondary:hover { background: #475569; }
+    [data-theme='light'] .btn-secondary { background: #e2e8f0; color: #334155; }
+    [data-theme='light'] .btn-secondary:hover { background: #cbd5e1; }
+  </style>
+</head>
+<body>
+  <div class="error-card">
+    <div class="error-code" th:if="${status != null}" th:text="'Ошибка ' + ${status}">Ошибка</div>
+
+    <h1 class="error-title"
+        th:text="${status == 404 ? 'Страница не найдена' : (status == 403 ? 'Доступ запрещён' : (status == 500 ? 'Внутренняя ошибка сервера' : 'Что-то пошло не так'))}">
+      Что-то пошло не так
+    </h1>
+
+    <p class="error-message" th:if="${message != null and !#strings.isEmpty(message)}" th:text="${message}">
+      Описание ошибки
+    </p>
+    <p class="error-message" th:unless="${message != null and !#strings.isEmpty(message)}">
+      Попробуйте вернуться назад или перейти на главную страницу.
+    </p>
+
+    <div class="error-actions">
+      <a class="btn btn-primary" href="/dashboard">На главную</a>
+      <a class="btn btn-secondary" href="#" onclick="history.back(); return false;">Назад</a>
+    </div>
+  </div>
+</body>
+</html>

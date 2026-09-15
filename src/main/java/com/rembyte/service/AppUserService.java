@@ -19,9 +19,11 @@ import java.util.List;
 public class AppUserService implements UserDetailsService {
 
     private final AppUserRepository userRepository;
+    private final LoginAttemptService loginAttemptService;
 
-    public AppUserService(AppUserRepository userRepository) {
+    public AppUserService(AppUserRepository userRepository, LoginAttemptService loginAttemptService) {
         this.userRepository = userRepository;
+        this.loginAttemptService = loginAttemptService;
     }
 
     // ===== Spring Security =====
@@ -39,6 +41,10 @@ public class AppUserService implements UserDetailsService {
             .username(user.getUsername())
             .password("{noop}" + user.getPassword())
             .roles(user.getRole())   // ADMIN → ROLE_ADMIN, OPERATOR → ROLE_OPERATOR
+            // Временная блокировка после серии неудачных попыток входа (брутфорс),
+            // см. LoginAttemptService. DaoAuthenticationProvider сам бросит
+            // LockedException до проверки пароля, если аккаунт заблокирован.
+            .accountLocked(loginAttemptService.isLocked(user.getUsername()))
             .build();
     }
 

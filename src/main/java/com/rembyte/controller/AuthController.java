@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -52,6 +53,9 @@ public class AuthController {
             securityContextRepository.saveContext(context, request, response);
 
             return ResponseEntity.ok(describe(auth));
+        } catch (LockedException e) {
+            return ResponseEntity.status(HttpStatus.LOCKED)
+                    .body(Map.of("error", "Слишком много неудачных попыток входа. Аккаунт временно заблокирован, попробуйте позже."));
         } catch (BadCredentialsException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Неверный логин или пароль"));
         } catch (Exception e) {

@@ -17,6 +17,9 @@ RUN chown fixbyte:fixbyte app.jar
 USER fixbyte
 EXPOSE 9087
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=5 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:9087/actuator/health || exit 1
+
 ENTRYPOINT ["java", \
   "-XX:+UseContainerSupport", \
   "-XX:MaxRAMPercentage=75.0", \

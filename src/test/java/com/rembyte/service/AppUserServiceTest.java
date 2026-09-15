@@ -27,7 +27,7 @@ class AppUserServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AppUserService(userRepository);
+        service = new AppUserService(userRepository, new LoginAttemptService(5, 15));
     }
 
     @Test
@@ -46,6 +46,25 @@ class AppUserServiceTest {
         when(userRepository.findByUsername("ghost")).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.loadUserByUsername("ghost"))
                 .isInstanceOf(UsernameNotFoundException.class);
+    }
+
+    @Test
+    void loadUserByUsername_locksAccountAfterMaxFailedAttempts() {
+        AppUser u = new AppUser("admin", "secret", "ADMIN", "Админ");
+        when(userRepository.findByUsername("admin")).thenReturn(Optional.of(u));
+
+        LoginAttemptService attempts = new LoginAttemptService(3, 15);
+        AppUserService withLockout = new AppUserService(userRepository, attempts);
+
+        assertThat(withLockout.loadUserByUsername("admin").isAccountNonLocked()).isTrue();
+
+        for (int i = 0; i < 3; i++) {
+            attempts.onLoginFailure(new org.springframework.security.authentication.event.AuthenticationFailureBadCredentialsEvent(
+                    new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("admin", "wrong"),
+                    new org.springframework.security.authentication.BadCredentialsException("bad creds")));
+        }
+
+        assertThat(withLockout.loadUserByUsername("admin").isAccountNonLocked()).isFalse();
     }
 
     @Test

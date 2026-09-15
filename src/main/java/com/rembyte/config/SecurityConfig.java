@@ -3,8 +3,10 @@ package com.rembyte.config;
 import com.rembyte.service.AppUserService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -33,18 +35,42 @@ public class SecurityConfig {
         this.appUserService = appUserService;
     }
 
+    /**
+     * Отдельная цепочка только для встраиваемого iframe-виджета чата
+     * (/widget/chat/frame): это единственная страница, которой реально нужен
+     * X-Frame-Options выключенным, чтобы её можно было встроить на сайт
+     * клиента. Всё остальное приложение (включая /login и админку) больше не
+     * теряет защиту от clickjacking из-за одной этой страницы.
+     */
     @Bean
+    @Order(1)
+    public SecurityFilterChain widgetFilterChain(HttpSecurity http) throws Exception {
+        http
+            .securityMatcher("/widget/chat/**")
+            .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+            .headers(headers -> headers
+                .frameOptions(frame -> frame.disable())
+            );
+
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .userDetailsService(appUserService)
             .authorizeHttpRequests(auth -> auth
                 // Публичные ресурсы
                 .requestMatchers("/login", "/css/**", "/js/**", "/images/**", "/favicon.ico", "/error").permitAll()
-                .requestMatchers("/widget/chat/**", "/public/chat/**").permitAll()
+                .requestMatchers("/public/chat/**").permitAll()
                 // Точка входа для мобильного/нативных клиентов
                 .requestMatchers("/api/auth/**").permitAll()
                 // H2 консоль
                 .requestMatchers("/h2-console/**").permitAll()
+                // Docker/мониторинг healthcheck — без авторизации, остальной actuator только ADMIN
+                .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                .requestMatchers("/actuator/**").hasRole("ADMIN")
                 // Админские страницы
                 .requestMatchers("/users", "/api/users/**", "/admin", "/admin/**").hasRole("ADMIN")
                 // Всё остальное — только авторизованным
@@ -53,7 +79,12 @@ public class SecurityConfig {
             .formLogin(form -> form
                 .loginPage("/login")
                 .defaultSuccessUrl("/dashboard", true)
-                .failureUrl("/login?error")
+                // Отдельный редирект для блокировки по брутфорсу (LoginAttemptService),
+                // чтобы на /login показать понятное сообщение, а не "неверный пароль".
+                .failureHandler((request, response, exception) -> {
+                    String redirect = exception instanceof LockedException ? "/login?locked" : "/login?error";
+                    response.sendRedirect(request.getContextPath() + redirect);
+                })
                 .usernameParameter("username")
                 .passwordParameter("password")
                 .permitAll()
@@ -76,9 +107,12 @@ public class SecurityConfig {
                 .ignoringRequestMatchers("/api/**", "/public/chat/**", "/h2-console/**",
                         "/admin/backup/**")
             )
-            // Разрешить iframe, чтобы внешний чат-виджет можно было встроить на сайт
+            // X-Frame-Options: SAMEORIGIN — блокирует встраивание в чужие сайты
+            // (clickjacking), но не мешает H2-консоли (её внутренние фреймы —
+            // тот же origin). Кросс-доменный iframe нужен только виджету чата,
+            // у него отдельная цепочка (widgetFilterChain) выше.
             .headers(headers -> headers
-                .frameOptions(frame -> frame.disable())
+                .frameOptions(frame -> frame.sameOrigin())
             );
 
         return http.build();
