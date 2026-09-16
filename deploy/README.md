@@ -126,7 +126,13 @@ docker run --rm -v fixbyte-crm_fixbyte-db-data:/data -v "$PWD":/backup alpine \
 - **Фото — по заказам** (не по клиенту). В мобильном приложении съёмка
   внутри заказа.
 - **Напоминания** на дашборде: ручные + авто «готово, но не забрали
-  N дней» (`FIXBYTE_STALE_ORDER_DAYS`, по умолчанию 30).
+  N дней» (`FIXBYTE_STALE_ORDER_DAYS`, по умолчанию 30); выбор времени (не
+  только даты), браузерное уведомление (заголовок вкладки + тост — на
+  каждой странице, не только на дашборде).
+- **Индексы на горячих таблицах** (orders/clients/chat/payments/note_items)
+  — на **свежей** базе и на docker-профиле (`ddl-auto=update`) создаются
+  сами; для существующей базы на **prod**-профиле (`ddl-auto=validate`) —
+  `sql/2026-09-16-perf-indexes.sql`.
 
 На **свежей** базе (`ddl-auto=update`) все новые таблицы (`backup_schedule`,
 `company_settings`, `reminders`) создаются сами — делать ничего не нужно.
