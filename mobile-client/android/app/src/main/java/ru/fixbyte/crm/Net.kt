@@ -59,6 +59,10 @@ data class OrderBrief(
 
 data class ClientPhoto(val id: Long, val url: String, val caption: String?, val createdAt: String?)
 
+data class ReminderDto(val id: Long, val text: String, val dueAt: String?)
+data class StaleOrderDto(val orderId: Long, val orderNumber: String, val clientName: String)
+data class RemindersResponse(val reminders: List<ReminderDto>, val staleOrders: List<StaleOrderDto>)
+
 sealed interface CreateClientResult {
     /** Клиент создан. [orderFailed] = попытка завести первичную заявку не удалась. */
     data class Created(val id: Long, val orderFailed: Boolean = false) : CreateClientResult
@@ -467,6 +471,24 @@ object Api {
         ).execute().use { r ->
             if (!r.isSuccessful && r.code != 204) throw ApiException("Не удалось удалить (${r.code})")
         }
+    }
+
+    // ── Напоминания (используется ReminderChecker для уведомлений) ──
+
+    suspend fun reminders(): RemindersResponse = withContext(Dispatchers.IO) {
+        val o = JSONObject(get("/api/reminders"))
+        val remindersArr = o.optJSONArray("reminders") ?: JSONArray()
+        val staleArr = o.optJSONArray("staleOrders") ?: JSONArray()
+        RemindersResponse(
+            (0 until remindersArr.length()).map { i ->
+                val r = remindersArr.getJSONObject(i)
+                ReminderDto(r.getLong("id"), r.optString("text", ""), r.optStringOrNull("dueAt"))
+            },
+            (0 until staleArr.length()).map { i ->
+                val s = staleArr.getJSONObject(i)
+                StaleOrderDto(s.getLong("orderId"), s.optString("orderNumber", ""), s.optString("clientName", ""))
+            }
+        )
     }
 
     // ── Вспомогательное ───────────────────────────────────────

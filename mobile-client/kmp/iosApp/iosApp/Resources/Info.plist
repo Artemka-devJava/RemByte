@@ -28,5 +28,13 @@
     <string>Камера нужна для фотографирования техники и вложений к заказам.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Доступ к галерее нужен, чтобы прикреплять фото к заказам и клиентам.</string>
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>fetch</string>
+    </array>
+    <key>BGTaskSchedulerPermittedIdentifiers</key>
+    <array>
+        <string>ru.fixbyte.crm.next.reminderRefresh</string>
+    </array>
 </dict>
 </plist>

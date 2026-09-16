@@ -48,6 +48,23 @@ class Prefs(context: Context) {
 
     private fun cookieKey(host: String) = COOKIE_PREFIX + host
 
+    // ── Дедуп уже показанных уведомлений по напоминаниям (ReminderChecker) ──
+    // id "отваливается" сам, когда напоминание пропадает из открытого списка
+    // сервера (выполнено/удалено/забрано) — см. ReminderChecker.
+
+    fun loadNotifiedReminderIds(): Set<Long> = loadIdSet(KEY_NOTIFIED_REMINDERS)
+    fun saveNotifiedReminderIds(ids: Set<Long>) = saveIdSet(KEY_NOTIFIED_REMINDERS, ids)
+
+    fun loadNotifiedStaleOrderIds(): Set<Long> = loadIdSet(KEY_NOTIFIED_STALE)
+    fun saveNotifiedStaleOrderIds(ids: Set<Long>) = saveIdSet(KEY_NOTIFIED_STALE, ids)
+
+    private fun loadIdSet(key: String): Set<Long> =
+        (sp.getStringSet(key, emptySet()) ?: emptySet()).mapNotNull { it.toLongOrNull() }.toSet()
+
+    private fun saveIdSet(key: String, ids: Set<Long>) {
+        sp.edit().putStringSet(key, ids.map { it.toString() }.toSet()).apply()
+    }
+
     companion object {
         // 10.0.2.2 — это localhost хост-машины для Android-эмулятора.
         const val DEFAULT_BASE_URL = "http://10.0.2.2:9087"
@@ -55,5 +72,7 @@ class Prefs(context: Context) {
         private const val KEY_USERNAME = "username"
         private const val KEY_PASSWORD = "password"
         private const val COOKIE_PREFIX = "cookies_"
+        private const val KEY_NOTIFIED_REMINDERS = "notified_reminders"
+        private const val KEY_NOTIFIED_STALE = "notified_stale_orders"
     }
 }

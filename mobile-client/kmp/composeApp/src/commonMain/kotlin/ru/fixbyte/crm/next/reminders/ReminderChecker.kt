@@ -18,9 +18,10 @@ import ru.fixbyte.crm.next.platform.showNotification
  * набора, как только напоминание/заказ пропадает из открытого списка сервера
  * (выполнено / удалено / забрано).
  *
- * Вызывается: при каждом запуске приложения (App.kt) и периодически в фоне
- * на Android (см. platform/ReminderWorker.android.kt) — на iOS фонового
- * планировщика нет, там сработает только при следующем открытии приложения.
+ * Вызывается: при каждом запуске приложения (App.kt) и периодически в фоне —
+ * на Android через WorkManager (см. platform/ReminderWorker.android.kt), на
+ * iOS через BGTaskScheduler (см. iosApp/iosApp/AppDelegate.swift; там же
+ * оговорка, что iOS не гарантирует конкретное время срабатывания).
  */
 object ReminderChecker {
 
