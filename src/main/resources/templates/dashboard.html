@@ -26,8 +26,18 @@
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-label">Всего клиентов</div><div class="number" id="totalClients">—</div></div>
         <div class="stat-card"><div class="stat-icon">⚙️</div><div class="stat-label">Активные заказы</div><div class="number" id="activeOrders">—</div></div>
-        <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-label">Выручка за месяц</div><div class="number" id="monthlyRevenue">—</div></div>
-        <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-label">Оплачено</div><div class="number" id="totalPaid">—</div></div>
+        <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-label">Выручка за период</div><div class="number" id="periodRevenue">—</div></div>
+        <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-label">Оплачено за период</div><div class="number" id="totalPaid">—</div></div>
+      </div>
+
+      <div class="filter-bar">
+        <label>Период:</label>
+        <select id="statsPeriod" onchange="refreshPeriodStats()">
+          <option value="today">Сегодня</option>
+          <option value="week">7 дней</option>
+          <option value="month" selected>30 дней</option>
+          <option value="all">Всё время</option>
+        </select>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">

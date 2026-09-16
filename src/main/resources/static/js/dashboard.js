@@ -15,19 +15,31 @@ function getStatusLabel(status) {
     return DASHBOARD_STATUS_LABELS[status] || status || 'Новый';
 }
 
-function calculateMonthlyTotals(orders, monthStart, monthEnd) {
-    const inMonth = (orders || []).filter(order => {
+function calculatePeriodTotals(orders, periodStart, periodEnd) {
+    const inPeriod = (orders || []).filter(order => {
         if (!order?.createdAt) return false;
         const createdAt = new Date(order.createdAt);
         if (Number.isNaN(createdAt.getTime())) return false;
-        return createdAt >= monthStart && createdAt <= monthEnd;
+        return createdAt >= periodStart && createdAt <= periodEnd;
     });
 
-    return inMonth.reduce((acc, order) => {
+    return inPeriod.reduce((acc, order) => {
         acc.totalRevenue += Number(order.totalPrice) || 0;
         acc.totalPaid += Number(order.paidAmount) || 0;
         return acc;
     }, { totalRevenue: 0, totalPaid: 0 });
+}
+
+/** Диапазон дат для карточек «Выручка/Оплачено за период» — см. #statsPeriod. */
+function statsPeriodRange() {
+    const period = document.getElementById('statsPeriod')?.value || 'month';
+    const now = new Date();
+    let from;
+    if (period === 'today') { from = new Date(now); from.setHours(0, 0, 0, 0); }
+    else if (period === 'week') { from = new Date(now.getTime() - 7 * 86400000); }
+    else if (period === 'month') { from = new Date(now.getTime() - 30 * 86400000); }
+    else { from = new Date(2000, 0, 1); } // 'all'
+    return { from, to: now };
 }
 
 // Загрузить статистику при загрузке страницы
@@ -175,6 +187,8 @@ function fmtDateTimeD(iso) {
     return d.toLocaleDateString('ru-RU') + ' ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 }
 
+let dashboardOrdersCache = [];
+
 // Загрузить данные панели управления
 async function loadDashboardData() {
     try {
@@ -184,6 +198,7 @@ async function loadDashboardData() {
 
         // Загрузить заказы
         const orders = await OrderAPI.getAll();
+        dashboardOrdersCache = orders;
         const activeOrders = orders.filter(o => !['COMPLETED', 'CANCELLED'].includes(o.status)).length;
         document.getElementById('activeOrders').textContent = activeOrders;
 
@@ -193,24 +208,28 @@ async function loadDashboardData() {
         // Загрузить популярные услуги
         await loadPopularServices(orders);
 
-        // Рассчитать выручку за текущий месяц (не блокирует остальные виджеты)
-        const now = new Date();
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        const monthlyStats = await OrderAPI.getStatistics(monthStart, now);
-        const fallback = calculateMonthlyTotals(orders, monthStart, now);
-        const totalRevenue = Number(monthlyStats?.totalRevenue);
-        const totalPaid = Number(monthlyStats?.totalPaid);
-
-        document.getElementById('monthlyRevenue').textContent = formatCurrency(
-            Number.isFinite(totalRevenue) ? totalRevenue : fallback.totalRevenue
-        );
-        document.getElementById('totalPaid').textContent = formatCurrency(
-            Number.isFinite(totalPaid) ? totalPaid : fallback.totalPaid
-        );
+        // Выручка/оплачено за выбранный период (не блокирует остальные виджеты)
+        await refreshPeriodStats();
 
     } catch (error) {
         console.error('Error loading dashboard data:', error);
     }
+}
+
+/** Перечитать карточки «Выручка/Оплачено за период» под текущий выбор в #statsPeriod. */
+async function refreshPeriodStats() {
+    const { from, to } = statsPeriodRange();
+    const periodStats = await OrderAPI.getStatistics(from, to);
+    const fallback = calculatePeriodTotals(dashboardOrdersCache, from, to);
+    const totalRevenue = Number(periodStats?.totalRevenue);
+    const totalPaid = Number(periodStats?.totalPaid);
+
+    document.getElementById('periodRevenue').textContent = formatCurrency(
+        Number.isFinite(totalRevenue) ? totalRevenue : fallback.totalRevenue
+    );
+    document.getElementById('totalPaid').textContent = formatCurrency(
+        Number.isFinite(totalPaid) ? totalPaid : fallback.totalPaid
+    );
 }
 
 // Отобразить последние заказы
