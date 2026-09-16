@@ -215,7 +215,7 @@ async function renameFolderPrompt(folderId) {
 async function deleteFolderPrompt(folderId) {
     const folder = notesState.folders.find(f => f.id === folderId);
     if (!folder) return;
-    if (!confirm(`Удалить папку «${folder.name}» вместе со всеми заметками в ней?`)) return;
+    if (!(await confirmAction(`Удалить папку «${folder.name}» вместе со всеми заметками в ней?`))) return;
 
     const ok = await NotesPluginAPI.deleteFolder(folderId);
     if (!ok) {
@@ -375,7 +375,7 @@ async function deleteCurrentNote() {
         showNotification('Выберите заметку', 'warning');
         return;
     }
-    if (!confirm(`Удалить заметку «${note.title}»?`)) return;
+    if (!(await confirmAction(`Удалить заметку «${note.title}»?`))) return;
 
     const ok = await NotesPluginAPI.deleteNote(note.id);
     if (!ok) {

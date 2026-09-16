@@ -8,6 +8,8 @@ import com.rembyte.repository.PartItemPhotoRepository;
 import com.rembyte.repository.PartItemRepository;
 import com.rembyte.repository.PartLotRepository;
 import com.rembyte.repository.PartsBudgetRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -56,6 +58,12 @@ public class PartsService {
     public List<PartItem> getAllItems(String status) {
         if (status == null || status.isBlank()) return itemRepository.findAllByOrderByCreatedAtDesc();
         return itemRepository.findByStatusOrderByCreatedAtDesc(status.toUpperCase());
+    }
+
+    /** Постраничный список по статусу — см. PartItemRepository.findByStatus. */
+    public Page<PartItem> getItemsPage(String status, Pageable pageable) {
+        String normalized = (status == null || status.isBlank()) ? STATUS_SOLD : status.toUpperCase();
+        return itemRepository.findByStatus(normalized, pageable);
     }
 
     public Optional<PartItem> getItemById(Long id) {

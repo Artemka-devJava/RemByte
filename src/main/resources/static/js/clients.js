@@ -4,8 +4,8 @@
 
 const TYPE_LABEL = { INDIVIDUAL: 'Физлицо', COMPANY: 'Организация' };
 
-// Состояние серверной пагинации/фильтра таблицы клиентов
-const clientsPage = { page: 0, size: 20, totalPages: 0, totalElements: 0, mode: 'active', q: '' };
+// Состояние серверной пагинации/фильтра/сортировки таблицы клиентов
+const clientsPage = { page: 0, size: 20, totalPages: 0, totalElements: 0, mode: 'active', q: '', sort: 'name', dir: 'asc' };
 
 document.addEventListener('DOMContentLoaded', () => {
     loadClients();
@@ -20,16 +20,39 @@ async function loadClients() {
             page: clientsPage.page,
             size: clientsPage.size,
             mode: clientsPage.mode,
-            q: clientsPage.q
+            q: clientsPage.q,
+            sort: `${clientsPage.sort},${clientsPage.dir}`
         });
         const list = Array.isArray(result.content) ? result.content : [];
         clientsPage.totalPages = result.totalPages || 0;
         clientsPage.totalElements = result.totalElements || 0;
         renderClientsTable(list);
         renderClientsPagination(list.length);
+        updateClientsSortArrows();
     } catch (e) {
         console.error('Error loading clients:', e);
+        showNotification('Ошибка загрузки клиентов', 'error');
+        const tbody = document.getElementById('clientsTable');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="empty">Не удалось загрузить список — проверьте соединение</td></tr>';
     }
+}
+
+/** Клик по заголовку столбца — сортировка на сервере (тот же клик второй раз меняет направление). */
+function sortClientsBy(field) {
+    if (clientsPage.sort === field) {
+        clientsPage.dir = clientsPage.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+        clientsPage.sort = field;
+        clientsPage.dir = 'asc';
+    }
+    clientsPage.page = 0;
+    loadClients();
+}
+
+function updateClientsSortArrows() {
+    document.querySelectorAll('.data-table .sort-arrow').forEach(el => { el.textContent = ''; });
+    const arrow = document.getElementById('sortArrow-' + clientsPage.sort);
+    if (arrow) arrow.textContent = clientsPage.dir === 'asc' ? '▲' : '▼';
 }
 
 function renderClientsPagination(pageItemCount) {
@@ -69,11 +92,11 @@ function renderClientsTable(clients) {
         const tags = (c.tags || '').split(',').map(s => s.trim()).filter(Boolean)
             .map(t => `<span class="tag-chip">${escHtml(t)}</span>`).join(' ');
         return `<tr style="cursor:pointer;" onclick="location.href='/clients/${c.id}'">
-            <td><strong>${escHtml(c.name)}</strong>${c.archivedAt ? ' <span class="status-badge status-cancelled">архив</span>' : ''}</td>
-            <td>${escHtml(c.phone || '—')}</td>
-            <td>${TYPE_LABEL[c.type] || 'Физлицо'}</td>
-            <td>${tags || '—'}</td>
-            <td>${formatDate(c.createdAt)}</td>
+            <td data-label="ФИО / Название"><strong>${escHtml(c.name)}</strong>${c.archivedAt ? ' <span class="status-badge status-cancelled">архив</span>' : ''}</td>
+            <td data-label="Телефон">${escHtml(c.phone || '—')}</td>
+            <td data-label="Тип">${TYPE_LABEL[c.type] || 'Физлицо'}</td>
+            <td data-label="Метки">${tags || '—'}</td>
+            <td data-label="Добавлен">${formatDate(c.createdAt)}</td>
         </tr>`;
     }).join('');
 }
@@ -110,7 +133,7 @@ async function submitClient(event) {
 
     if (res && res.duplicate) {
         const ex = res.existing;
-        if (ex && ex.id && confirm(`Клиент с этим телефоном уже есть: ${ex.name}. Открыть его карточку?`)) {
+        if (ex && ex.id && await confirmAction(`Клиент с этим телефоном уже есть: ${ex.name}. Открыть его карточку?`, { danger: false, confirmText: 'Открыть' })) {
             location.href = `/clients/${ex.id}`;
         }
         return;

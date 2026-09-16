@@ -37,7 +37,7 @@ async function loadStats() {
     else if (period === 'month') { from = new Date(now.getTime() - 30 * 86400000); }
 
     const stats = await PartsAPI.getStats(from, null);
-    if (!stats) return;
+    if (!stats) { showNotification('Ошибка загрузки статистики', 'error'); return; }
     document.getElementById('statBalance').textContent = formatCurrency(stats.currentBalance);
     document.getElementById('statProfit').textContent = formatCurrency(stats.profitSum);
     document.getElementById('statRevenue').textContent = formatCurrency(stats.revenueSum);
@@ -62,13 +62,20 @@ async function saveBudget() {
 
 async function loadItems() {
     const status = document.getElementById('itemStatusFilter').value;
-    const items = await PartsAPI.getAll(status);
-    allItemsCache = items;
-    selectedItemIds.clear();
-    updateMakeLotButton();
+    try {
+        const items = await PartsAPI.getAll(status);
+        allItemsCache = items;
+        selectedItemIds.clear();
+        updateMakeLotButton();
 
-    populateCategoryOptions(items);
-    renderItemsGrouped();
+        populateCategoryOptions(items);
+        renderItemsGrouped();
+    } catch (e) {
+        console.error('Error loading parts:', e);
+        showNotification('Ошибка загрузки комплектующих', 'error');
+        const grid = document.getElementById('itemsGrid');
+        if (grid) grid.innerHTML = '<p class="empty">Не удалось загрузить — проверьте соединение</p>';
+    }
 }
 
 function getItemCategories() {
@@ -95,15 +102,19 @@ function populateCategoryOptions(items) {
     if (datalist) datalist.innerHTML = getItemCategories().map(c => `<option value="${escHtml(c)}">`).join('');
 }
 
-function renderItemsGrouped() {
+// Пагинация для «🔴 Продано» — единственный список на этой странице, который
+// растёт неограниченно (проданное не архивируется/не чистится).
+const soldItemsPage = { page: 0, size: 20, totalPages: 0, totalElements: 0 };
+
+async function renderItemsGrouped() {
     const categoryFilter = document.getElementById('itemCategoryFilter').value;
     const grid = document.getElementById('itemsGrid');
 
     if (categoryFilter === SOLD_CATEGORY) {
-        const soldItems = allItemsCache.filter(i => i.status === 'SOLD');
-        grid.innerHTML = soldItems.length ? soldItems.map(renderItemCard).join('') : '<p class="empty">Проданных деталей нет</p>';
+        await loadSoldItemsPage(0);
         return;
     }
+    clearSoldItemsPagination();
 
     if (categoryFilter) {
         const items = allItemsCache.filter(i => i.status !== 'SOLD' && (i.category || '').trim() === categoryFilter);
@@ -133,13 +144,69 @@ function renderItemsGrouped() {
         ${groups.get(cat).map(renderItemCard).join('')}
     `).join('');
 
+    // Тут — только превью последних 20 (allItemsCache и так уже полный список,
+    // но не рендерим его целиком без ограничения). Вся история — в отдельном
+    // постраничном виде через фильтр «🔴 Продано».
     if (soldItems.length) {
+        const preview = soldItems.slice(0, 20);
         html += `
-        <div class="parts-category-header" style="color:var(--c-muted);">🔴 Продано<span class="parts-category-count">${soldItems.length}</span></div>
-        ${soldItems.map(renderItemCard).join('')}`;
+        <div class="parts-category-header" style="color:var(--c-muted);">
+            🔴 Продано<span class="parts-category-count">${soldItems.length}</span>
+        </div>
+        ${preview.map(renderItemCard).join('')}
+        ${soldItems.length > preview.length ? `<p class="hint" style="padding:8px 4px;">
+            Показаны последние ${preview.length} из ${soldItems.length} —
+            <a href="#" onclick="selectSoldCategory();return false;">открыть все</a>
+        </p>` : ''}`;
     }
 
     grid.innerHTML = html;
+}
+
+function selectSoldCategory() {
+    const select = document.getElementById('itemCategoryFilter');
+    select.value = SOLD_CATEGORY;
+    renderItemsGrouped();
+}
+
+async function loadSoldItemsPage(page) {
+    const grid = document.getElementById('itemsGrid');
+    try {
+        const result = await PartsAPI.getPage({ page, size: soldItemsPage.size, status: 'SOLD' });
+        const items = Array.isArray(result.content) ? result.content : [];
+        soldItemsPage.page = result.number || 0;
+        soldItemsPage.totalPages = result.totalPages || 0;
+        soldItemsPage.totalElements = result.totalElements || 0;
+        grid.innerHTML = items.length ? items.map(renderItemCard).join('') : '<p class="empty">Проданных деталей нет</p>';
+        renderSoldItemsPagination(items.length);
+    } catch (e) {
+        console.error('Error loading sold items:', e);
+        showNotification('Ошибка загрузки проданных деталей', 'error');
+        grid.innerHTML = '<p class="empty">Не удалось загрузить — проверьте соединение</p>';
+        clearSoldItemsPagination();
+    }
+}
+
+function renderSoldItemsPagination(pageItemCount) {
+    const el = document.getElementById('soldItemsPagination');
+    if (!el) return;
+    if (soldItemsPage.totalElements === 0) { el.innerHTML = ''; return; }
+
+    const from = soldItemsPage.page * soldItemsPage.size + 1;
+    const to = Math.min(soldItemsPage.totalElements, from + pageItemCount - 1);
+    const hasPrev = soldItemsPage.page > 0;
+    const hasNext = soldItemsPage.page + 1 < soldItemsPage.totalPages;
+
+    el.innerHTML = `
+        <button class="btn btn-sm btn-secondary" ${hasPrev ? '' : 'disabled'} onclick="loadSoldItemsPage(${soldItemsPage.page - 1})">← Назад</button>
+        <span class="pagination-info">${from}–${to} из ${soldItemsPage.totalElements}</span>
+        <button class="btn btn-sm btn-secondary" ${hasNext ? '' : 'disabled'} onclick="loadSoldItemsPage(${soldItemsPage.page + 1})">Вперёд →</button>
+    `;
+}
+
+function clearSoldItemsPagination() {
+    const el = document.getElementById('soldItemsPagination');
+    if (el) el.innerHTML = '';
 }
 
 function renderItemCard(item) {
@@ -180,7 +247,7 @@ function updateMakeLotButton() {
 }
 
 async function deleteItem(id) {
-    if (!confirm('Удалить деталь без возможности восстановления?')) return;
+    if (!(await confirmAction('Удалить деталь без возможности восстановления?'))) return;
     await PartsAPI.delete(id);
     loadItems();
     loadStats();
@@ -240,7 +307,7 @@ async function submitEditItem(event) {
 }
 
 async function deleteItemFromCard() {
-    if (!confirm('Удалить деталь без возможности восстановления?')) return;
+    if (!(await confirmAction('Удалить деталь без возможности восстановления?'))) return;
     await PartsAPI.delete(currentCardItemId);
     closeModal('itemCardModal');
     loadItems();
@@ -313,7 +380,7 @@ async function uploadItemPhotos() {
 }
 
 async function deleteItemPhoto(photoId) {
-    if (!confirm('Удалить фото?')) return;
+    if (!(await confirmAction('Удалить фото?'))) return;
     await PartsAPI.deletePhoto(currentPhotosItemId, photoId);
     loadItemPhotos();
 }
@@ -374,7 +441,7 @@ async function loadLots() {
 }
 
 async function disbandLot(id) {
-    if (!confirm('Разобрать лот? Детали вернутся в самостоятельную продажу.')) return;
+    if (!(await confirmAction('Разобрать лот? Детали вернутся в самостоятельную продажу.', { danger: false, confirmText: 'Разобрать' }))) return;
     const res = await PartsAPI.disbandLot(id);
     if (res && res.error) { showNotification('Ошибка: ' + res.error, 'error'); return; }
     loadLots();
@@ -401,9 +468,7 @@ async function submitCreateLot(event) {
 }
 
 // ===== Вспомогательное =====
-
-function openModal(id) { document.getElementById(id).style.display = 'block'; }
-function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+// openModal/closeModal — общие, см. static/js/ui-common.js
 
 function set(id, v) { const el = document.getElementById(id); if (el) el.value = v == null ? '' : v; }
 function val(id) { const el = document.getElementById(id); return el ? el.value : ''; }

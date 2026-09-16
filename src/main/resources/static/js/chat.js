@@ -206,7 +206,7 @@ async function deleteCurrentConversation() {
     if (!currentConversationDetail?.conversation) return;
     const current = currentConversationDetail.conversation;
     const visitorName = current.visitorName || 'Посетитель';
-    const confirmed = window.confirm(`Удалить диалог с "${visitorName}"? Это действие нельзя отменить.`);
+    const confirmed = await confirmAction(`Удалить диалог с "${visitorName}"? Это действие нельзя отменить.`);
     if (!confirmed) {
         return;
     }

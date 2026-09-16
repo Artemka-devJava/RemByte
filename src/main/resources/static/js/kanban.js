@@ -290,7 +290,7 @@ async function deleteColumn(columnId) {
         return;
     }
 
-    if (!confirm(`Удалить колонку "${column.name || 'Без названия'}" вместе с карточками?`)) {
+    if (!(await confirmAction(`Удалить колонку "${column.name || 'Без названия'}" вместе с карточками?`))) {
         return;
     }
 
@@ -472,7 +472,7 @@ function renderCurrentAttachments(attachments) {
 
 async function removeAttachment(cardId, url) {
     if (!cardId || !url) return;
-    if (!confirm('Удалить вложение?')) return;
+    if (!(await confirmAction('Удалить вложение?'))) return;
 
     const result = await KanbanAPI.deleteAttachment(cardId, url);
     if (!result || result.error) {
@@ -522,7 +522,7 @@ async function submitCard(event) {
 }
 
 async function deleteCard(cardId) {
-    if (!confirm('Удалить карточку?')) return;
+    if (!(await confirmAction('Удалить карточку?'))) return;
 
     const result = await KanbanAPI.deleteCard(cardId);
     if (!result || result.error) {

@@ -5,9 +5,29 @@
   <div id="toast-container"></div>
   <!-- Мобильный оверлей для сайдбара -->
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- Модалка подтверждения — замена window.confirm(), см. ui-common.js -->
+  <div id="confirmModal" class="modal" style="display:none;">
+    <div class="modal-content" style="max-width:400px;">
+      <div class="modal-header">
+        <h2 id="confirmModalTitle">Подтверждение</h2>
+      </div>
+      <div class="modal-body">
+        <p id="confirmModalMessage" style="margin:0;color:var(--c-text);white-space:pre-line;"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="confirmModalCancel" class="btn btn-sm btn-secondary">Отмена</button>
+        <button type="button" id="confirmModalOk" class="btn btn-sm btn-danger">Да, удалить</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/ui-common.js"></script>
   <script src="/js/theme.js"></script>
   <script src="/js/plugin-host.js"></script>
   <script src="/js/reminders-notify.js"></script>
+  <script src="/js/combobox.js"></script>
+  <script src="/js/global-search.js"></script>
   <script>
     (function () {
       function ensureBurgerButton() {

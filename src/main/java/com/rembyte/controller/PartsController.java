@@ -5,6 +5,9 @@ import com.rembyte.model.PartLot;
 import com.rembyte.model.PartsBudget;
 import com.rembyte.service.PartsService;
 import com.rembyte.service.PartsStatistics;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -34,6 +37,19 @@ public class PartsController {
     @GetMapping
     public ResponseEntity<List<PartItem>> getAllItems(@RequestParam(required = false) String status) {
         return ResponseEntity.ok(partsService.getAllItems(status));
+    }
+
+    /**
+     * Постраничный список по статусу — сейчас используется только для
+     * «Продано» (parts.js): единственный неограниченно растущий список на
+     * этой странице (склад в наличии показан сгруппированным по категориям,
+     * полная пагинация сломала бы эту группировку).
+     */
+    @GetMapping("/page")
+    public ResponseEntity<Page<PartItem>> getItemsPage(
+            @RequestParam(required = false) String status,
+            @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(partsService.getItemsPage(status, pageable));
     }
 
     @GetMapping("/{id}")

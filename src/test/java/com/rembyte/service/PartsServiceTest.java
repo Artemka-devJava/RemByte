@@ -240,4 +240,29 @@ class PartsServiceTest {
         assertThat(stats.getCurrentBalance()).isEqualTo(13_800.0);
         assertThat(stats.getInventoryValue()).isEqualTo(2_000.0); // only the unsold item
     }
+
+    // ── постраничный список (parts.js: категория «Продано») ────
+
+    @Test
+    void getItemsPage_defaultsBlankStatusToSold() {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 20);
+        org.springframework.data.domain.Page<PartItem> page = new org.springframework.data.domain.PageImpl<>(List.of());
+        when(itemRepository.findByStatus(org.mockito.ArgumentMatchers.eq("SOLD"), any())).thenReturn(page);
+
+        org.springframework.data.domain.Page<PartItem> result = service.getItemsPage(null, pageable);
+
+        assertThat(result).isSameAs(page);
+        org.mockito.Mockito.verify(itemRepository).findByStatus("SOLD", pageable);
+    }
+
+    @Test
+    void getItemsPage_normalizesStatusToUpperCase() {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 20);
+        org.springframework.data.domain.Page<PartItem> page = new org.springframework.data.domain.PageImpl<>(List.of());
+        when(itemRepository.findByStatus(org.mockito.ArgumentMatchers.eq("IN_STOCK"), any())).thenReturn(page);
+
+        service.getItemsPage("in_stock", pageable);
+
+        org.mockito.Mockito.verify(itemRepository).findByStatus("IN_STOCK", pageable);
+    }
 }

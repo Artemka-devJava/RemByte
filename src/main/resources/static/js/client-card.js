@@ -148,14 +148,14 @@ async function saveCard() {
     showNotification('Карточка сохранена', 'success');
 }
 
-function goNewOrder() {
-    if (cardDirty && !confirm('Есть несохранённые изменения карточки. Перейти к заказу?')) return;
+async function goNewOrder() {
+    if (cardDirty && !(await confirmAction('Есть несохранённые изменения карточки. Перейти к заказу?', { danger: false, confirmText: 'Перейти' }))) return;
     location.href = `/orders?new=1&clientId=${CLIENT_ID}`;
 }
 
 async function toggleArchive() {
     const toArchive = !client.archivedAt;
-    if (toArchive && !confirm('Убрать клиента в архив? Он исчезнет из выбора при создании заказа, история сохранится.')) return;
+    if (toArchive && !(await confirmAction('Убрать клиента в архив? Он исчезнет из выбора при создании заказа, история сохранится.', { danger: false, confirmText: 'В архив' }))) return;
     const res = toArchive ? await ClientAPI.archive(CLIENT_ID) : await ClientAPI.restore(CLIENT_ID);
     if (!res || !res.id) { showNotification('Не удалось', 'error'); return; }
     client = res;
@@ -164,7 +164,7 @@ async function toggleArchive() {
 }
 
 async function removeClient() {
-    if (!confirm('Удалить клиента безвозвратно? Лучше используйте архив.')) return;
+    if (!(await confirmAction('Удалить клиента безвозвратно? Лучше используйте архив.'))) return;
     const ok = await ClientAPI.delete(CLIENT_ID);
     if (ok) location.href = '/clients';
     else showNotification('Не удалось удалить (возможно, есть заказы)', 'error');
@@ -233,7 +233,7 @@ async function addDevice() {
 }
 
 async function deleteDevice(id) {
-    if (!confirm('Удалить устройство?')) return;
+    if (!(await confirmAction('Удалить устройство?'))) return;
     await ClientAPI.deleteDevice(CLIENT_ID, id);
     loadDevices();
 }

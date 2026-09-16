@@ -9,6 +9,13 @@
       <div><span class="logo-text">FixByte</span><span class="logo-sub">CRM-система</span></div>
     </div>
 
+    <!-- Сквозной поиск клиентов/заказов — доступен с любой страницы, см. global-search.js -->
+    <div class="combo" style="padding:0 14px 14px;">
+      <input type="text" id="globalSearchInput" placeholder="🔍 Клиент или заказ… (/)"
+             style="width:100%;padding:9px 12px;border:1.5px solid var(--c-border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--c-card);color:var(--c-text);">
+      <div id="globalSearchMenu" class="combo-menu" hidden></div>
+    </div>
+
     <nav class="sidebar-nav" th:replace="~{fragments/sidebar-nav :: mainNav}"></nav>
 
     <div class="sidebar-footer" th:text="'FixByte CRM © 2026 · v' + ${appVersion}">FixByte CRM © 2026</div>

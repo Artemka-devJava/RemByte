@@ -41,17 +41,17 @@
 
       <div class="card">
         <div style="overflow-x:auto;">
-          <table class="data-table">
+          <table class="data-table responsive-cards">
             <thead>
               <tr>
-                <th>№ Заказа</th>
+                <th class="sortable" onclick="sortOrdersBy('orderNumber')">№ Заказа<span class="sort-arrow" id="sortArrow-orderNumber"></span></th>
                 <th>Клиент</th>
                 <th>Устройство</th>
                 <th>Статус</th>
-                <th>Сумма</th>
-                <th>Оплачено</th>
+                <th class="sortable" onclick="sortOrdersBy('totalPrice')">Сумма<span class="sort-arrow" id="sortArrow-totalPrice"></span></th>
+                <th class="sortable" onclick="sortOrdersBy('paidAmount')">Оплачено<span class="sort-arrow" id="sortArrow-paidAmount"></span></th>
                 <th>Остаток</th>
-                <th>Дата</th>
+                <th class="sortable" onclick="sortOrdersBy('createdAt')">Дата<span class="sort-arrow" id="sortArrow-createdAt"></span></th>
                 <th>Действия</th>
               </tr>
             </thead>
@@ -404,7 +404,6 @@
 <script>const IS_ADMIN = !!document.getElementById('adminMarker');</script>
 <th:block th:replace="~{fragments/common-scripts :: uiBase}"></th:block>
 <script src="/js/api.js"></script>
-<script src="/js/combobox.js"></script>
 <script src="/js/orders.js"></script>
 </body>
 </html>

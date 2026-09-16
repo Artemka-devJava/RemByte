@@ -106,17 +106,15 @@ const ClientAPI = {
     },
 
     // Постраничный список для таблицы /clients: серверная пагинация + фильтр
-    getPage: async ({ page = 0, size = 20, mode = 'active', q = '' } = {}) => {
-        try {
-            const params = new URLSearchParams({ page, size, mode });
-            if (q) params.set('q', q);
-            const response = await fetch(`${API_BASE}/clients/page?${params.toString()}`);
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return await response.json();
-        } catch (error) {
-            console.error('Error fetching clients page:', error);
-            return { content: [], totalPages: 0, totalElements: 0, number: 0 };
-        }
+    // Ошибку НЕ глушим здесь — вызывающая страница показывает тост и не
+    // путает "не загрузилось" с "пусто" (раньше оба выглядели одинаково).
+    getPage: async ({ page = 0, size = 20, mode = 'active', q = '', sort = '' } = {}) => {
+        const params = new URLSearchParams({ page, size, mode });
+        if (q) params.set('q', q);
+        if (sort) params.set('sort', sort);
+        const response = await fetch(`${API_BASE}/clients/page?${params.toString()}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
     },
 
     // Получить активных клиентов
@@ -380,18 +378,16 @@ const OrderAPI = {
     },
 
     // Постраничный список для таблицы /orders: серверная пагинация + фильтр
-    getPage: async ({ page = 0, size = 20, status = '', q = '' } = {}) => {
-        try {
-            const params = new URLSearchParams({ page, size });
-            if (status) params.set('status', status);
-            if (q) params.set('q', q);
-            const response = await fetch(`${API_BASE}/orders/page?${params.toString()}`);
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return await response.json();
-        } catch (error) {
-            console.error('Error fetching orders page:', error);
-            return { content: [], totalPages: 0, totalElements: 0, number: 0 };
-        }
+    // Ошибку НЕ глушим здесь — вызывающая страница показывает тост и не
+    // путает "не загрузилось" с "пусто" (раньше оба выглядели одинаково).
+    getPage: async ({ page = 0, size = 20, status = '', q = '', sort = '' } = {}) => {
+        const params = new URLSearchParams({ page, size });
+        if (status) params.set('status', status);
+        if (q) params.set('q', q);
+        if (sort) params.set('sort', sort);
+        const response = await fetch(`${API_BASE}/orders/page?${params.toString()}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
     },
 
     // Получить заказы клиента
@@ -1111,18 +1107,25 @@ const KanbanAPI = {
 
 // ====== PARTS API (комплектующие: закупка/продажа деталей и лотов) ======
 const PartsAPI = {
+    // Ошибку НЕ глушим — вызывающая страница показывает тост и не путает
+    // "не загрузилось" с "деталей действительно нет".
     getAll: async (status) => {
-        try {
-            const qs = status ? `?status=${encodeURIComponent(status)}` : '';
-            const response = await fetch(`${API_BASE}/parts${qs}`);
-            return await response.json();
-        } catch (error) {
-            console.error('Error fetching parts:', error);
-            return [];
-        }
+        const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+        const response = await fetch(`${API_BASE}/parts${qs}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
     },
 
     getById: async (id) => _partsGet(`${id}`, null),
+
+    // Постраничный список по статусу — сейчас нужен только для «Продано» (parts.js)
+    getPage: async ({ page = 0, size = 20, status = '' } = {}) => {
+        const params = new URLSearchParams({ page, size });
+        if (status) params.set('status', status);
+        const response = await fetch(`${API_BASE}/parts/page?${params.toString()}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
+    },
 
     create: async (data) => {
         try {

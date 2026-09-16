@@ -31,14 +31,14 @@
 
       <div class="card">
         <div style="overflow-x:auto;">
-          <table class="data-table">
+          <table class="data-table responsive-cards">
             <thead>
               <tr>
-                <th>ФИО / Название</th>
-                <th>Телефон</th>
+                <th class="sortable" onclick="sortClientsBy('name')">ФИО / Название<span class="sort-arrow" id="sortArrow-name"></span></th>
+                <th class="sortable" onclick="sortClientsBy('phone')">Телефон<span class="sort-arrow" id="sortArrow-phone"></span></th>
                 <th>Тип</th>
                 <th>Метки</th>
-                <th>Добавлен</th>
+                <th class="sortable" onclick="sortClientsBy('createdAt')">Добавлен<span class="sort-arrow" id="sortArrow-createdAt"></span></th>
               </tr>
             </thead>
             <tbody id="clientsTable">

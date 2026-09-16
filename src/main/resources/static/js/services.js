@@ -149,7 +149,7 @@ async function submitCategory(event) {
 }
 
 async function deleteCategory(id, name) {
-    if (!confirm(`Удалить категорию "${name}"?\nУслуги останутся, но категория будет снята.`)) return;
+    if (!(await confirmAction(`Удалить категорию "${name}"?\nУслуги останутся, но категория будет снята.`))) return;
     try {
         const res = await fetch(`/api/categories/${id}`, { method: 'DELETE' });
         if (res.status === 204) {
@@ -308,7 +308,7 @@ async function submitService(event) {
 }
 
 async function deleteService(id, name) {
-    if (!confirm(`Удалить услугу "${name}"?`)) return;
+    if (!(await confirmAction(`Удалить услугу "${name}"?`))) return;
     try {
         const res = await fetch(`/api/services/${id}`, { method: 'DELETE' });
         if (res.status === 204) {

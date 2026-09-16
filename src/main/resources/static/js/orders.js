@@ -5,8 +5,8 @@
 let allOrders   = []; // текущая страница заказов (не вся таблица — см. loadOrders)
 let allServices = [];
 
-// Состояние серверной пагинации/фильтра таблицы заказов
-const ordersPage = { page: 0, size: 20, totalPages: 0, totalElements: 0, status: '', q: '' };
+// Состояние серверной пагинации/фильтра/сортировки таблицы заказов
+const ordersPage = { page: 0, size: 20, totalPages: 0, totalElements: 0, status: '', q: '', sort: 'createdAt', dir: 'desc' };
 let currentViewOrderId = null; // ID заказа в модале просмотра
 let currentViewOrder   = null; // полный объект заказа для чека
 
@@ -84,17 +84,37 @@ async function loadOrders() {
             page: ordersPage.page,
             size: ordersPage.size,
             status: ordersPage.status,
-            q: ordersPage.q
+            q: ordersPage.q,
+            sort: `${ordersPage.sort},${ordersPage.dir}`
         });
         allOrders = Array.isArray(result.content) ? result.content : [];
         ordersPage.totalPages = result.totalPages || 0;
         ordersPage.totalElements = result.totalElements || 0;
         renderOrdersTable(allOrders);
         renderOrdersPagination();
+        updateSortArrows();
     } catch (error) {
         console.error('Error loading orders:', error);
         showNotification('Ошибка загрузки заказов', 'error');
     }
+}
+
+/** Клик по заголовку столбца — сортировка на сервере (тот же клик второй раз меняет направление). */
+function sortOrdersBy(field) {
+    if (ordersPage.sort === field) {
+        ordersPage.dir = ordersPage.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+        ordersPage.sort = field;
+        ordersPage.dir = field === 'orderNumber' ? 'asc' : 'desc';
+    }
+    ordersPage.page = 0;
+    loadOrders();
+}
+
+function updateSortArrows() {
+    document.querySelectorAll('.data-table .sort-arrow').forEach(el => { el.textContent = ''; });
+    const arrow = document.getElementById('sortArrow-' + ordersPage.sort);
+    if (arrow) arrow.textContent = ordersPage.dir === 'asc' ? '▲' : '▼';
 }
 
 function renderOrdersPagination() {
@@ -148,16 +168,16 @@ function renderOrdersTable(orders) {
         const balanceStyle = balance > 0 ? 'color:var(--c-danger);font-weight:600;' : 'color:var(--c-success);font-weight:600;';
         return `
         <tr>
-            <td><strong>${order.orderNumber}</strong></td>
-            <td>${order.clientName || '—'}</td>
-            <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+            <td data-label="№ Заказа"><strong>${order.orderNumber}</strong></td>
+            <td data-label="Клиент">${order.clientName || '—'}</td>
+            <td data-label="Устройство" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
                 title="${order.deviceDescription || ''}">${(order.deviceDescription || '—').substring(0,30)}</td>
-            <td><span class="status-badge status-${(order.status || 'new').toLowerCase()}">${STATUS_LABELS[order.status] || order.status}</span></td>
-            <td><strong>${formatCurrency(order.totalPrice)}</strong></td>
-            <td>${formatCurrency(order.paidAmount)}</td>
-            <td><span style="${balanceStyle}">${formatCurrency(balance)}</span></td>
-            <td>${formatDate(order.createdAt)}</td>
-            <td style="white-space:nowrap;">
+            <td data-label="Статус"><span class="status-badge status-${(order.status || 'new').toLowerCase()}">${STATUS_LABELS[order.status] || order.status}</span></td>
+            <td data-label="Сумма"><strong>${formatCurrency(order.totalPrice)}</strong></td>
+            <td data-label="Оплачено">${formatCurrency(order.paidAmount)}</td>
+            <td data-label="Остаток"><span style="${balanceStyle}">${formatCurrency(balance)}</span></td>
+            <td data-label="Дата">${formatDate(order.createdAt)}</td>
+            <td data-label="" style="white-space:nowrap;">
                 <button class="btn btn-sm btn-primary" onclick="viewOrder(${order.id})" title="Просмотр и смена статуса">👁 Открыть</button>
                 <button class="btn btn-sm btn-secondary" onclick="editOrder(${order.id})" title="Редактировать">✏️</button>
             </td>
@@ -594,6 +614,7 @@ async function addLineToOpenOrder(linePayload) {
 
 async function deleteLineFromOpenOrder(lineId) {
     if (!currentViewOrderId || !lineId) return;
+    if (!(await confirmAction('Убрать эту позицию из заказа?'))) return;
     const updated = await OrderAPI.deleteLine(currentViewOrderId, lineId);
     if (updated && updated.id) {
         currentViewOrder = updated;
@@ -1184,7 +1205,7 @@ function getFileExtension(fileName) {
 
 async function deleteOrderAttachment(attachmentUrl) {
     if (!currentViewOrderId || !attachmentUrl) return;
-    const confirmed = window.confirm('Удалить это вложение из заказа?');
+    const confirmed = await confirmAction('Удалить это вложение из заказа?');
     if (!confirmed) return;
 
     try {

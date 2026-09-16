@@ -148,7 +148,7 @@ async function submitUser(event) {
 // ===== УДАЛИТЬ =====
 
 async function deleteUser(id, username) {
-    if (!confirm(`Удалить пользователя "${username}"?\nЭто действие необратимо.`)) return;
+    if (!(await confirmAction(`Удалить пользователя "${username}"?\nЭто действие необратимо.`))) return;
 
     try {
         const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
