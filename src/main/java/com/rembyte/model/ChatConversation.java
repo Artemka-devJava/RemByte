@@ -8,7 +8,8 @@ import java.util.UUID;
 
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Entity
-@Table(name = "chat_conversations")
+@Table(name = "chat_conversations", indexes = @Index(
+        name = "idx_chat_conversations_status_last_message", columnList = "status, last_message_at"))
 public class ChatConversation {
 
     @Id

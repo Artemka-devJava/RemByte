@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Entity
-@Table(name = "payments")
+@Table(name = "payments", indexes = @Index(name = "idx_payments_order", columnList = "order_id"))
 public class Payment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

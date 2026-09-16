@@ -12,7 +12,11 @@ import java.util.stream.Collectors;
 
 @JsonIgnoreProperties(value = {"hibernateLazyInitializer", "handler"}, ignoreUnknown = true)
 @Entity
-@Table(name = "orders")
+@Table(name = "orders", indexes = {
+        @Index(name = "idx_orders_status", columnList = "status"),
+        @Index(name = "idx_orders_created_at", columnList = "created_at"),
+        @Index(name = "idx_orders_client", columnList = "client_id")
+})
 public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

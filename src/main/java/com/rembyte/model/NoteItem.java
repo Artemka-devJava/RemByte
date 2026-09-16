@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Entity
-@Table(name = "note_items")
+@Table(name = "note_items", indexes = @Index(name = "idx_note_items_folder", columnList = "folder_id"))
 public class NoteItem {
 
     @Id

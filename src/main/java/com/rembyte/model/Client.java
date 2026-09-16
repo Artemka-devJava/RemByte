@@ -6,7 +6,10 @@ import java.time.LocalDateTime;
 
 @JsonIgnoreProperties(value = {"hibernateLazyInitializer", "handler"}, ignoreUnknown = true)
 @Entity
-@Table(name = "clients")
+@Table(name = "clients", indexes = {
+        @Index(name = "idx_clients_archived_at", columnList = "archived_at"),
+        @Index(name = "idx_clients_is_active", columnList = "is_active")
+})
 public class Client {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

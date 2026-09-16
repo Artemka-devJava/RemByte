@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Entity
-@Table(name = "chat_messages")
+@Table(name = "chat_messages", indexes = @Index(name = "idx_chat_messages_conversation", columnList = "conversation_id"))
 public class ChatMessage {
 
     @Id
