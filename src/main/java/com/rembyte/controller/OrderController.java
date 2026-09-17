@@ -2,6 +2,8 @@ package com.rembyte.controller;
 
 import com.rembyte.model.Order;
 import com.rembyte.model.OrderLine;
+import com.rembyte.model.Payment;
+import com.rembyte.model.PaymentMethod;
 import com.rembyte.service.AcceptanceActService;
 import com.rembyte.service.FileStorageService;
 import com.rembyte.service.OrderListItem;
@@ -130,11 +132,28 @@ public class OrderController {
     }
 
     @PostMapping("/{id}/payment")
-    public ResponseEntity<Order> addPayment(@PathVariable Long id, @RequestParam Double amount) {
+    public ResponseEntity<?> addPayment(@PathVariable Long id, @RequestParam Double amount,
+                                        @RequestParam(required = false) PaymentMethod method) {
         try {
-            return ResponseEntity.ok(orderService.addPayment(id, amount));
+            return ResponseEntity.ok(orderService.addPayment(id, amount, method));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/{id}/payments")
+    public ResponseEntity<List<Payment>> getPayments(@PathVariable Long id) {
+        return ResponseEntity.ok(orderService.getPayments(id));
+    }
+
+    @DeleteMapping("/{id}/payments/{paymentId}")
+    public ResponseEntity<?> deletePayment(@PathVariable Long id, @PathVariable Long paymentId) {
+        try {
+            return ResponseEntity.ok(orderService.deletePayment(id, paymentId));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }
     }
 

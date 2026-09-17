@@ -529,6 +529,30 @@ a:hover { text-decoration: underline; }
   font-size: 13px;
 }
 
+.payment-history-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: 7px;
+  background: var(--c-card);
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.payment-history-amount { font-weight: 600; }
+.payment-history-meta { flex: 1; color: var(--c-muted); font-size: 12px; }
+.payment-history-del {
+  border: none;
+  background: none;
+  color: var(--c-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+}
+.payment-history-del:hover { color: var(--c-danger); }
+.payment-history-empty { color: var(--c-muted); font-size: 12.5px; }
+
 /* Document file card */
 .order-media-card.doc-card .order-media-preview {
   display: flex;

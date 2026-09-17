@@ -573,6 +573,9 @@ async function viewOrder(id) {
     const statusSelect = document.getElementById('vOrderStatus');
     statusSelect.value = order.status || 'NEW';
     document.getElementById('vPaymentAmount').value = '';
+    const paymentMethodSelect = document.getElementById('vPaymentMethod');
+    if (paymentMethodSelect) paymentMethodSelect.value = 'CASH';
+    loadPaymentHistory(id);
     const vsearch = document.getElementById('vServiceSearch');
     if (vsearch) vsearch.value = '';
     const vReminderDate = document.getElementById('vReminderDate');
@@ -736,9 +739,10 @@ async function addPaymentFromModal() {
     const amountStr = document.getElementById('vPaymentAmount').value;
     const amount = parseFloat(amountStr);
     if (!amount || amount <= 0) { showNotification('Введите корректную сумму оплаты', 'warning'); return; }
+    const method = document.getElementById('vPaymentMethod')?.value || 'CASH';
 
     try {
-        const result = await OrderAPI.addPayment(currentViewOrderId, amount);
+        const result = await OrderAPI.addPayment(currentViewOrderId, amount, method);
         if (result && result.id) {
             showNotification(`Оплата ${formatCurrency(amount)} добавлена`, 'success');
             document.getElementById('vPaymentAmount').value = '';
@@ -747,6 +751,7 @@ async function addPaymentFromModal() {
             const balEl = document.getElementById('vOrderBalance');
             balEl.textContent = formatCurrency(balance);
             balEl.style.color = balance > 0 ? 'var(--c-danger)' : 'var(--c-success)';
+            loadPaymentHistory(currentViewOrderId);
             loadOrders();
         } else {
             showNotification('Ошибка при добавлении оплаты', 'error');
@@ -754,6 +759,51 @@ async function addPaymentFromModal() {
     } catch (error) {
         console.error('Error adding payment:', error);
         showNotification('Ошибка при добавлении оплаты', 'error');
+    }
+}
+
+const PAYMENT_METHOD_LABELS = {
+    CASH: 'Наличные',
+    CARD: 'Карта',
+    TRANSFER: 'Перевод',
+    INSTALLMENT: 'Рассрочка'
+};
+
+async function loadPaymentHistory(orderId) {
+    const box = document.getElementById('vPaymentHistory');
+    if (!box) return;
+    const payments = await OrderAPI.getPayments(orderId);
+
+    if (!Array.isArray(payments) || payments.length === 0) {
+        box.innerHTML = '<div class="payment-history-empty">Платежей ещё не было</div>';
+        return;
+    }
+
+    box.innerHTML = payments.map(p => `
+        <div class="payment-history-row">
+            <span class="payment-history-amount">${formatCurrency(p.amount)}</span>
+            <span class="payment-history-meta">${PAYMENT_METHOD_LABELS[p.method] || p.method} · ${formatDate(p.paymentDate)}</span>
+            <button type="button" class="payment-history-del" title="Удалить платёж" onclick="deletePaymentFromHistory(${p.id})">🗑</button>
+        </div>
+    `).join('');
+}
+
+async function deletePaymentFromHistory(paymentId) {
+    if (!currentViewOrderId) return;
+    if (!confirm('Удалить этот платёж? Сумма будет вычтена из «Оплачено».')) return;
+
+    const result = await OrderAPI.deletePayment(currentViewOrderId, paymentId);
+    if (result && result.id) {
+        showNotification('Платёж удалён', 'success');
+        document.getElementById('vOrderPaid').textContent = formatCurrency(result.paidAmount);
+        const balance = (result.totalPrice || 0) - (result.paidAmount || 0);
+        const balEl = document.getElementById('vOrderBalance');
+        balEl.textContent = formatCurrency(balance);
+        balEl.style.color = balance > 0 ? 'var(--c-danger)' : 'var(--c-success)';
+        loadPaymentHistory(currentViewOrderId);
+        loadOrders();
+    } else {
+        showNotification('Не удалось удалить платёж', 'error');
     }
 }
 

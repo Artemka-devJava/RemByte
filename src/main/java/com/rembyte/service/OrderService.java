@@ -2,6 +2,8 @@ package com.rembyte.service;
 
 import com.rembyte.model.Order;
 import com.rembyte.model.OrderLine;
+import com.rembyte.model.Payment;
+import com.rembyte.model.PaymentMethod;
 import com.rembyte.model.RepairService;
 import com.rembyte.repository.OrderAttachmentRepository;
 import com.rembyte.repository.OrderRepository;
@@ -161,12 +163,52 @@ public class OrderService {
         }).orElseThrow(() -> new RuntimeException("Заказ не найден"));
     }
 
-    public Order addPayment(Long orderId, Double amount) {
-        return orderRepository.findById(orderId).map(order -> {
-            order.setPaidAmount(order.getPaidAmount() + amount);
-            order.setUpdatedAt(LocalDateTime.now());
-            return orderRepository.save(order);
-        }).orElseThrow(() -> new RuntimeException("Заказ не найден"));
+    /**
+     * Внести оплату по заказу: приплюсовать к {@link Order#getPaidAmount()}
+     * (быстрый бегущий итог — используется в списках/статистике без похода
+     * в {@code payments}) и параллельно завести запись {@link Payment} —
+     * историю (дата, способ) для карточки заказа.
+     */
+    public Order addPayment(Long orderId, Double amount, PaymentMethod method) {
+        if (amount == null || amount <= 0) {
+            throw new IllegalArgumentException("Сумма оплаты должна быть больше нуля");
+        }
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+
+        order.setPaidAmount(order.getPaidAmount() + amount);
+        order.setUpdatedAt(LocalDateTime.now());
+        orderRepository.save(order);
+
+        Payment payment = new Payment(order, amount);
+        payment.setMethod(method == null ? PaymentMethod.CASH : method);
+        paymentRepository.save(payment);
+
+        return order;
+    }
+
+    /** История платежей по заказу, новые сверху. */
+    public List<Payment> getPayments(Long orderId) {
+        return paymentRepository.findByOrderIdOrderByPaymentDateDesc(orderId);
+    }
+
+    /**
+     * Удалить ошибочно внесённый платёж: снимает его сумму с
+     * {@link Order#getPaidAmount()} и удаляет саму запись.
+     */
+    public Order deletePayment(Long orderId, Long paymentId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+        Payment payment = paymentRepository.findById(paymentId)
+                .filter(p -> orderId.equals(p.getOrder().getId()))
+                .orElseThrow(() -> new RuntimeException("Платёж не найден"));
+
+        order.setPaidAmount(Math.max(0, order.getPaidAmount() - payment.getAmount()));
+        order.setUpdatedAt(LocalDateTime.now());
+        orderRepository.save(order);
+        paymentRepository.delete(payment);
+
+        return order;
     }
 
     public Order addAttachmentUrls(Long orderId, List<String> photoUrls, List<String> videoUrls, List<String> fileUrls) {

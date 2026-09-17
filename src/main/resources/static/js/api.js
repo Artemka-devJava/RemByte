@@ -515,15 +515,44 @@ const OrderAPI = {
     },
 
     // Добавить платеж
-    addPayment: async (id, amount) => {
+    addPayment: async (id, amount, method) => {
         try {
-            const response = await fetch(`${API_BASE}/orders/${id}/payment?amount=${amount}`, {
+            const params = new URLSearchParams({ amount });
+            if (method) params.set('method', method);
+            const response = await fetch(`${API_BASE}/orders/${id}/payment?${params}`, {
                 method: 'POST',
                 headers: getCsrfOnlyHeaders()
             });
             return await response.json();
         } catch (error) {
             console.error('Error adding payment:', error);
+            return null;
+        }
+    },
+
+    // История платежей по заказу
+    getPayments: async (id) => {
+        try {
+            const response = await fetch(`${API_BASE}/orders/${id}/payments`);
+            if (!response.ok) return [];
+            return await response.json();
+        } catch (error) {
+            console.error('Error loading payments:', error);
+            return [];
+        }
+    },
+
+    // Удалить ошибочно внесённый платёж
+    deletePayment: async (id, paymentId) => {
+        try {
+            const response = await fetch(`${API_BASE}/orders/${id}/payments/${paymentId}`, {
+                method: 'DELETE',
+                headers: getCsrfOnlyHeaders()
+            });
+            if (!response.ok) return null;
+            return await response.json();
+        } catch (error) {
+            console.error('Error deleting payment:', error);
             return null;
         }
     },

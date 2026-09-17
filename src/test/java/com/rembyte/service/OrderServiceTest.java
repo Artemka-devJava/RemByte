@@ -2,6 +2,8 @@ package com.rembyte.service;
 
 import com.rembyte.model.Order;
 import com.rembyte.model.OrderLine;
+import com.rembyte.model.Payment;
+import com.rembyte.model.PaymentMethod;
 import com.rembyte.model.RepairService;
 import com.rembyte.repository.OrderAttachmentRepository;
 import com.rembyte.repository.OrderRepository;
@@ -11,6 +13,7 @@ import com.rembyte.repository.RepairServiceRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -145,21 +148,99 @@ class OrderServiceTest {
     }
 
     @Test
-    void addPayment_accumulatesOntoPaidAmount() {
+    void addPayment_accumulatesOntoPaidAmountAndRecordsHistory() {
         Order order = new Order();
         order.setPaidAmount(100.0);
+        order.setId(1L);
         when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
 
-        service.addPayment(1L, 250.0);
+        service.addPayment(1L, 250.0, PaymentMethod.CARD);
 
         assertThat(order.getPaidAmount()).isEqualTo(350.0);
+        ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).save(captor.capture());
+        assertThat(captor.getValue().getAmount()).isEqualTo(250.0);
+        assertThat(captor.getValue().getMethod()).isEqualTo(PaymentMethod.CARD);
+        assertThat(captor.getValue().getOrder()).isSameAs(order);
+    }
+
+    @Test
+    void addPayment_defaultsMethodToCashWhenOmitted() {
+        Order order = new Order();
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        service.addPayment(1L, 100.0, null);
+
+        ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).save(captor.capture());
+        assertThat(captor.getValue().getMethod()).isEqualTo(PaymentMethod.CASH);
+    }
+
+    @Test
+    void addPayment_rejectsZeroOrNegativeAmount() {
+        assertThatThrownBy(() -> service.addPayment(1L, 0.0, null)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.addPayment(1L, -5.0, null)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void deletePayment_subtractsFromPaidAmountAndRemovesRecord() {
+        Order order = new Order();
+        order.setId(1L);
+        order.setPaidAmount(300.0);
+        Payment payment = new Payment(order, 120.0);
+        payment.setId(9L);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(paymentRepository.findById(9L)).thenReturn(Optional.of(payment));
+
+        service.deletePayment(1L, 9L);
+
+        assertThat(order.getPaidAmount()).isEqualTo(180.0);
+        verify(paymentRepository).delete(payment);
+    }
+
+    @Test
+    void deletePayment_clampsPaidAmountAtZero() {
+        Order order = new Order();
+        order.setId(1L);
+        order.setPaidAmount(50.0);
+        Payment payment = new Payment(order, 200.0);
+        payment.setId(9L);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(paymentRepository.findById(9L)).thenReturn(Optional.of(payment));
+
+        service.deletePayment(1L, 9L);
+
+        assertThat(order.getPaidAmount()).isEqualTo(0.0);
+    }
+
+    @Test
+    void deletePayment_rejectsPaymentBelongingToAnotherOrder() {
+        Order thisOrder = new Order();
+        thisOrder.setId(1L);
+        Order otherOrder = new Order();
+        otherOrder.setId(2L);
+        Payment payment = new Payment(otherOrder, 100.0);
+        payment.setId(9L);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(thisOrder));
+        when(paymentRepository.findById(9L)).thenReturn(Optional.of(payment));
+
+        assertThatThrownBy(() -> service.deletePayment(1L, 9L)).isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    void getPayments_delegatesToRepositoryOrderedByDateDesc() {
+        List<Payment> expected = List.of(new Payment(new Order(), 10.0));
+        when(paymentRepository.findByOrderIdOrderByPaymentDateDesc(1L)).thenReturn(expected);
+
+        assertThat(service.getPayments(1L)).isSameAs(expected);
     }
 
     @Test
     void mutatingOperationsOnMissingOrderThrow() {
         when(orderRepository.findById(77L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.updateOrderStatus(77L, "NEW")).isInstanceOf(RuntimeException.class);
-        assertThatThrownBy(() -> service.addPayment(77L, 10.0)).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> service.addPayment(77L, 10.0, null)).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> service.deletePayment(77L, 1L)).isInstanceOf(RuntimeException.class);
         assertThatThrownBy(() -> service.addLine(77L, new OrderLine())).isInstanceOf(RuntimeException.class);
     }
 

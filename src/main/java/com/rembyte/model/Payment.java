@@ -1,5 +1,6 @@
 package com.rembyte.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
@@ -12,6 +13,10 @@ public class Payment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Не отдаём наружу вместе с платежом — заказ и так известен по URL
+    // (/api/orders/{id}/payments), а сериализация полного Order (клиент,
+    // строки и т.д.) внутри каждого платежа была бы избыточной.
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
