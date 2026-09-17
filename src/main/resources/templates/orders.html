@@ -51,6 +51,7 @@
                 <th class="sortable" onclick="sortOrdersBy('totalPrice')">Сумма<span class="sort-arrow" id="sortArrow-totalPrice"></span></th>
                 <th class="sortable" onclick="sortOrdersBy('paidAmount')">Оплачено<span class="sort-arrow" id="sortArrow-paidAmount"></span></th>
                 <th>Остаток</th>
+                <th class="sortable" onclick="sortOrdersBy('materialCost')">Расходники<span class="sort-arrow" id="sortArrow-materialCost"></span></th>
                 <th class="sortable" onclick="sortOrdersBy('createdAt')">Дата<span class="sort-arrow" id="sortArrow-createdAt"></span></th>
                 <th>Действия</th>
               </tr>
@@ -104,6 +105,14 @@
         <div class="order-detail-row">
           <span class="order-detail-label">Остаток</span>
           <span class="order-detail-value" id="vOrderBalance" style="color:var(--c-danger);font-weight:600;">—</span>
+        </div>
+        <div class="order-detail-row">
+          <span class="order-detail-label">Расходники</span>
+          <span class="order-detail-value" id="vOrderMaterialCost">—</span>
+        </div>
+        <div class="order-detail-row">
+          <span class="order-detail-label">Прибыль</span>
+          <span class="order-detail-value" id="vOrderProfit" style="font-weight:600;">—</span>
         </div>
         <div class="order-detail-row">
           <span class="order-detail-label">Создан</span>
@@ -188,6 +197,7 @@
       </div>
     </div>
     <div class="modal-footer">
+      <button class="btn btn-danger"    onclick="deleteCurrentOrder()" style="margin-right:auto;">🗑 Удалить заказ</button>
       <button class="btn btn-secondary" onclick="closeViewOrderModal()">Закрыть</button>
       <button class="btn btn-accent"    id="btnPrintReceipt" onclick="openCurrentReceipt()" style="display:none;">🧾 Напечатать чек</button>
       <button class="btn btn-secondary" onclick="openEditFromView()">✏️ Редактировать</button>
@@ -240,6 +250,15 @@
           </label>
         </div>
         <div class="form-group">
+          <label>Расходные материалы, ₽:</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="number" id="orderMaterialCost" min="0" step="10" value="0" style="flex:1;"
+                   placeholder="Себестоимость запчастей/расходников по заказу">
+            <button type="button" class="btn btn-sm btn-secondary" onclick="applyMaterialCostDeduction()">➖ Вычесть из прибыли</button>
+          </div>
+          <small class="upload-hint">Вычитается из выручки при расчёте прибыли — не видно клиенту.</small>
+        </div>
+        <div class="form-group">
           <label>Заметки:</label>
           <textarea id="orderNotes" placeholder="Дополнительная информация..."></textarea>
         </div>
@@ -263,6 +282,10 @@
         <div class="order-total-box">
           <span>💰 Итого:</span>
           <span id="orderTotalPrice">0 ₽</span>
+        </div>
+        <div class="order-total-box" style="font-size:13px;color:var(--c-muted);">
+          <span>Прибыль за вычетом расходников:</span>
+          <span id="orderNetProfit">0 ₽</span>
         </div>
         <br>
         <button type="submit" class="btn btn-primary btn-block">✅ Сохранить заказ</button>

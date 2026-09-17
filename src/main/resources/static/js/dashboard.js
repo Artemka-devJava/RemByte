@@ -26,8 +26,10 @@ function calculatePeriodTotals(orders, periodStart, periodEnd) {
     return inPeriod.reduce((acc, order) => {
         acc.totalRevenue += Number(order.totalPrice) || 0;
         acc.totalPaid += Number(order.paidAmount) || 0;
+        acc.totalMaterialCost += Number(order.materialCost) || 0;
+        acc.netProfit = acc.totalRevenue - acc.totalMaterialCost;
         return acc;
-    }, { totalRevenue: 0, totalPaid: 0 });
+    }, { totalRevenue: 0, totalPaid: 0, totalMaterialCost: 0, netProfit: 0 });
 }
 
 /** Диапазон дат для карточек «Выручка/Оплачено за период» — см. #statsPeriod. */
@@ -223,12 +225,16 @@ async function refreshPeriodStats() {
     const fallback = calculatePeriodTotals(dashboardOrdersCache, from, to);
     const totalRevenue = Number(periodStats?.totalRevenue);
     const totalPaid = Number(periodStats?.totalPaid);
+    const netProfit = Number(periodStats?.netProfit);
 
     document.getElementById('periodRevenue').textContent = formatCurrency(
         Number.isFinite(totalRevenue) ? totalRevenue : fallback.totalRevenue
     );
     document.getElementById('totalPaid').textContent = formatCurrency(
         Number.isFinite(totalPaid) ? totalPaid : fallback.totalPaid
+    );
+    document.getElementById('periodProfit').textContent = formatCurrency(
+        Number.isFinite(netProfit) ? netProfit : fallback.netProfit
     );
 }
 

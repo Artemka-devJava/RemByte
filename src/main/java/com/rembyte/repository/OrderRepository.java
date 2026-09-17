@@ -46,7 +46,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
      */
     @Query("SELECT new com.rembyte.service.OrderListItem(" +
            "o.id, o.orderNumber, c.id, c.name, o.status, o.deviceDescription, " +
-           "o.totalPrice, o.paidAmount, o.createdAt) " +
+           "o.totalPrice, o.paidAmount, o.materialCost, o.createdAt) " +
            "FROM Order o JOIN o.client c " +
            "WHERE (:status = '' OR o.status = :status) " +
            "AND (:q = '' " +

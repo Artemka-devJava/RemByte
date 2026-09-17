@@ -16,5 +16,6 @@ public record OrderListItem(
         String deviceDescription,
         Double totalPrice,
         Double paidAmount,
+        Double materialCost,
         LocalDateTime createdAt
 ) {}

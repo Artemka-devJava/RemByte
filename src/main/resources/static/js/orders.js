@@ -59,6 +59,11 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.addEventListener('keyup', e => { if (e.key === 'Enter') searchOrders(); });
     }
 
+    const materialCostInput = document.getElementById('orderMaterialCost');
+    if (materialCostInput) {
+        materialCostInput.addEventListener('input', updateOrderNetProfitPreview);
+    }
+
     initAttachmentInputAndDropzone('createAttachmentFiles', 'createAttachmentFilesList', 'createAttachmentDropzone');
     initAttachmentInputAndDropzone('vAttachmentFiles', 'vAttachmentFilesList', 'vAttachmentDropzone');
 
@@ -159,7 +164,7 @@ async function loadServicesForSelect() {
 function renderOrdersTable(orders) {
     const tbody = document.getElementById('ordersTable');
     if (!orders || orders.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="empty">Нет заказов</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="empty">Нет заказов</td></tr>';
         return;
     }
 
@@ -176,6 +181,7 @@ function renderOrdersTable(orders) {
             <td data-label="Сумма"><strong>${formatCurrency(order.totalPrice)}</strong></td>
             <td data-label="Оплачено">${formatCurrency(order.paidAmount)}</td>
             <td data-label="Остаток"><span style="${balanceStyle}">${formatCurrency(balance)}</span></td>
+            <td data-label="Расходники">${formatCurrency(order.materialCost)}</td>
             <td data-label="Дата">${formatDate(order.createdAt)}</td>
             <td data-label="" style="white-space:nowrap;">
                 <button class="btn btn-sm btn-primary" onclick="viewOrder(${order.id})" title="Просмотр и смена статуса">👁 Открыть</button>
@@ -430,6 +436,30 @@ function computeOrderTotal() {
 function updateOrderTotal() {
     const el = document.getElementById('orderTotalPrice');
     if (el) el.textContent = formatCurrency(computeOrderTotal());
+    updateOrderNetProfitPreview();
+}
+
+function updateOrderNetProfitPreview() {
+    const el = document.getElementById('orderNetProfit');
+    if (!el) return;
+    const materialCost = Number(document.getElementById('orderMaterialCost')?.value) || 0;
+    el.textContent = formatCurrency(computeOrderTotal() - materialCost);
+}
+
+/** Явная кнопка «вычесть расходники»: пересчитать превью и наглядно подтвердить сумму. */
+function applyMaterialCostDeduction() {
+    const materialCost = Math.max(0, Number(document.getElementById('orderMaterialCost')?.value) || 0);
+    updateOrderNetProfitPreview();
+    const el = document.getElementById('orderNetProfit');
+    if (el) {
+        el.style.transition = 'none';
+        el.style.color = 'var(--c-danger)';
+        requestAnimationFrame(() => {
+            el.style.transition = 'color .6s';
+            el.style.color = '';
+        });
+    }
+    showNotification(`Из прибыли вычтено ${formatCurrency(materialCost)} расходников`, 'info');
 }
 
 /** Собрать состав заказа для отправки; при необходимости — записать новые позиции в справочник. */
@@ -523,6 +553,13 @@ async function viewOrder(id) {
     const balEl = document.getElementById('vOrderBalance');
     balEl.textContent = formatCurrency(balance);
     balEl.style.color = balance > 0 ? 'var(--c-danger)' : 'var(--c-success)';
+
+    const materialCost = Number(order.materialCost) || 0;
+    const netProfit = (order.totalPrice || 0) - materialCost;
+    document.getElementById('vOrderMaterialCost').textContent = formatCurrency(materialCost);
+    const profitEl = document.getElementById('vOrderProfit');
+    profitEl.textContent = formatCurrency(netProfit);
+    profitEl.style.color = netProfit < 0 ? 'var(--c-danger)' : 'var(--c-success)';
 
     document.getElementById('vOrderCreated').textContent = formatDate(order.createdAt);
 
@@ -646,6 +683,29 @@ function closeViewOrderModal() {
     currentViewOrder   = null;
 }
 
+// ===== УДАЛИТЬ ЗАКАЗ =====
+
+async function deleteCurrentOrder() {
+    if (!currentViewOrderId) return;
+    const order = currentViewOrder;
+    const label = order ? `заказ ${order.orderNumber}` : 'этот заказ';
+    if (!(await confirmAction(`Удалить ${label} безвозвратно? Все позиции, платежи, вложения и напоминания по нему тоже удалятся. Действие нельзя отменить.`))) return;
+
+    try {
+        const ok = await OrderAPI.delete(currentViewOrderId);
+        if (ok) {
+            showNotification('Заказ удалён', 'success');
+            closeViewOrderModal();
+            loadOrders();
+        } else {
+            showNotification('Не удалось удалить заказ', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting order:', error);
+        showNotification('Ошибка при удалении заказа', 'error');
+    }
+}
+
 // ===== СОХРАНИТЬ СТАТУС =====
 
 async function saveOrderStatus() {
@@ -757,12 +817,14 @@ async function submitOrder(event) {
     if (!deviceDescription) { showNotification('Опишите устройство и проблему', 'warning'); return; }
 
     const notes = document.getElementById('orderNotes').value.trim();
+    const materialCost = Math.max(0, Number(document.getElementById('orderMaterialCost').value) || 0);
     const lines = await buildLinesPayload();
 
     const basePayload = {
         client: { id: clientId },
         deviceDescription,
         notes: notes || null,
+        materialCost,
         lines
     };
 
@@ -806,6 +868,7 @@ async function editOrder(id) {
     if (order.client) selectClient(order.client);
     document.getElementById('deviceDescription').value = order.deviceDescription || '';
     document.getElementById('orderNotes').value = order.notes || '';
+    document.getElementById('orderMaterialCost').value = Number(order.materialCost) || 0;
 
     orderLines = (order.lines || []).map(l => ({
         tempId: ++lineTempSeq,

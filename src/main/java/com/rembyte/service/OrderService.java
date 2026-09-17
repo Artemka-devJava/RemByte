@@ -87,13 +87,14 @@ public class OrderService {
     }
 
     /**
-     * Обновить заказ. Меняются только описание, заметки и состав.
+     * Обновить заказ. Меняются только описание, заметки, себестоимость расходников и состав.
      * Статус и оплата не трогаются — для них есть отдельные операции.
      */
     public Order updateOrder(Long id, Order orderData) {
         return orderRepository.findById(id).map(order -> {
             order.setDeviceDescription(orderData.getDeviceDescription());
             order.setNotes(orderData.getNotes());
+            order.setMaterialCost(orderData.getMaterialCost());
             applyLines(order, new ArrayList<>(orderData.getLines()));
             order.setUpdatedAt(LocalDateTime.now());
             return orderRepository.save(order);
@@ -200,6 +201,10 @@ public class OrderService {
                 .mapToDouble(Order::getPaidAmount)
                 .sum();
 
+        double totalMaterialCost = orders.stream()
+                .mapToDouble(Order::getMaterialCost)
+                .sum();
+
         long completedCount = orders.stream()
                 .filter(o -> "COMPLETED".equals(o.getStatus()))
                 .count();
@@ -209,7 +214,9 @@ public class OrderService {
                 completedCount,
                 totalRevenue,
                 totalPaid,
-                orders.isEmpty() ? 0 : totalRevenue / orders.size()
+                orders.isEmpty() ? 0 : totalRevenue / orders.size(),
+                totalMaterialCost,
+                totalRevenue - totalMaterialCost
         );
     }
 

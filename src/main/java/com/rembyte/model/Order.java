@@ -45,6 +45,10 @@ public class Order {
     @Column(nullable = false)
     private Double paidAmount = 0.0;
 
+    /** Себестоимость расходных материалов, потраченных на заказ (вычитается из выручки при расчёте прибыли). */
+    @Column(name = "material_cost", nullable = false, columnDefinition = "double default 0")
+    private Double materialCost = 0.0;
+
     @Column(columnDefinition = "TEXT")
     private String notes;
 
@@ -135,6 +139,12 @@ public class Order {
 
     public Double getPaidAmount() { return paidAmount; }
     public void setPaidAmount(Double paidAmount) { this.paidAmount = paidAmount; }
+
+    public Double getMaterialCost() { return materialCost; }
+    public void setMaterialCost(Double materialCost) { this.materialCost = materialCost == null || materialCost < 0 ? 0.0 : materialCost; }
+
+    /** Прибыль по заказу: сумма заказа минус себестоимость расходных материалов. */
+    public Double getNetProfit() { return totalPrice - materialCost; }
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }

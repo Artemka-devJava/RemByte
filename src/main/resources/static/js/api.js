@@ -601,11 +601,11 @@ const OrderAPI = {
     // Удалить заказ
     delete: async (id) => {
         try {
-            await fetch(`${API_BASE}/orders/${id}`, {
+            const response = await fetch(`${API_BASE}/orders/${id}`, {
                 method: 'DELETE',
                 headers: getCsrfOnlyHeaders()
             });
-            return true;
+            return response.ok;
         } catch (error) {
             console.error('Error deleting order:', error);
             return false;

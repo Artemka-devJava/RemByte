@@ -133,6 +133,11 @@ docker run --rm -v fixbyte-crm_fixbyte-db-data:/data -v "$PWD":/backup alpine \
   — на **свежей** базе и на docker-профиле (`ddl-auto=update`) создаются
   сами; для существующей базы на **prod**-профиле (`ddl-auto=validate`) —
   `sql/2026-09-16-perf-indexes.sql`.
+- **Себестоимость расходных материалов по заказу** — поле в карточке заказа
+  при редактировании, вычитается из выручки при расчёте прибыли (карточка
+  «Прибыль за период» на дашборде). На **свежей** базе и на docker-профиле
+  колонка `orders.material_cost` создаётся сама; для существующей базы на
+  **prod**-профиле — `sql/2026-09-17-order-material-cost.sql`.
 
 На **свежей** базе (`ddl-auto=update`) все новые таблицы (`backup_schedule`,
 `company_settings`, `reminders`) создаются сами — делать ничего не нужно.
