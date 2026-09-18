@@ -7,17 +7,30 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface PartItemRepository extends JpaRepository<PartItem, Long> {
+
+    // client + lot одним запросом: без этого PartItem.getLotTitle() (обычный
+    // геттер, не защищён @JsonIgnore) лезет за LAZY lot при сериализации в
+    // JSON — а с spring.jpa.open-in-view=false к этому моменту транзакция
+    // уже закрыта → LazyInitializationException/"no session" на каждой
+    // детали, которая состоит в лоте (GET /api/parts, /api/parts/{id},
+    // /api/parts?status=...).
+    @Override
+    @EntityGraph(attributePaths = "lot")
+    Optional<PartItem> findById(Long id);
+
+    @EntityGraph(attributePaths = "lot")
     List<PartItem> findByStatusOrderByCreatedAtDesc(String status);
+
+    @EntityGraph(attributePaths = "lot")
     List<PartItem> findAllByOrderByCreatedAtDesc();
+
     List<PartItem> findByLotIsNull();
     List<PartItem> findByLot_Id(Long lotId);
-    List<PartItem> findByPurchaseDateBetween(LocalDateTime from, LocalDateTime to);
-    List<PartItem> findByStatusAndSaleDateBetween(String status, LocalDateTime from, LocalDateTime to);
 
     /**
      * Постраничный список проданных деталей (parts.js: категория «🔴 Продано»)

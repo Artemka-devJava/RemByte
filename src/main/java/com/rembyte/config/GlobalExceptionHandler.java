@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.ErrorResponseException;
@@ -56,6 +57,21 @@ public class GlobalExceptionHandler {
     public ModelAndView handleDataIntegrityViolation(DataIntegrityViolationException ex, HttpServletRequest request) {
         log.warn("Нарушение целостности данных на {}: {}", request.getRequestURI(), ex.getMostSpecificCause().getMessage());
         return respond(request, HttpStatus.CONFLICT, "Операция конфликтует с текущими данными (например, значение уже занято)");
+    }
+
+    // Исключение при СЕРИАЛИЗАЦИИ ответа в JSON — например,
+    // LazyInitializationException, если где-то читают LAZY-связь без
+    // entity graph (spring.jpa.open-in-view=false — транзакция уже закрыта
+    // к моменту, когда Jackson пишет ответ). Это баг сервера, а не
+    // некорректный запрос клиента — без этого обработчика такое падало в
+    // общий handleRuntime(RuntimeException) ниже и уходило клиенту как 400
+    // с сырым текстом ("Could not write JSON: ... PartLot#4 ...") —
+    // и неверный статус, и утечка деталей реализации, как раньше было с
+    // DataIntegrityViolationException.
+    @ExceptionHandler(HttpMessageNotWritableException.class)
+    public ModelAndView handleMessageNotWritable(HttpMessageNotWritableException ex, HttpServletRequest request) {
+        log.error("Не удалось сериализовать ответ на {}", request.getRequestURI(), ex);
+        return respond(request, HttpStatus.INTERNAL_SERVER_ERROR, "Внутренняя ошибка сервера");
     }
 
     // Встроенные исключения Spring MVC (ErrorResponseException — например,

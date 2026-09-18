@@ -8,6 +8,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.ErrorResponseException;
 import org.springframework.web.servlet.ModelAndView;
@@ -77,6 +78,19 @@ class GlobalExceptionHandlerTest {
         assertThat(mav.getStatus()).isEqualTo(HttpStatus.CONFLICT);
         String error = String.valueOf(mav.getModel().get("error"));
         assertThat(error).doesNotContain("SQL").doesNotContain("UK_CLIENTS_PHONE").doesNotContain("constraint");
+    }
+
+    @Test
+    void messageNotWritable_mapsTo500_notLeakingEntityDetails() {
+        HttpMessageNotWritableException ex = new HttpMessageNotWritableException(
+                "Could not write JSON: Could not initialize proxy [com.rembyte.model.PartLot#4] - no session");
+
+        ModelAndView mav = handler.handleMessageNotWritable(ex, apiRequest);
+
+        assertThat(mav.getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        String error = String.valueOf(mav.getModel().get("error"));
+        assertThat(error).isEqualTo("Внутренняя ошибка сервера");
+        assertThat(error).doesNotContain("PartLot").doesNotContain("proxy").doesNotContain("session");
     }
 
     @Test
