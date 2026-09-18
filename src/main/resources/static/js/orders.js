@@ -763,10 +763,10 @@ async function addPaymentFromModal() {
 }
 
 const PAYMENT_METHOD_LABELS = {
-    CASH: 'Наличные',
-    CARD: 'Карта',
-    TRANSFER: 'Перевод',
-    INSTALLMENT: 'Рассрочка'
+    CASH: '💵 Наличные',
+    CARD: '💳 Карта',
+    TRANSFER: '🏦 Перевод',
+    INSTALLMENT: '📅 Рассрочка'
 };
 
 async function loadPaymentHistory(orderId) {

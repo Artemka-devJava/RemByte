@@ -2,6 +2,7 @@ package com.rembyte.controller;
 
 import com.rembyte.service.FileStorageService;
 import com.rembyte.service.KanbanService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -27,25 +28,23 @@ public class UploadController {
 
     @GetMapping("/uploads/orders/{orderId}/{storedName}")
     public ResponseEntity<byte[]> getOrderAttachment(@PathVariable Long orderId,
-                                                     @PathVariable String storedName) {
+                                                     @PathVariable String storedName,
+                                                     HttpServletRequest request) {
         try {
             FileStorageService.StoredAttachment attachment = fileStorageService.loadOrderAttachment(orderId, storedName);
 
-            MediaType mediaType;
-            try {
-                mediaType = MediaType.parseMediaType(attachment.contentType());
-            } catch (Exception ignored) {
-                mediaType = MediaType.APPLICATION_OCTET_STREAM;
-            }
-
+            MediaType mediaType = resolveMediaType(attachment.contentType());
             ContentDisposition disposition = ContentDisposition.inline()
                     .filename(attachment.originalName(), StandardCharsets.UTF_8)
                     .build();
 
-            return ResponseEntity.ok()
-                    .contentType(mediaType)
-                    .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
-                    .body(attachment.content());
+            // storedName содержит timestamp+UUID — сам по себе уже уникальный
+            // и неизменяемый идентификатор содержимого, годится как ETag.
+            return HttpCaching.notModified(request, storedName)
+                    .orElseGet(() -> HttpCaching.withCacheHeaders(ResponseEntity.ok(), storedName)
+                            .contentType(mediaType)
+                            .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                            .body(attachment.content()));
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
@@ -54,27 +53,31 @@ public class UploadController {
     @GetMapping("/uploads/kanban/{cardId}/{storedName}")
     public ResponseEntity<byte[]> getKanbanAttachment(@PathVariable Long cardId,
                                                       @PathVariable String storedName,
-                                                      Authentication authentication) {
+                                                      Authentication authentication,
+                                                      HttpServletRequest request) {
         try {
             KanbanService.StoredAttachment attachment = kanbanService.loadCardAttachment(authentication.getName(), cardId, storedName);
 
-            MediaType mediaType;
-            try {
-                mediaType = MediaType.parseMediaType(attachment.contentType());
-            } catch (Exception ignored) {
-                mediaType = MediaType.APPLICATION_OCTET_STREAM;
-            }
-
+            MediaType mediaType = resolveMediaType(attachment.contentType());
             ContentDisposition disposition = ContentDisposition.inline()
                     .filename(attachment.originalName(), StandardCharsets.UTF_8)
                     .build();
 
-            return ResponseEntity.ok()
-                    .contentType(mediaType)
-                    .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
-                    .body(attachment.content());
+            return HttpCaching.notModified(request, storedName)
+                    .orElseGet(() -> HttpCaching.withCacheHeaders(ResponseEntity.ok(), storedName)
+                            .contentType(mediaType)
+                            .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                            .body(attachment.content()));
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    private static MediaType resolveMediaType(String contentType) {
+        try {
+            return MediaType.parseMediaType(contentType);
+        } catch (Exception ignored) {
+            return MediaType.APPLICATION_OCTET_STREAM;
         }
     }
 }

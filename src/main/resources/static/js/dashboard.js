@@ -36,12 +36,52 @@ function calculatePeriodTotals(orders, periodStart, periodEnd) {
 function statsPeriodRange() {
     const period = document.getElementById('statsPeriod')?.value || 'month';
     const now = new Date();
+
+    if (period === 'custom') {
+        const fromVal = document.getElementById('statsFromDate')?.value;
+        const toVal = document.getElementById('statsToDate')?.value;
+        const from = fromVal ? new Date(fromVal + 'T00:00:00') : new Date(now.getTime() - 30 * 86400000);
+        const to = toVal ? new Date(toVal + 'T23:59:59.999') : now;
+        return { from, to: to < from ? from : to };
+    }
+
     let from;
     if (period === 'today') { from = new Date(now); from.setHours(0, 0, 0, 0); }
     else if (period === 'week') { from = new Date(now.getTime() - 7 * 86400000); }
     else if (period === 'month') { from = new Date(now.getTime() - 30 * 86400000); }
     else { from = new Date(2000, 0, 1); } // 'all'
     return { from, to: now };
+}
+
+/** Показать/скрыть выбор дат при переключении #statsPeriod на «Свой период». */
+function onStatsPeriodChange() {
+    const period = document.getElementById('statsPeriod')?.value;
+    const customBox = document.getElementById('statsCustomRange');
+    if (!customBox) return;
+
+    if (period === 'custom') {
+        customBox.hidden = false;
+        const fromInput = document.getElementById('statsFromDate');
+        const toInput = document.getElementById('statsToDate');
+        // Подставляем стартовый диапазон (последние 30 дней), дальше пользователь правит сам.
+        if (fromInput && toInput && !fromInput.value && !toInput.value) {
+            const now = new Date();
+            const from = new Date(now.getTime() - 30 * 86400000);
+            toInput.value = toDateInputValue(now);
+            fromInput.value = toDateInputValue(from);
+        }
+        return; // ждём, пока нажмут «Показать»
+    }
+
+    customBox.hidden = true;
+    refreshPeriodStats();
+}
+
+function toDateInputValue(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
 }
 
 // Загрузить статистику при загрузке страницы

@@ -64,6 +64,11 @@ public class SecurityConfig {
                 // Публичные ресурсы
                 .requestMatchers("/login", "/css/**", "/js/**", "/images/**", "/favicon.ico", "/error").permitAll()
                 .requestMatchers("/public/chat/**").permitAll()
+                // Живые уведомления чата (замена поллингу): виджет — анонимно
+                // (как и остальной публичный чат-API), панель оператора — только
+                // авторизованным ADMIN/OPERATOR (совпадает с /api/chat/**).
+                .requestMatchers("/ws/chat/public/**").permitAll()
+                .requestMatchers("/ws/chat/operator").hasAnyRole("ADMIN", "OPERATOR")
                 // Точка входа для мобильного/нативных клиентов
                 .requestMatchers("/api/auth/**").permitAll()
                 // H2 консоль

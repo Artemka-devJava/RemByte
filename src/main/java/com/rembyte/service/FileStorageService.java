@@ -118,13 +118,21 @@ public class FileStorageService {
             String storedName = System.currentTimeMillis() + "_" + UUID.randomUUID() + safeExt;
 
             try {
+                byte[] content = file.getBytes();
+                String storedContentType = contentType.isBlank() ? "application/octet-stream" : contentType;
+                if (attachmentType == OrderAttachment.AttachmentType.PHOTO) {
+                    ImageDownscaler.Downscaled d = ImageDownscaler.downscaleIfImage(content, storedContentType);
+                    content = d.content();
+                    storedContentType = d.contentType();
+                }
+
                 OrderAttachment attachment = new OrderAttachment();
                 attachment.setOrder(order);
                 attachment.setStoredName(storedName);
                 attachment.setOriginalName(sanitizeOriginalName(file.getOriginalFilename(), storedName));
-                attachment.setContentType(contentType.isBlank() ? "application/octet-stream" : contentType);
+                attachment.setContentType(storedContentType);
                 attachment.setAttachmentType(attachmentType);
-                attachment.setContent(file.getBytes());
+                attachment.setContent(content);
                 orderAttachmentRepository.save(attachment);
             } catch (IOException e) {
                 throw new RuntimeException("Ошибка сохранения файла: " + file.getOriginalFilename(), e);

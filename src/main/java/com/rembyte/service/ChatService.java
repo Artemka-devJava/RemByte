@@ -5,6 +5,7 @@ import com.rembyte.repository.AppUserRepository;
 import com.rembyte.repository.ChatConversationRepository;
 import com.rembyte.repository.ChatMessageRepository;
 import com.rembyte.repository.ChatWidgetSiteRepository;
+import com.rembyte.websocket.ChatWebSocketHandler;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,15 +29,18 @@ public class ChatService {
     private final ChatMessageRepository messageRepository;
     private final ChatWidgetSiteRepository widgetSiteRepository;
     private final AppUserRepository appUserRepository;
+    private final ChatWebSocketHandler chatWebSocketHandler;
 
     public ChatService(ChatConversationRepository conversationRepository,
                        ChatMessageRepository messageRepository,
                        ChatWidgetSiteRepository widgetSiteRepository,
-                       AppUserRepository appUserRepository) {
+                       AppUserRepository appUserRepository,
+                       ChatWebSocketHandler chatWebSocketHandler) {
         this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
         this.widgetSiteRepository = widgetSiteRepository;
         this.appUserRepository = appUserRepository;
+        this.chatWebSocketHandler = chatWebSocketHandler;
     }
 
     @Transactional
@@ -155,6 +159,7 @@ public class ChatService {
         if (!initialMessage.isBlank()) {
             appendMessage(conversation, ChatMessageSenderType.VISITOR, visitorSenderName(conversation), initialMessage);
         }
+        broadcastEvent("new-conversation", conversation);
 
         return toConversationDetail(conversation);
     }
@@ -166,7 +171,9 @@ public class ChatService {
         if (conversation.getStatus() == ChatConversationStatus.CLOSED) {
             conversation.setStatus(ChatConversationStatus.OPEN);
         }
-        return appendMessage(conversation, ChatMessageSenderType.VISITOR, visitorSenderName(conversation), request.message());
+        MessageView view = appendMessage(conversation, ChatMessageSenderType.VISITOR, visitorSenderName(conversation), request.message());
+        broadcastEvent("message", conversation);
+        return view;
     }
 
     @Transactional
@@ -179,7 +186,9 @@ public class ChatService {
             conversation.setAssignedOperatorUsername(sanitize(operatorUsername));
         }
         String senderName = resolveOperatorDisplayName(operatorUsername);
-        return appendMessage(conversation, ChatMessageSenderType.OPERATOR, senderName, request.message());
+        MessageView view = appendMessage(conversation, ChatMessageSenderType.OPERATOR, senderName, request.message());
+        broadcastEvent("message", conversation);
+        return view;
     }
 
     @Transactional
@@ -187,7 +196,21 @@ public class ChatService {
         ChatConversation conversation = requireConversation(conversationId);
         conversation.setStatus(status == null ? ChatConversationStatus.OPEN : status);
         conversation.setUpdatedAt(LocalDateTime.now());
-        return toConversationDetail(conversationRepository.save(conversation));
+        ConversationDetail detail = toConversationDetail(conversationRepository.save(conversation));
+        broadcastEvent("status", conversation);
+        return detail;
+    }
+
+    /**
+     * Сигнал по WebSocket вместо постоянного поллинга (см. {@link ChatWebSocketHandler}):
+     * панели оператора — всегда, виджету посетителя — только по его диалогу.
+     * Сама рассылка — best-effort: клиент по сигналу просто перезапросит данные
+     * через уже существующий REST, поэтому сбой отправки тут ни на что не влияет.
+     */
+    private void broadcastEvent(String type, ChatConversation conversation) {
+        String payload = "{\"type\":\"" + type + "\",\"conversationId\":" + conversation.getId() + "}";
+        chatWebSocketHandler.notifyOperators(payload);
+        chatWebSocketHandler.notifyWidget(conversation.getPublicToken(), payload);
     }
 
     @Transactional

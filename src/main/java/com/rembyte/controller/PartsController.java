@@ -109,12 +109,13 @@ public class PartsController {
     }
 
     @GetMapping("/{id}/photos/{photoId}/raw")
-    public ResponseEntity<byte[]> rawPhoto(@PathVariable Long id, @PathVariable Long photoId) {
+    public ResponseEntity<byte[]> rawPhoto(@PathVariable Long id, @PathVariable Long photoId,
+                                            jakarta.servlet.http.HttpServletRequest request) {
         return partsService.getPhotoData(id, photoId)
-                .map(data -> ResponseEntity.ok()
-                        .contentType(MediaType.parseMediaType(
-                                data.contentType() == null ? "application/octet-stream" : data.contentType()))
-                        .body(data.content()))
+                .map(data -> HttpCaching.respond(request, "part-photo-" + photoId,
+                        MediaType.parseMediaType(
+                                data.contentType() == null ? "application/octet-stream" : data.contentType()),
+                        data.content()))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 

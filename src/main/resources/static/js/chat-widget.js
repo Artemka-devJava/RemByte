@@ -3,7 +3,11 @@ const widgetState = {
     parentOrigin: window.FIXBYTE_CHAT_PARENT_ORIGIN || '',
     site: null,
     token: null,
-    pollTimer: null
+    pollTimer: null,
+    socket: null,
+    socketReconnectTimer: null,
+    socketReconnectDelayMs: 2000,
+    socketClosedByUs: false
 };
 
 document.addEventListener('DOMContentLoaded', initWidgetChat);
@@ -14,17 +18,60 @@ async function initWidgetChat() {
     bindWidgetInputs();
     if (widgetState.token) {
         await reloadWidgetConversation();
+        connectWidgetSocket();
     } else {
         renderWidgetEmpty();
     }
-    widgetState.pollTimer = window.setInterval(reloadWidgetConversation, 4000);
+    // Поллинг — подстраховка на случай недоступного WebSocket (прокси на
+    // сайте клиента, старый браузер и т.п.); основная доставка — по сокету.
+    widgetState.pollTimer = window.setInterval(reloadWidgetConversation, 20000);
 }
 
 window.addEventListener('beforeunload', () => {
     if (widgetState.pollTimer) {
         window.clearInterval(widgetState.pollTimer);
     }
+    if (widgetState.socketReconnectTimer) {
+        window.clearTimeout(widgetState.socketReconnectTimer);
+    }
+    widgetState.socketClosedByUs = true;
+    widgetState.socket?.close();
 });
+
+/** Живые обновления диалога — сервер сигналит, мы просто перезапрашиваем сообщения. */
+function connectWidgetSocket() {
+    if (!widgetState.token) return;
+    widgetState.socketClosedByUs = false;
+    try {
+        const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        widgetState.socket = new WebSocket(`${proto}//${window.location.host}/ws/chat/public/${encodeURIComponent(widgetState.token)}`);
+        widgetState.socket.onopen = () => {
+            widgetState.socketReconnectDelayMs = 2000;
+        };
+        widgetState.socket.onmessage = () => {
+            reloadWidgetConversation();
+        };
+        widgetState.socket.onclose = () => {
+            if (!widgetState.socketClosedByUs) {
+                scheduleWidgetSocketReconnect();
+            }
+        };
+        widgetState.socket.onerror = () => {
+            widgetState.socket?.close();
+        };
+    } catch {
+        scheduleWidgetSocketReconnect();
+    }
+}
+
+function scheduleWidgetSocketReconnect() {
+    if (widgetState.socketReconnectTimer) return;
+    widgetState.socketReconnectTimer = window.setTimeout(() => {
+        widgetState.socketReconnectTimer = null;
+        connectWidgetSocket();
+    }, widgetState.socketReconnectDelayMs);
+    widgetState.socketReconnectDelayMs = Math.min(widgetState.socketReconnectDelayMs * 2, 30000);
+}
 
 function bindWidgetInputs() {
     document.getElementById('widgetMessageInput')?.addEventListener('keydown', (event) => {
@@ -121,6 +168,7 @@ async function createConversation(initialMessage) {
     }
     saveConversationToken();
     renderWidgetConversation(data);
+    connectWidgetSocket();
     return data;
 }
 
@@ -211,6 +259,12 @@ function clearConversationToken() {
         // ignore
     }
     widgetState.token = null;
+    widgetState.socketClosedByUs = true;
+    widgetState.socket?.close();
+    if (widgetState.socketReconnectTimer) {
+        window.clearTimeout(widgetState.socketReconnectTimer);
+        widgetState.socketReconnectTimer = null;
+    }
 }
 
 function formatWidgetDate(value) {

@@ -3,19 +3,70 @@ let filteredChatConversations = [];
 let currentConversationId = null;
 let currentConversationDetail = null;
 let chatRefreshTimer = null;
+let chatSocket = null;
+let chatSocketReconnectTimer = null;
+let chatSocketReconnectDelayMs = 2000;
+let chatSocketClosedByUs = false;
 
 document.addEventListener('DOMContentLoaded', () => {
     const search = document.getElementById('chatSearchInput');
     search?.addEventListener('input', filterChatConversations);
     refreshChatData(false);
-    chatRefreshTimer = window.setInterval(() => refreshChatData(false), 5000);
+    connectChatSocket();
+    // Поллинг — подстраховка на случай, если WebSocket недоступен (прокси,
+    // офлайн-режим и т.п.), поэтому раз в 30с достаточно, а не раз в 5с.
+    chatRefreshTimer = window.setInterval(() => refreshChatData(false), 30000);
 });
 
 window.addEventListener('beforeunload', () => {
     if (chatRefreshTimer) {
         window.clearInterval(chatRefreshTimer);
     }
+    if (chatSocketReconnectTimer) {
+        window.clearTimeout(chatSocketReconnectTimer);
+    }
+    chatSocketClosedByUs = true;
+    chatSocket?.close();
 });
+
+/**
+ * Живые обновления вместо постоянного опроса: сервер шлёт короткий сигнал
+ * «в чате что-то изменилось», а мы просто перезапрашиваем данные тем же
+ * REST-запросом, что и раньше по таймеру. Если соединение недоступно —
+ * тихо переподключаемся с растущей паузой, полноценно чат продолжает
+ * работать на поллинге выше.
+ */
+function connectChatSocket() {
+    try {
+        const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        chatSocket = new WebSocket(`${proto}//${window.location.host}/ws/chat/operator`);
+        chatSocket.onopen = () => {
+            chatSocketReconnectDelayMs = 2000;
+        };
+        chatSocket.onmessage = () => {
+            refreshChatData(false);
+        };
+        chatSocket.onclose = () => {
+            if (!chatSocketClosedByUs) {
+                scheduleChatSocketReconnect();
+            }
+        };
+        chatSocket.onerror = () => {
+            chatSocket?.close();
+        };
+    } catch {
+        scheduleChatSocketReconnect();
+    }
+}
+
+function scheduleChatSocketReconnect() {
+    if (chatSocketReconnectTimer) return;
+    chatSocketReconnectTimer = window.setTimeout(() => {
+        chatSocketReconnectTimer = null;
+        connectChatSocket();
+    }, chatSocketReconnectDelayMs);
+    chatSocketReconnectDelayMs = Math.min(chatSocketReconnectDelayMs * 2, 30000);
+}
 
 async function refreshChatData(forceReloadCurrent) {
     try {

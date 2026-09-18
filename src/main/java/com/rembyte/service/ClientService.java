@@ -273,10 +273,11 @@ public class ClientService {
             photo.setClient(client);
             photo.setDevice(device);
             photo.setOriginalName(safeName(file.getOriginalFilename()));
-            photo.setContentType(ct);
             photo.setCaption(caption == null || caption.isBlank() ? null : caption.trim());
             try {
-                photo.setContent(file.getBytes());
+                ImageDownscaler.Downscaled d = ImageDownscaler.downscaleIfImage(file.getBytes(), ct);
+                photo.setContentType(d.contentType());
+                photo.setContent(d.content());
             } catch (Exception e) {
                 throw new IllegalArgumentException("Не удалось прочитать файл: " + file.getOriginalFilename());
             }

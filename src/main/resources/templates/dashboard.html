@@ -33,12 +33,19 @@
 
       <div class="filter-bar">
         <label>Период:</label>
-        <select id="statsPeriod" onchange="refreshPeriodStats()">
+        <select id="statsPeriod" onchange="onStatsPeriodChange()">
           <option value="today">Сегодня</option>
           <option value="week">7 дней</option>
           <option value="month" selected>30 дней</option>
           <option value="all">Всё время</option>
+          <option value="custom">Свой период…</option>
         </select>
+        <span id="statsCustomRange" class="stats-custom-range" hidden>
+          <input type="date" id="statsFromDate">
+          <span class="stats-custom-range-sep">—</span>
+          <input type="date" id="statsToDate">
+          <button type="button" class="btn btn-sm btn-primary" onclick="refreshPeriodStats()">Показать</button>
+        </span>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">

@@ -7,6 +7,7 @@ import com.rembyte.repository.AppUserRepository;
 import com.rembyte.repository.ChatConversationRepository;
 import com.rembyte.repository.ChatMessageRepository;
 import com.rembyte.repository.ChatWidgetSiteRepository;
+import com.rembyte.websocket.ChatWebSocketHandler;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -28,12 +29,13 @@ class ChatServiceTest {
         ChatMessageRepository messageRepository = mock(ChatMessageRepository.class);
         ChatWidgetSiteRepository widgetSiteRepository = mock(ChatWidgetSiteRepository.class);
         AppUserRepository appUserRepository = mock(AppUserRepository.class);
+        ChatWebSocketHandler chatWebSocketHandler = mock(ChatWebSocketHandler.class);
 
         ChatConversation conversation = new ChatConversation();
         conversation.setId(42L);
         when(conversationRepository.findById(42L)).thenReturn(Optional.of(conversation));
 
-        ChatService chatService = new ChatService(conversationRepository, messageRepository, widgetSiteRepository, appUserRepository);
+        ChatService chatService = new ChatService(conversationRepository, messageRepository, widgetSiteRepository, appUserRepository, chatWebSocketHandler);
         chatService.deleteConversation(42L);
 
         verify(messageRepository, times(1)).deleteByConversationId(42L);
@@ -46,6 +48,7 @@ class ChatServiceTest {
         ChatMessageRepository messageRepository = mock(ChatMessageRepository.class);
         ChatWidgetSiteRepository widgetSiteRepository = mock(ChatWidgetSiteRepository.class);
         AppUserRepository appUserRepository = mock(AppUserRepository.class);
+        ChatWebSocketHandler chatWebSocketHandler = mock(ChatWebSocketHandler.class);
 
         ChatWidgetSite site = new ChatWidgetSite();
         site.setId(1L);
@@ -76,7 +79,7 @@ class ChatServiceTest {
         });
         when(messageRepository.findByConversationIdOrderByCreatedAtAsc(any(Long.class))).thenAnswer(invocation -> List.of());
 
-        ChatService chatService = new ChatService(conversationRepository, messageRepository, widgetSiteRepository, appUserRepository);
+        ChatService chatService = new ChatService(conversationRepository, messageRepository, widgetSiteRepository, appUserRepository, chatWebSocketHandler);
 
         ChatService.ConversationDetail detail = chatService.createConversation(new ChatService.CreateConversationRequest(
                 ChatService.DEFAULT_SITE_KEY,
@@ -102,6 +105,7 @@ class ChatServiceTest {
         ChatMessageRepository messageRepository = mock(ChatMessageRepository.class);
         ChatWidgetSiteRepository widgetSiteRepository = mock(ChatWidgetSiteRepository.class);
         AppUserRepository appUserRepository = mock(AppUserRepository.class);
+        ChatWebSocketHandler chatWebSocketHandler = mock(ChatWebSocketHandler.class);
 
         ChatWidgetSite site = new ChatWidgetSite();
         site.setId(1L);
@@ -114,7 +118,7 @@ class ChatServiceTest {
 
         when(widgetSiteRepository.findBySiteKey(ChatService.DEFAULT_SITE_KEY)).thenReturn(Optional.of(site));
 
-        ChatService chatService = new ChatService(conversationRepository, messageRepository, widgetSiteRepository, appUserRepository);
+        ChatService chatService = new ChatService(conversationRepository, messageRepository, widgetSiteRepository, appUserRepository, chatWebSocketHandler);
 
         IllegalStateException ex = assertThrows(IllegalStateException.class,
                 () -> chatService.getWidgetSiteForPublic(ChatService.DEFAULT_SITE_KEY, "https://evil.example"));

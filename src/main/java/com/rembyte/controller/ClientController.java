@@ -218,12 +218,13 @@ public class ClientController {
     }
 
     @GetMapping("/{id}/photos/{photoId}/raw")
-    public ResponseEntity<byte[]> rawPhoto(@PathVariable Long id, @PathVariable Long photoId) {
+    public ResponseEntity<byte[]> rawPhoto(@PathVariable Long id, @PathVariable Long photoId,
+                                            jakarta.servlet.http.HttpServletRequest request) {
         return clientService.getPhotoData(id, photoId)
-                .map(data -> ResponseEntity.ok()
-                        .contentType(MediaType.parseMediaType(
-                                data.contentType() == null ? "application/octet-stream" : data.contentType()))
-                        .body(data.content()))
+                .map(data -> HttpCaching.respond(request, "client-photo-" + photoId,
+                        MediaType.parseMediaType(
+                                data.contentType() == null ? "application/octet-stream" : data.contentType()),
+                        data.content()))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 

@@ -95,43 +95,49 @@
           <span class="order-detail-value" id="vOrderNotes">—</span>
         </div>
         <div class="order-detail-row">
-          <span class="order-detail-label">Сумма</span>
-          <span class="order-detail-value" id="vOrderTotal" style="font-weight:700;font-size:16px;">—</span>
-        </div>
-        <div class="order-detail-row">
-          <span class="order-detail-label">Оплачено</span>
-          <span class="order-detail-value" id="vOrderPaid">—</span>
-        </div>
-        <div class="order-detail-row">
-          <span class="order-detail-label">Остаток</span>
-          <span class="order-detail-value" id="vOrderBalance" style="color:var(--c-danger);font-weight:600;">—</span>
-        </div>
-        <div class="order-detail-row">
-          <span class="order-detail-label">Расходники</span>
-          <span class="order-detail-value" id="vOrderMaterialCost">—</span>
-        </div>
-        <div class="order-detail-row">
-          <span class="order-detail-label">Прибыль</span>
-          <span class="order-detail-value" id="vOrderProfit" style="font-weight:600;">—</span>
-        </div>
-        <div class="order-detail-row">
           <span class="order-detail-label">Создан</span>
           <span class="order-detail-value" id="vOrderCreated">—</span>
         </div>
       </div>
 
-      <div class="form-group" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <button class="btn btn-secondary" type="button" onclick="openAcceptanceAct()">
-          📄 Акт приёмки (PDF)
-        </button>
-        <input type="datetime-local" id="vReminderDate"
-               style="padding:8px 10px;border:1.5px solid var(--c-border);border-radius:7px;font-size:13px;font-family:inherit;">
-        <button class="btn btn-secondary" type="button" onclick="remindAboutOrder()">
-          🔔 Напомнить перезвонить
-        </button>
-        <span style="font-size:12px;color:var(--c-muted);">
-          акт формируется по данным заказа и сохраняется в него
-        </span>
+      <div class="order-stats-grid">
+        <div class="order-stat-card order-stat-total">
+          <span class="order-stat-label">Сумма</span>
+          <span class="order-stat-value" id="vOrderTotal">—</span>
+        </div>
+        <div class="order-stat-card">
+          <span class="order-stat-label">Оплачено</span>
+          <span class="order-stat-value" id="vOrderPaid">—</span>
+        </div>
+        <div class="order-stat-card">
+          <span class="order-stat-label">Остаток</span>
+          <span class="order-stat-value" id="vOrderBalance">—</span>
+        </div>
+        <div class="order-stat-card">
+          <span class="order-stat-label">Расходники</span>
+          <span class="order-stat-value" id="vOrderMaterialCost">—</span>
+        </div>
+        <div class="order-stat-card">
+          <span class="order-stat-label">Прибыль</span>
+          <span class="order-stat-value" id="vOrderProfit">—</span>
+        </div>
+      </div>
+
+      <div class="form-group order-action-row">
+        <div class="order-action-item">
+          <button class="btn btn-secondary" type="button" onclick="openAcceptanceAct()">
+            📄 Акт приёмки (PDF)
+          </button>
+          <small class="upload-hint">формируется по данным заказа и сохраняется в него</small>
+        </div>
+        <div class="order-action-item">
+          <div class="order-action-inline">
+            <input type="datetime-local" id="vReminderDate">
+            <button class="btn btn-secondary" type="button" onclick="remindAboutOrder()">
+              🔔 Напомнить перезвонить
+            </button>
+          </div>
+        </div>
       </div>
 
       <hr class="order-detail-divider">
@@ -161,18 +167,23 @@
 
       <!-- Добавить оплату -->
       <div class="form-group">
-        <label style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--c-muted);">Внести оплату (₽):</label>
-        <div style="display:flex;gap:8px;">
-          <input type="number" id="vPaymentAmount" min="0" step="100" placeholder="Сумма оплаты" style="flex:1;padding:9px 12px;border:1.5px solid var(--c-border);border-radius:7px;font-size:14px;font-family:inherit;">
-          <select id="vPaymentMethod" style="padding:9px 12px;border:1.5px solid var(--c-border);border-radius:7px;font-size:14px;font-family:inherit;">
-            <option value="CASH">Наличные</option>
-            <option value="CARD">Карта</option>
-            <option value="TRANSFER">Перевод</option>
-            <option value="INSTALLMENT">Рассрочка</option>
-          </select>
-          <button class="btn btn-success" onclick="addPaymentFromModal()">💳 Оплата</button>
+        <label style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--c-muted);">Внести оплату:</label>
+        <div class="payment-add-box">
+          <div class="payment-input-group">
+            <span class="payment-currency">₽</span>
+            <input type="number" id="vPaymentAmount" min="0" step="100" placeholder="Сумма">
+            <select id="vPaymentMethod">
+              <option value="CASH">💵 Наличные</option>
+              <option value="CARD">💳 Карта</option>
+              <option value="TRANSFER">🏦 Перевод</option>
+              <option value="INSTALLMENT">📅 Рассрочка</option>
+            </select>
+          </div>
+          <button class="btn btn-success payment-submit-btn" onclick="addPaymentFromModal()">
+            <span>✅</span> Оплата
+          </button>
         </div>
-        <div id="vPaymentHistory" class="payment-history" style="margin-top:8px;"></div>
+        <div id="vPaymentHistory" class="payment-history" style="margin-top:10px;"></div>
       </div>
 
       <div class="form-group">

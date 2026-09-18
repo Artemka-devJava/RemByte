@@ -126,9 +126,10 @@ public class PartsService {
             PartItemPhoto photo = new PartItemPhoto();
             photo.setItem(item);
             photo.setOriginalName(safeName(file.getOriginalFilename()));
-            photo.setContentType(ct);
             try {
-                photo.setContent(file.getBytes());
+                ImageDownscaler.Downscaled d = ImageDownscaler.downscaleIfImage(file.getBytes(), ct);
+                photo.setContentType(d.contentType());
+                photo.setContent(d.content());
             } catch (Exception e) {
                 throw new IllegalArgumentException("Не удалось прочитать файл: " + file.getOriginalFilename());
             }

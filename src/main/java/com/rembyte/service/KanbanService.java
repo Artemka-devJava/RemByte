@@ -342,13 +342,21 @@ public class KanbanService {
             }
 
             try {
+                byte[] content = file.getBytes();
+                String storedContentType = contentType.isBlank() ? MediaType.APPLICATION_OCTET_STREAM_VALUE : contentType;
+                if (isImage) {
+                    ImageDownscaler.Downscaled d = ImageDownscaler.downscaleIfImage(content, storedContentType);
+                    content = d.content();
+                    storedContentType = d.contentType();
+                }
+
                 KanbanCardAttachment attachment = new KanbanCardAttachment();
                 attachment.setCard(card);
                 attachment.setStoredName(System.currentTimeMillis() + "_" + UUID.randomUUID() + extension);
                 attachment.setOriginalName(sanitizeOriginalName(file.getOriginalFilename(), attachment.getStoredName()));
-                attachment.setContentType(contentType.isBlank() ? MediaType.APPLICATION_OCTET_STREAM_VALUE : contentType);
+                attachment.setContentType(storedContentType);
                 attachment.setAttachmentType(isImage ? KanbanCardAttachment.AttachmentType.IMAGE : KanbanCardAttachment.AttachmentType.TEXT);
-                attachment.setContent(file.getBytes());
+                attachment.setContent(content);
                 attachment.setCreatedAt(LocalDateTime.now());
                 attachmentRepository.save(attachment);
             } catch (IOException e) {
