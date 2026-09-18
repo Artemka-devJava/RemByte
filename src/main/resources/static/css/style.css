@@ -341,6 +341,12 @@ a:hover { text-decoration: underline; }
 .stat-card .stat-icon { position: absolute; right: 14px; top: 14px; font-size: 22px; opacity: .5; }
 .stat-card .stat-label { font-size: 11px; font-weight: 600; color: var(--c-muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 6px; }
 .stat-card .number { font-size: 26px; font-weight: 700; color: var(--c-text); line-height: 1; }
+.stat-card-link { display: block; text-decoration: none; transition: transform .15s, box-shadow .15s; }
+.stat-card-link:hover { transform: translateY(-2px); box-shadow: var(--s2, var(--s1)); text-decoration: none; }
+
+.status-breakdown-list { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+.status-breakdown-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13.5px; }
+.status-breakdown-list .status-breakdown-count { font-weight: 700; color: var(--c-text); }
 
 /* ===== TABLE ===== */
 .data-table { width: 100%; border-collapse: collapse; }

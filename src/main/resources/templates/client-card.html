@@ -153,7 +153,7 @@
 <span id="adminMarker" sec:authorize="hasRole('ADMIN')" style="display:none;"></span>
 <div id="toast-container"></div>
 <th:block th:replace="~{fragments/common-scripts :: uiBase}"></th:block>
-<script src="/js/api.js"></script>
-<script src="/js/client-card.js"></script>
+<script th:src="@{/js/api.js(v=${assetVersion})}"></script>
+<script th:src="@{/js/client-card.js(v=${assetVersion})}"></script>
 </body>
 </html>

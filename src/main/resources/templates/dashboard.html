@@ -29,6 +29,9 @@
         <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-label">Выручка за период</div><div class="number" id="periodRevenue">—</div></div>
         <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-label">Оплачено за период</div><div class="number" id="totalPaid">—</div></div>
         <div class="stat-card"><div class="stat-icon">💵</div><div class="stat-label">Прибыль за период (без расходников)</div><div class="number" id="periodProfit">—</div></div>
+        <div class="stat-card"><div class="stat-icon">🧾</div><div class="stat-label">Средний чек за период</div><div class="number" id="periodAvgCheck">—</div></div>
+        <div class="stat-card"><div class="stat-icon">🏁</div><div class="stat-label">Завершено за период</div><div class="number" id="periodCompleted">—</div></div>
+        <a href="/chat" class="stat-card stat-card-link"><div class="stat-icon">💬</div><div class="stat-label">Непрочитано в чате</div><div class="number" id="chatUnread">—</div></a>
       </div>
 
       <div class="filter-bar">
@@ -68,6 +71,36 @@
         </div>
       </div>
 
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px;">
+        <div class="card">
+          <div class="card-header"><h2>📦 Заказы по статусам</h2></div>
+          <div class="card-body">
+            <ul id="statusBreakdown" class="status-breakdown-list">
+              <li style="color:var(--c-muted)">Загрузка...</li>
+            </ul>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h2>🧩 Комплектующие за период</h2><a href="/parts" class="btn btn-sm btn-secondary">Все →</a></div>
+          <div class="card-body">
+            <div class="order-stats-grid">
+              <div class="order-stat-card">
+                <span class="order-stat-label">Продано</span>
+                <span class="order-stat-value" id="partsSoldCount">—</span>
+              </div>
+              <div class="order-stat-card">
+                <span class="order-stat-label">Выручка</span>
+                <span class="order-stat-value" id="partsRevenue">—</span>
+              </div>
+              <div class="order-stat-card order-stat-total">
+                <span class="order-stat-label">Прибыль</span>
+                <span class="order-stat-value" id="partsProfit">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="card" style="margin-top:18px;">
         <div class="card-header">
           <h2>🔔 Напоминания <span id="reminderCount" class="count"></span></h2>
@@ -78,6 +111,13 @@
               Готовы, но не забрали
             </div>
             <ul id="staleOrders" style="list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13px;"></ul>
+          </div>
+
+          <div id="unpaidOrdersBlock" style="margin-bottom:14px;display:none;">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--c-muted);margin-bottom:6px;">
+              💳 Есть задолженность
+            </div>
+            <ul id="unpaidOrders" style="list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13px;"></ul>
           </div>
 
           <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--c-muted);margin-bottom:6px;">
@@ -107,8 +147,8 @@
   </div>
 </div>
 <th:block th:replace="~{fragments/common-scripts :: uiBase}"></th:block>
-<script src="/js/api.js"></script>
-<script src="/js/dashboard.js"></script>
+<script th:src="@{/js/api.js(v=${assetVersion})}"></script>
+<script th:src="@{/js/dashboard.js(v=${assetVersion})}"></script>
 </body>
 </html>
 

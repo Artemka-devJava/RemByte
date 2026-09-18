@@ -231,41 +231,72 @@ function fmtDateTimeD(iso) {
 
 let dashboardOrdersCache = [];
 
-// Загрузить данные панели управления
+// Загрузить данные панели управления. Каждый виджет — в своём try/catch:
+// если один упал (сеть, неожиданная форма данных), остальные всё равно
+// должны отрисоваться, а не зависнуть на "Загрузка..." навсегда.
 async function loadDashboardData() {
+    let orders = [];
+
     try {
-        // Загрузить клиентов
         const clients = await ClientAPI.getAll();
         document.getElementById('totalClients').textContent = clients.length;
-
-        // Загрузить заказы
-        const orders = await OrderAPI.getAll();
-        dashboardOrdersCache = orders;
-        const activeOrders = orders.filter(o => !['COMPLETED', 'CANCELLED'].includes(o.status)).length;
-        document.getElementById('activeOrders').textContent = activeOrders;
-
-        // Загрузить последние заказы
-        renderRecentOrders(orders.slice(-5).reverse());
-
-        // Загрузить популярные услуги
-        await loadPopularServices(orders);
-
-        // Выручка/оплачено за выбранный период (не блокирует остальные виджеты)
-        await refreshPeriodStats();
-
     } catch (error) {
-        console.error('Error loading dashboard data:', error);
+        console.error('Error loading clients:', error);
+    }
+
+    try {
+        orders = await OrderAPI.getAll();
+        if (!Array.isArray(orders)) orders = [];
+        dashboardOrdersCache = orders;
+        const activeOrders = orders.filter(o => o && !['COMPLETED', 'CANCELLED'].includes(o.status)).length;
+        document.getElementById('activeOrders').textContent = activeOrders;
+        renderRecentOrders(orders.slice(-5).reverse());
+    } catch (error) {
+        console.error('Error loading orders:', error);
+    }
+
+    try {
+        await loadPopularServices(orders);
+    } catch (error) {
+        console.error('Error loading popular services:', error);
+    }
+
+    try {
+        renderStatusBreakdown(orders);
+    } catch (error) {
+        console.error('Error rendering status breakdown:', error);
+        const list = document.getElementById('statusBreakdown');
+        if (list) list.innerHTML = '<li style="color:var(--c-danger)">Не удалось загрузить</li>';
+    }
+
+    try {
+        renderUnpaidOrders(orders);
+    } catch (error) {
+        console.error('Error rendering unpaid orders:', error);
+    }
+
+    loadChatUnread(); // сам себя защищает try/catch
+
+    try {
+        await refreshPeriodStats();
+    } catch (error) {
+        console.error('Error refreshing period stats:', error);
     }
 }
 
 /** Перечитать карточки «Выручка/Оплачено за период» под текущий выбор в #statsPeriod. */
 async function refreshPeriodStats() {
     const { from, to } = statsPeriodRange();
-    const periodStats = await OrderAPI.getStatistics(from, to);
+    const [periodStats, partsStats] = await Promise.all([
+        OrderAPI.getStatistics(from, to),
+        PartsAPI.getStats(from, to)
+    ]);
     const fallback = calculatePeriodTotals(dashboardOrdersCache, from, to);
     const totalRevenue = Number(periodStats?.totalRevenue);
     const totalPaid = Number(periodStats?.totalPaid);
     const netProfit = Number(periodStats?.netProfit);
+    const avgCheck = Number(periodStats?.averageOrderPrice);
+    const completed = Number(periodStats?.completedOrders);
 
     document.getElementById('periodRevenue').textContent = formatCurrency(
         Number.isFinite(totalRevenue) ? totalRevenue : fallback.totalRevenue
@@ -276,6 +307,73 @@ async function refreshPeriodStats() {
     document.getElementById('periodProfit').textContent = formatCurrency(
         Number.isFinite(netProfit) ? netProfit : fallback.netProfit
     );
+    document.getElementById('periodAvgCheck').textContent = formatCurrency(Number.isFinite(avgCheck) ? avgCheck : 0);
+    document.getElementById('periodCompleted').textContent = Number.isFinite(completed) ? completed : '0';
+
+    document.getElementById('partsSoldCount').textContent = partsStats?.soldCount ?? '0';
+    document.getElementById('partsRevenue').textContent = formatCurrency(partsStats?.revenueSum || 0);
+    document.getElementById('partsProfit').textContent = formatCurrency(partsStats?.profitSum || 0);
+}
+
+/** Сколько заказов сейчас в каждом статусе — снимок текущей загрузки, не зависит от периода. */
+function renderStatusBreakdown(orders) {
+    const list = document.getElementById('statusBreakdown');
+    if (!list) return;
+    if (!orders || !orders.length) {
+        list.innerHTML = '<li style="color:var(--c-muted)">Нет заказов</li>';
+        return;
+    }
+    const order = ['NEW', 'IN_PROGRESS', 'WAITING_FOR_PARTS', 'READY', 'COMPLETED', 'CANCELLED'];
+    const counts = {};
+    orders.forEach(o => { if (o) counts[o.status] = (counts[o.status] || 0) + 1; });
+
+    list.innerHTML = order
+        .filter(status => counts[status])
+        .map(status => `
+            <li>
+              <span class="status-badge status-${status.toLowerCase()}">${getStatusLabel(status)}</span>
+              <span class="status-breakdown-count">${counts[status]}</span>
+            </li>`)
+        .join('');
+}
+
+/** Заказы, за которые уже пора получить деньги: готовы/завершены, но остаток > 0. */
+function renderUnpaidOrders(orders) {
+    const block = document.getElementById('unpaidOrdersBlock');
+    const list = document.getElementById('unpaidOrders');
+    if (!block || !list) return;
+
+    const unpaid = (orders || [])
+        .filter(o => o && ['READY', 'COMPLETED'].includes(o.status))
+        .map(o => ({ order: o, balance: (Number(o.totalPrice) || 0) - (Number(o.paidAmount) || 0) }))
+        .filter(x => x.balance > 0.01)
+        .sort((a, b) => b.balance - a.balance)
+        .slice(0, 5);
+
+    if (!unpaid.length) {
+        block.style.display = 'none';
+        return;
+    }
+
+    block.style.display = 'block';
+    list.innerHTML = unpaid.map(({ order, balance }) => `
+        <li>
+          <a href="/orders" style="color:var(--c-danger);text-decoration:none;font-weight:600;">№ ${escHtmlD(order.orderNumber)}</a>
+          — ${escHtmlD(order.client?.name || 'Без клиента')}
+          <span style="color:var(--c-danger);font-weight:600;">· должен ${formatCurrency(balance)}</span>
+        </li>`).join('');
+}
+
+/** Счётчик непрочитанных диалогов чата в шапке статистики. */
+async function loadChatUnread() {
+    const el = document.getElementById('chatUnread');
+    if (!el) return;
+    try {
+        const summary = await ChatAPI.getSummary();
+        el.textContent = summary?.unreadConversations ?? '0';
+    } catch {
+        el.textContent = '0';
+    }
 }
 
 // Отобразить последние заказы
@@ -305,9 +403,11 @@ function renderRecentOrders(orders) {
 // Загрузить популярные услуги
 async function loadPopularServices(orders) {
     const serviceCount = {};
-    
-    orders.forEach(order => {
+
+    (orders || []).forEach(order => {
+        if (!order) return;
         (order.lines || []).forEach(line => {
+            if (!line || !line.name) return;
             serviceCount[line.name] = (serviceCount[line.name] || 0) + 1;
         });
     });

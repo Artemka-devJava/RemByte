@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FixByte Chat Widget</title>
-  <link rel="stylesheet" href="/css/chat-widget.css">
+  <link rel="stylesheet" th:href="@{/css/chat-widget.css(v=${assetVersion})}">
 </head>
 <body>
 <div class="widget-shell" id="widgetShell" th:attr="data-site-key=${siteKey},data-parent-origin=${parentOrigin}">
@@ -37,7 +37,7 @@
   window.FIXBYTE_CHAT_SITE_KEY = /*[[${siteKey}]]*/ 'main-site';
   window.FIXBYTE_CHAT_PARENT_ORIGIN = /*[[${parentOrigin}]]*/ '';
 </script>
-<script src="/js/chat-widget.js"></script>
+<script th:src="@{/js/chat-widget.js(v=${assetVersion})}"></script>
 </body>
 </html>
 

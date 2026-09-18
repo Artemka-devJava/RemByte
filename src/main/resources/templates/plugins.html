@@ -46,7 +46,7 @@
   </div>
 </div>
 <th:block th:replace="~{fragments/common-scripts :: uiBase}"></th:block>
-<script src="/js/plugins.js"></script>
+<script th:src="@{/js/plugins.js(v=${assetVersion})}"></script>
 </body>
 </html>
 

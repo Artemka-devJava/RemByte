@@ -22,12 +22,12 @@
     </div>
   </div>
 
-  <script src="/js/ui-common.js"></script>
-  <script src="/js/theme.js"></script>
-  <script src="/js/plugin-host.js"></script>
-  <script src="/js/reminders-notify.js"></script>
-  <script src="/js/combobox.js"></script>
-  <script src="/js/global-search.js"></script>
+  <script th:src="@{/js/ui-common.js(v=${assetVersion})}"></script>
+  <script th:src="@{/js/theme.js(v=${assetVersion})}"></script>
+  <script th:src="@{/js/plugin-host.js(v=${assetVersion})}"></script>
+  <script th:src="@{/js/reminders-notify.js(v=${assetVersion})}"></script>
+  <script th:src="@{/js/combobox.js(v=${assetVersion})}"></script>
+  <script th:src="@{/js/global-search.js(v=${assetVersion})}"></script>
   <script>
     (function () {
       function ensureBurgerButton() {

@@ -343,8 +343,8 @@
       </div>
     </div>
   </div>
-  <script src="/js/theme.js"></script>
-<script src="/js/plugin-host.js"></script>
+  <script th:src="@{/js/theme.js(v=${assetVersion})}"></script>
+<script th:src="@{/js/plugin-host.js(v=${assetVersion})}"></script>
 </body>
 </html>
 

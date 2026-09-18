@@ -26,4 +26,18 @@ public class AppVersionModelAdvice {
     public String appVersion() {
         return buildProperties != null ? buildProperties.getVersion() : "dev";
     }
+
+    /**
+     * Метка для cache-busting статики (?v=... у /js/*.js и /css/*.css).
+     * На проде/докере статика отдаётся с Cache-Control: max-age=1h
+     * (application-prod/docker.properties) — без этого браузер после деплоя
+     * ещё час крутит старый JS/CSS против уже обновившегося HTML, и новые
+     * куски интерфейса (которых не было в старом JS) просто не оживают.
+     * Время сборки меняется при каждой mvn package — в отличие от версии в
+     * pom.xml, её не нужно не забывать бампать вручную.
+     */
+    @ModelAttribute("assetVersion")
+    public String assetVersion() {
+        return buildProperties != null ? String.valueOf(buildProperties.getTime().toEpochMilli()) : "dev";
+    }
 }
