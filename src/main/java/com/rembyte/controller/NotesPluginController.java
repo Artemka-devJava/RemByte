@@ -144,7 +144,7 @@ public class NotesPluginController {
         return notesPluginService.getNoteById(noteId)
                 .map(note -> {
                     String fileName = toSafeFileName(note.getTitle()) + ".txt";
-                    String body = "# " + note.getTitle() + "\n\n" + note.getContent();
+                    String body = note.getTitle() + "\n\n" + note.getContent();
                     return ResponseEntity.ok()
                             .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encodeRFC5987(fileName))
                             .contentType(MediaType.TEXT_PLAIN)

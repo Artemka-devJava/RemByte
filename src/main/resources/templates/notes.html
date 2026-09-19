@@ -1,107 +1,52 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru" xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
   <th:block th:replace="~{fragments/head-common :: commonHead('FixByte CRM — Заметки')}"></th:block>
   <style>
-    .sidebar-user{padding:12px 14px;border-top:1px solid rgba(255,255,255,.07);margin-top:auto;}
-    .sidebar-user-name{font-size:12px;color:#64748b;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .btn-sidebar-logout{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);border-radius:7px;color:#fca5a5;font-size:12.5px;font-family:inherit;cursor:pointer;transition:all .2s;}
-    .btn-sidebar-logout:hover{background:rgba(239,68,68,.2);color:#fff;}
-    .notes-layout { display:grid; grid-template-columns: 300px 1fr; gap: 16px; min-height: calc(100vh - 210px); align-items:start; }
-    .folder-panel,.note-panel {
-      border:1px solid var(--c-border); border-radius:14px; background:var(--c-card);
-      box-shadow: var(--s1); overflow:hidden;
-    }
-    .panel-head {
-      padding:14px 16px; border-bottom:1px solid var(--c-border); display:flex; align-items:center;
-      justify-content:space-between; gap:8px; background: var(--c-primary-l);
-    }
-    .panel-title { margin:0; font-size:14.5px; font-weight:700; display:flex; align-items:center; gap:8px; }
-    .panel-body { padding:14px; }
-    .folder-create { display:flex; gap:8px; margin-bottom:14px; }
-    .folder-create input { min-width: 0; flex: 1; height: 40px; font-size: 14px; border-radius:9px; }
-    .folder-list, .note-list { display:flex; flex-direction:column; gap:8px; max-height: 560px; overflow-y: auto; padding:2px; }
+    .notes-layout { display:grid; grid-template-columns: 260px 1fr; gap:16px; align-items:start; }
 
-    .folder-item, .note-item {
-      position:relative; display:flex; align-items:flex-start; gap:10px;
-      border:1px solid var(--c-border); border-left:3px solid transparent; border-radius:10px;
-      padding:10px 12px; background:var(--c-card);
-      cursor:pointer; transition: border-color .15s, background .15s, box-shadow .15s, transform .1s;
-    }
-    .folder-item:hover, .note-item:hover { border-color: var(--c-primary); box-shadow: var(--s1); }
-    .folder-item:active, .note-item:active { transform: scale(.99); }
-    .folder-item.active, .note-item.active {
-      border-color: var(--c-primary); border-left-color: var(--c-primary);
-      background: var(--c-primary-l); box-shadow: var(--s1);
-    }
+    .folder-create { display:flex; gap:8px; margin-bottom:12px; }
+    .folder-create input { flex:1; min-width:0; }
 
-    .item-icon {
-      flex-shrink:0; width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center;
-      font-size:15px; background: var(--c-primary-l); color: var(--c-primary);
+    .list-row {
+      display:flex; align-items:center; justify-content:space-between; gap:8px;
+      padding:8px 10px; border-radius:7px; cursor:pointer; font-size:13.5px;
     }
-    .folder-item.active .item-icon, .note-item.active .item-icon { background: var(--c-primary); color:#fff; }
-
-    .item-info { min-width:0; flex:1; }
-    .folder-name, .note-name {
-      font-size:14.5px; font-weight:600; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    .list-row:hover { background: var(--c-bg); }
+    .list-row.active { background: var(--c-primary-l); color: var(--c-primary); font-weight:600; }
+    .list-row-main { min-width:0; flex:1; }
+    .list-row-title { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .list-row-excerpt {
+      margin-top:2px; font-size:12px; color:var(--c-muted); white-space:nowrap;
+      overflow:hidden; text-overflow:ellipsis;
     }
-    .note-excerpt {
-      margin:3px 0 0; font-size:12.5px; color:var(--c-muted); line-height:1.4;
-      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
-    }
-    .folder-meta, .note-meta { margin:4px 0 0; font-size:11.5px; color:var(--c-muted); display:flex; align-items:center; gap:6px; }
-    .count-badge {
-      display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px;
-      border-radius:999px; background: var(--c-primary-l); color: var(--c-primary); font-size:11px; font-weight:700;
-    }
-    .folder-item.active .count-badge, .note-item.active .note-meta { color: var(--c-primary); }
-
-    .item-actions { display:flex; gap:2px; flex-shrink:0; opacity:0; transition: opacity .12s; }
-    .folder-item:hover .item-actions { opacity:1; }
+    .list-row.active .list-row-excerpt { color: inherit; opacity:.75; }
+    .list-row-meta { flex-shrink:0; font-size:11.5px; color:var(--c-muted); }
+    .list-row-actions { display:flex; gap:2px; flex-shrink:0; opacity:0; transition:opacity .12s; }
+    .list-row:hover .list-row-actions { opacity:1; }
     .icon-btn {
-      width:26px; height:26px; border:none; border-radius:7px; background:transparent; color: var(--c-muted);
-      font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition: all .12s;
+      width:24px; height:24px; border:none; border-radius:6px; background:transparent; color:var(--c-muted);
+      font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center;
     }
     .icon-btn:hover { background: rgba(148,163,184,.18); color: var(--c-text); }
     .icon-btn.danger:hover { background: var(--c-danger-bg); color: var(--c-danger); }
 
-    .note-toolbar { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
-    .note-toolbar input[type="text"] { flex:1; min-width:180px; font-size:16px; font-weight:600; border-radius:9px; }
-    .md-mode-switch { display:flex; gap:6px; margin-bottom:8px; background:var(--c-bg); padding:4px; border-radius:10px; width:max-content; }
-    .md-mode-btn { padding:6px 12px; border:none; border-radius:7px; background:transparent; cursor:pointer; font-size:12.5px; color:var(--c-muted); transition: all .15s; }
-    .md-mode-btn.active { background: var(--c-card); color: var(--c-primary); box-shadow: var(--s1); font-weight:600; }
-    .md-toolbar { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
-    .md-tool-btn { padding:5px 10px; border:1px solid var(--c-border); border-radius:999px; background:var(--c-card); font-size:12px; cursor:pointer; transition: all .15s; }
-    .md-tool-btn:hover { border-color: var(--c-primary); color: var(--c-primary); background: var(--c-primary-l); }
-    .note-editor {
-      border:1px solid var(--c-border); border-radius:12px; padding:14px; background: var(--c-bg);
+    .note-list { margin-bottom:12px; }
+    .note-editor-wrap { border-top:1px solid var(--c-border); padding-top:12px; }
+    #noteTitle { font-size:14px; font-weight:600; margin-bottom:8px; }
+    #noteContent { width:100%; min-height:280px; resize:vertical; font-size:14px; line-height:1.6; }
+    .note-editor-footer {
+      margin-top:8px; display:flex; align-items:center; justify-content:space-between; gap:8px;
     }
-    .note-editor textarea {
-      width:100%; min-height:320px; resize: vertical; font-size:16px; line-height:1.6;
-      border-radius:10px;
-    }
-    .note-preview {
-      width:100%; min-height:320px; border:1px solid var(--c-border); border-radius:10px; padding:14px;
-      background: var(--c-card); font-size:16px; line-height:1.6; overflow:auto;
-    }
-    .note-preview h1,.note-preview h2,.note-preview h3 { margin: 0.6em 0 0.35em; }
-    .note-preview p { margin: 0.35em 0; }
-    .note-preview ul { margin: 0.35em 0 0.35em 1.2em; }
-    .note-preview blockquote { border-left: 3px solid var(--c-border); margin: 0.5em 0; padding: 0.2em 0.8em; color: var(--c-muted); }
-    .note-preview code { background: rgba(148,163,184,.14); padding: 2px 5px; border-radius: 6px; font-size: 0.9em; }
-    .note-preview pre { background: #0f172a; color: #e2e8f0; padding: 10px; border-radius: 8px; overflow:auto; }
-    .note-preview a { color: var(--c-primary); }
-    .note-actions { margin-top:12px; display:flex; flex-wrap:wrap; gap:8px; }
-    .empty {
-      padding: 34px 16px; color: var(--c-muted); font-size: 13.5px; text-align: center;
-      border:1.5px dashed var(--c-border); border-radius:12px; display:flex; flex-direction:column; align-items:center; gap:8px;
-    }
-    .empty .empty-icon { font-size:26px; opacity:.7; }
+    .note-save-status { font-size:12px; color:var(--c-muted); }
+    .note-save-status.unsaved { color: var(--c-warning, #b45309); }
+    .note-editor-actions { display:flex; gap:8px; }
+
+    .empty { padding:20px 10px; color:var(--c-muted); font-size:13px; text-align:center; }
     @media (max-width: 980px) {
       .notes-layout { grid-template-columns: 1fr; }
-      .folder-list, .note-list { max-height: 280px; }
-      .item-actions { opacity:1; }
+      .list-row-actions { opacity:1; }
     }
   </style>
 </head>
@@ -110,53 +55,36 @@
   <aside class="sidebar" th:replace="~{fragments/sidebar-shell :: sidebar()}"></aside>
   <div class="main-area">
     <header class="top-bar">
-      <h1>🧩 Плагин заметок</h1>
+      <h1>Заметки</h1>
     </header>
     <main class="content">
       <div class="notes-layout">
-        <section class="folder-panel">
-          <div class="panel-head">
-            <h2 class="panel-title">📁 Папки</h2>
-          </div>
-          <div class="panel-body">
+        <section class="card">
+          <div class="card-header"><h2>📁 Папки</h2></div>
+          <div class="card-body">
             <div class="folder-create">
               <input type="text" id="newFolderName" placeholder="Новая папка">
-              <button class="btn btn-primary" id="btnCreateFolder">+ Создать</button>
+              <button class="btn btn-sm btn-primary" id="btnCreateFolder">+</button>
             </div>
-            <div id="foldersList" class="folder-list"></div>
+            <div id="foldersList"></div>
           </div>
         </section>
-        <section class="note-panel">
-          <div class="panel-head">
-            <h2 class="panel-title">📝 Заметки</h2>
-            <button class="btn btn-primary" id="btnCreateNote" disabled>+ Новая заметка</button>
+        <section class="card">
+          <div class="card-header">
+            <h2>📝 Заметки</h2>
+            <button class="btn btn-sm btn-primary" id="btnCreateNote" disabled>+ Новая заметка</button>
           </div>
-          <div class="panel-body">
+          <div class="card-body">
             <div id="notesList" class="note-list"></div>
-            <div id="noteEditorWrap" class="note-editor" style="display:none; margin-top: 12px;">
-              <div class="note-toolbar">
-                <input type="text" id="noteTitle" placeholder="Название заметки">
-              </div>
-              <div class="md-mode-switch">
-                <button class="md-mode-btn active" id="mdEditModeBtn" type="button">✍️ Редактирование</button>
-                <button class="md-mode-btn" id="mdPreviewModeBtn" type="button">👁️ Превью</button>
-              </div>
-              <div class="md-toolbar">
-                <button class="md-tool-btn" type="button" data-md-wrap="**|**">Жирный</button>
-                <button class="md-tool-btn" type="button" data-md-wrap="*|*">Курсив</button>
-                <button class="md-tool-btn" type="button" data-md-wrap="`|`">Код</button>
-                <button class="md-tool-btn" type="button" data-md-insert="\n# Заголовок\n">H1</button>
-                <button class="md-tool-btn" type="button" data-md-insert="\n## Подзаголовок\n">H2</button>
-                <button class="md-tool-btn" type="button" data-md-insert="\n- Пункт 1\n- Пункт 2\n">Список</button>
-                <button class="md-tool-btn" type="button" data-md-insert="\n> Цитата\n">Цитата</button>
-                <button class="md-tool-btn" type="button" data-md-insert="\n[Текст ссылки](https://example.com)\n">Ссылка</button>
-              </div>
-              <textarea id="noteContent" placeholder="Введите текст заметки..."></textarea>
-              <div id="notePreview" class="note-preview" style="display:none;"></div>
-              <div class="note-actions">
-                <button class="btn btn-success" id="btnSaveNote">💾 Сохранить</button>
-                <button class="btn btn-secondary" id="btnDownloadNote">⬇️ Скачать</button>
-                <button class="btn btn-danger" id="btnDeleteNote">🗑 Удалить</button>
+            <div id="noteEditorWrap" class="note-editor-wrap" style="display:none;">
+              <input type="text" id="noteTitle" placeholder="Название заметки">
+              <textarea id="noteContent" placeholder="Текст заметки..."></textarea>
+              <div class="note-editor-footer">
+                <span id="noteSaveStatus" class="note-save-status"></span>
+                <div class="note-editor-actions">
+                  <button class="btn btn-sm btn-secondary" id="btnDownloadNote">Скачать</button>
+                  <button class="btn btn-sm btn-danger" id="btnDeleteNote">Удалить</button>
+                </div>
               </div>
             </div>
           </div>
@@ -171,4 +99,3 @@
 <script th:src="@{/js/notes.js(v=${assetVersion})}"></script>
 </body>
 </html>
-
