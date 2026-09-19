@@ -21,18 +21,46 @@ import java.io.File
 
 private fun authority() = "${AppContext.context.packageName}.fileprovider"
 
+/**
+ * Раньше decodeByteArray сразу декодировал фото в полном размере — снимок
+ * с современной камеры (12-48 Мп) в ARGB_8888 занимает под сотню МБ на один
+ * Bitmap, и на части телефонов (особенно бюджетных/с мало свободной
+ * памяти) это падало OutOfMemoryError прямо в колбэке camera-launcher'а,
+ * то есть ДО того, как дело вообще доходило до загрузки на сервер — отсюда
+ * и «не загружает фото» с камеры (второй момент — что при этом падает
+ * ошибка нигде не показывалась пользователю, это тоже поправлено).
+ * Теперь сперва читаем только размеры (inJustDecodeBounds — почти бесплатно),
+ * считаем inSampleSize и декодируем сразу в уменьшенном виде.
+ */
 private fun downscaleJpeg(bytes: ByteArray, maxDimension: Int = 1600): ByteArray {
-    val original = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return bytes
-    val scale = maxDimension.toFloat() / maxOf(original.width, original.height)
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return bytes
+
+    // maxOf, не && по обеим сторонам: у фото с камеры соотношение сторон
+    // обычно 4:3/16:9, и если требовать, чтобы ОБЕ стороны ещё превышали
+    // maxDimension после очередного деления, цикл почти всегда остановится
+    // на первой же итерации (короткая сторона просядет ниже раньше длинной) —
+    // и вся экономия памяти пропадёт.
+    var sampleSize = 1
+    while (maxOf(bounds.outWidth, bounds.outHeight) / (sampleSize * 2) >= maxDimension) {
+        sampleSize *= 2
+    }
+
+    val sampled = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply {
+        inSampleSize = sampleSize
+    }) ?: return bytes
+
+    val scale = maxDimension.toFloat() / maxOf(sampled.width, sampled.height)
     val bitmap = if (scale < 1f) {
-        Bitmap.createScaledBitmap(original, (original.width * scale).toInt(), (original.height * scale).toInt(), true)
+        Bitmap.createScaledBitmap(sampled, (sampled.width * scale).toInt(), (sampled.height * scale).toInt(), true)
     } else {
-        original
+        sampled
     }
     val out = ByteArrayOutputStream()
     bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
-    if (bitmap !== original) bitmap.recycle()
-    original.recycle()
+    if (bitmap !== sampled) bitmap.recycle()
+    sampled.recycle()
     return out.toByteArray()
 }
 

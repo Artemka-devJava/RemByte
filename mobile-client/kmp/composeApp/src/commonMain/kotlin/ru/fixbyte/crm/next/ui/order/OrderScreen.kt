@@ -96,6 +96,11 @@ fun OrderScreen(orderId: Long, onBack: () -> Unit) {
             Modifier.padding(padding).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Ошибка после того, как заказ уже открылся (например, не
+            // загрузилось фото) — раньше error только выводился, пока current
+            // == null, и дальше молча пропадал из виду при неудачной загрузке фото.
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+
             Card {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

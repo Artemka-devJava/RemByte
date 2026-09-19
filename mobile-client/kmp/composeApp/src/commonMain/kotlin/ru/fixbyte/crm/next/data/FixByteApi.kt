@@ -283,9 +283,17 @@ object Api {
             client.submitFormWithBinaryData(
                 url = "$baseUrl/api/orders/$orderId/attachments",
                 formData = formData {
+                    // append("files", ...) сам добавляет заголовок
+                    // Content-Disposition: form-data; name="files" — если тут
+                    // ещё раз указать "form-data; name=..." (было так), Ktor
+                    // добавляет свой поверх этого, и получается два значения
+                    // Content-Disposition на одну часть. Spring в таком случае
+                    // валится с IllegalArgumentException("Invalid content
+                    // disposition format") — отсюда "не грузит фото" на
+                    // Android. Нужен только filename, остальное добавит Ktor.
                     append("files", bytes, Headers.build {
                         append(HttpHeaders.ContentType, "image/jpeg")
-                        append(HttpHeaders.ContentDisposition, "form-data; name=\"files\"; filename=\"$name\"")
+                        append(HttpHeaders.ContentDisposition, "filename=\"$name\"")
                     })
                 }
             )
@@ -323,9 +331,11 @@ object Api {
             client.submitFormWithBinaryData(
                 url = "$baseUrl/api/clients/$clientId/photos",
                 formData = formData {
+                    // См. комментарий в uploadOrderPhoto — только filename,
+                    // "name=" уже добавит сам Ktor из ключа "files".
                     append("files", bytes, Headers.build {
                         append(HttpHeaders.ContentType, mime)
-                        append(HttpHeaders.ContentDisposition, "form-data; name=\"files\"; filename=\"$filename\"")
+                        append(HttpHeaders.ContentDisposition, "filename=\"$filename\"")
                     })
                     if (!caption.isNullOrBlank()) append("caption", caption.trim())
                 }

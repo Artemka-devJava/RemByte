@@ -102,7 +102,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RuntimeException.class)
     public ModelAndView handleRuntime(RuntimeException ex, HttpServletRequest request) {
-        log.warn("Необработанное runtime-исключение на {}: {}", request.getRequestURI(), ex.toString());
+        // ex последним параметром — SLF4J печатает полный стек с "Caused by:",
+        // а не только ex.toString(). Без этого настоящая причина обёрнутых
+        // исключений (например, MultipartException: "Failed to parse
+        // multipart servlet request" — это фиксированный текст Spring, а не
+        // сама причина) в логе не видна вовсе.
+        log.warn("Необработанное runtime-исключение на {}", request.getRequestURI(), ex);
         return respond(request, HttpStatus.BAD_REQUEST, message(ex, "Не удалось выполнить операцию"));
     }
 

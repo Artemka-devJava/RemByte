@@ -117,6 +117,11 @@ fun ClientCardScreen(clientId: Long, onBack: () -> Unit, onOpenOrder: (Long) -> 
             Modifier.padding(padding).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Ошибка после того, как карточка уже открылась (например, не
+            // загрузилось фото) — раньше error только выводился, пока current
+            // == null, и дальше молча пропадал из виду при неудачной загрузке фото.
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+
             Column {
                 Text(current.phone, style = MaterialTheme.typography.bodyLarge)
                 if (!current.tags.isNullOrBlank()) Text(current.tags, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
