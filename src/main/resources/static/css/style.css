@@ -354,6 +354,7 @@ a:hover { text-decoration: underline; }
 .data-table th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; color: var(--c-muted); }
 .data-table td { padding: 11px 14px; border-bottom: 1px solid var(--c-border); font-size: 13.5px; vertical-align: middle; }
 .data-table tbody tr:hover { background: var(--c-bg); }
+.data-table tbody tr.row-clickable { cursor: pointer; }
 .data-table .empty { text-align: center; color: var(--c-muted); padding: 48px 14px; }
 .data-table th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
 .data-table th.sortable:hover { color: var(--c-primary); }

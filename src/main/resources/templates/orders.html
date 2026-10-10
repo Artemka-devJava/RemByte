@@ -246,6 +246,7 @@
               <input type="text" id="newClientName" placeholder="ФИО / организация" maxlength="160">
               <input type="tel" id="newClientPhone" placeholder="Телефон" maxlength="40">
             </div>
+            <small id="newClientPhoneDuplicateWarning" class="upload-hint" style="display:none;color:var(--c-warn);"></small>
             <div class="inline-create-actions">
               <button type="button" class="btn btn-sm btn-primary" onclick="confirmCreateClient()">Создать и выбрать</button>
               <button type="button" class="btn btn-sm btn-secondary" onclick="cancelCreateClient()">Отмена</button>

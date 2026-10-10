@@ -64,6 +64,11 @@ document.addEventListener('DOMContentLoaded', () => {
         materialCostInput.addEventListener('input', updateOrderNetProfitPreview);
     }
 
+    const newClientPhoneInput = document.getElementById('newClientPhone');
+    if (newClientPhoneInput) {
+        newClientPhoneInput.addEventListener('input', () => checkPhoneDuplicate(newClientPhoneInput.value, 'newClientPhoneDuplicateWarning'));
+    }
+
     initAttachmentInputAndDropzone('createAttachmentFiles', 'createAttachmentFilesList', 'createAttachmentDropzone');
     initAttachmentInputAndDropzone('vAttachmentFiles', 'vAttachmentFilesList', 'vAttachmentDropzone');
 
@@ -172,7 +177,7 @@ function renderOrdersTable(orders) {
         const balance = (order.totalPrice || 0) - (order.paidAmount || 0);
         const balanceStyle = balance > 0 ? 'color:var(--c-danger);font-weight:600;' : 'color:var(--c-success);font-weight:600;';
         return `
-        <tr>
+        <tr class="row-clickable" onclick="viewOrder(${order.id})" title="Открыть заказ">
             <td data-label="№ Заказа"><strong>${order.orderNumber}</strong></td>
             <td data-label="Клиент">${order.clientName || '—'}</td>
             <td data-label="Устройство" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
@@ -183,9 +188,8 @@ function renderOrdersTable(orders) {
             <td data-label="Остаток"><span style="${balanceStyle}">${formatCurrency(balance)}</span></td>
             <td data-label="Расходники">${formatCurrency(order.materialCost)}</td>
             <td data-label="Дата">${formatDate(order.createdAt)}</td>
-            <td data-label="" style="white-space:nowrap;">
-                <button class="btn btn-sm btn-primary" onclick="viewOrder(${order.id})" title="Просмотр и смена статуса">👁 Открыть</button>
-                <button class="btn btn-sm btn-secondary" onclick="editOrder(${order.id})" title="Редактировать">✏️</button>
+            <td data-label="" style="white-space:nowrap;" onclick="event.stopPropagation()">
+                <button class="btn btn-sm btn-primary" onclick="viewOrder(${order.id})" title="Открыть заказ — просмотр, статус, оплата, редактирование">👁 Открыть</button>
             </td>
         </tr>`;
     }).join('');
@@ -262,6 +266,7 @@ function startCreateClient(prefillName) {
         phoneEl.value = prefillName;
         nameEl.value = '';
         nameEl.focus();
+        checkPhoneDuplicate(phoneEl.value, 'newClientPhoneDuplicateWarning');
     } else {
         nameEl.value = prefillName || '';
         phoneEl.value = '';
@@ -274,6 +279,8 @@ function cancelCreateClient() {
     document.getElementById('clientCreateBox').hidden = true;
     document.getElementById('newClientName').value = '';
     document.getElementById('newClientPhone').value = '';
+    const warn = document.getElementById('newClientPhoneDuplicateWarning');
+    if (warn) warn.style.display = 'none';
 }
 
 async function confirmCreateClient() {
