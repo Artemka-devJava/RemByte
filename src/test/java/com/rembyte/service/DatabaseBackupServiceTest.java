@@ -13,12 +13,14 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HexFormat;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Бэкап: определение бинарных колонок + сохранение/восстановление фото (BLOB). */
 class DatabaseBackupServiceTest {
@@ -101,6 +103,20 @@ class DatabaseBackupServiceTest {
         assertThat(sw.toString()).contains("''").doesNotContain("0x,");
     }
 
+    /** Бэкап от MariaDB-деплоя, принесённый на H2-инстанс (разные диалекты SQL) — должен
+        упасть сразу с понятным объяснением, а не с нечитаемой синтаксической ошибкой
+        посреди разбора незнакомых H2-парсеру конструкций. */
+    @Test
+    void restoreRejectsMariaDbDumpOnH2WithClearMessage() {
+        String mariaDbStyleSql = "SET FOREIGN_KEY_CHECKS = 0;\nSELECT 1;\nSET FOREIGN_KEY_CHECKS = 1;\n";
+        byte[] bytes = mariaDbStyleSql.getBytes(StandardCharsets.UTF_8);
+
+        assertThatThrownBy(() -> service.restoreFromStream(new ByteArrayInputStream(bytes)))
+                .isInstanceOf(SQLException.class)
+                .hasMessageContaining("MariaDB")
+                .hasMessageContaining("H2");
+    }
+
     /** Полный бэкап (ZIP, H2 SCRIPT-ветка) сохраняет и восстанавливает фото детали. */
     @Test
     void fullZipRoundTripKeepsPhoto() throws Exception {
@@ -119,6 +135,29 @@ class DatabaseBackupServiceTest {
         service.restoreFromStream(new ByteArrayInputStream(zip.toByteArray()));
 
         assertThat(readPhoto(3)).isEqualTo(photo);
+    }
+
+    /** Бэкап "из старой версии" с UTF-8 BOM в начале database.sql — раньше ронял
+        самый первый оператор синтаксической ошибкой (BOM не входит в String.trim()),
+        хотя в превью текста ошибки символ не виден. */
+    @Test
+    void restoreStripsLeadingUtf8Bom() throws Exception {
+        try (Connection c = ds.getConnection(); Statement st = c.createStatement()) {
+            st.execute("INSERT INTO clients (id, name, phone) VALUES (1, 'Old', '000')");
+        }
+        // Без "SET FOREIGN_KEY_CHECKS"/H2-шапки намеренно — иначе сработает проверка
+        // диалекта (requireMatchingDialect) раньше, чем тест успеет дойти до BOM.
+        String sql = "DELETE FROM clients;\n"
+                + "INSERT INTO clients (id, name, phone) VALUES (1, 'Restored', '111');\n";
+        byte[] bomPrefixed = ("﻿" + sql).getBytes(StandardCharsets.UTF_8);
+
+        service.restoreFromStream(new ByteArrayInputStream(bomPrefixed));
+
+        try (Connection c = ds.getConnection(); Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery("SELECT name FROM clients WHERE id = 1")) {
+            assertThat(rs.next()).isTrue();
+            assertThat(rs.getString(1)).isEqualTo("Restored");
+        }
     }
 
     /** Лёгкий бэкап (ZIP) не содержит байтов фото, но таблица в дампе присутствует. */

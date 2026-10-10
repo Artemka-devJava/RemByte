@@ -425,6 +425,15 @@ public class DatabaseBackupService {
 
     private void restoreSql(InputStream inputStream) throws Exception {
         String sql = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+        // Бэкапы из старых версий (или открытые/пересохранённые сторонним редактором)
+        // иногда начинаются с UTF-8 BOM (U+FEFF). String.trim() его не убирает (код
+        // символа больше U+0020), поэтому первый же оператор получает невидимый
+        // лишний символ перед "SET" — и сервер БД валит его с синтаксической ошибкой,
+        // которая выглядит как будто сломан безобидный "SET FOREIGN_KEY_CHECKS = 0".
+        if (!sql.isEmpty() && sql.charAt(0) == '﻿') {
+            sql = sql.substring(1);
+        }
+        requireMatchingDialect(sql);
         List<String> statements = splitStatements(sql);
 
         for (int attempt = 1; attempt <= MAX_RESTORE_ATTEMPTS; attempt++) {
@@ -435,6 +444,37 @@ public class DatabaseBackupService {
                 if (!isRecoverableRestoreError(ex) || attempt >= MAX_RESTORE_ATTEMPTS) {
                     throw ex;
                 }
+            }
+        }
+    }
+
+    /**
+     * Бэкапы MariaDB и H2 пишутся в разных диалектах SQL (см. {@link #buildDatabaseDump}:
+     * MariaDB — дамп через {@code SHOW CREATE TABLE} с {@code SET FOREIGN_KEY_CHECKS}/
+     * {@code ENGINE=InnoDB}; H2 — через встроенный {@code SCRIPT}). Восстановить бэкап
+     * с одного движка на другой нельзя — набор статусов/таблиц этого не даёт понять, и
+     * без этой проверки восстановление падает где-то в середине дампа с нечитаемой
+     * синтаксической ошибкой разбора незнакомых конструкций, которую сложно связать с
+     * настоящей причиной (просто используется другая база данных, чем во время бэкапа).
+     */
+    private void requireMatchingDialect(String sql) throws SQLException {
+        boolean dumpIsMariaDb = sql.contains("SET FOREIGN_KEY_CHECKS");
+        boolean dumpIsH2 = sql.contains("-- FixByte CRM — Резервная копия базы данных (H2)");
+        if (!dumpIsMariaDb && !dumpIsH2) {
+            return; // неизвестный формат (например, вручную написанный SQL) — не блокируем
+        }
+
+        try (Connection conn = dataSource.getConnection()) {
+            boolean targetIsH2 = isH2(conn);
+            if (dumpIsMariaDb && targetIsH2) {
+                throw new SQLException("Этот бэкап сделан на MariaDB, а сейчас используется встроенная "
+                        + "база H2 — формат SQL у них разный, восстановить такой бэкап сюда нельзя. "
+                        + "Нужен бэкап, сделанный на той же базе данных, что используется сейчас.");
+            }
+            if (dumpIsH2 && !targetIsH2) {
+                throw new SQLException("Этот бэкап сделан на встроенной базе H2, а сейчас используется "
+                        + "MariaDB — формат SQL у них разный, восстановить такой бэкап сюда нельзя. "
+                        + "Нужен бэкап, сделанный на той же базе данных, что используется сейчас.");
             }
         }
     }
@@ -455,7 +495,8 @@ public class DatabaseBackupService {
                         st.execute(trimmed);
                     } catch (SQLException sqlEx) {
                         throw new SQLException(
-                                "Ошибка выполнения SQL-оператора #" + statementIndex + ": " + previewSql(trimmed),
+                                "Ошибка выполнения SQL-оператора #" + statementIndex + ": " + sqlEx.getMessage()
+                                        + " (оператор: " + previewSql(trimmed) + ")",
                                 sqlEx
                         );
                     }
