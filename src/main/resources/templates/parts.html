@@ -220,6 +220,25 @@
   </div>
 </div>
 
+<!-- Модал: переименовать лот -->
+<div id="editLotModal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Переименовать лот</h2>
+      <button class="close" onclick="closeModal('editLotModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="editLotForm" onsubmit="submitEditLot(event)">
+        <div class="form-group">
+          <label>Название лота:</label>
+          <input type="text" id="editLotTitle" required placeholder="Сборка i5 + RTX 3060">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
+      </form>
+    </div>
+  </div>
+</div>
+
 <th:block th:replace="~{fragments/common-scripts :: uiBase}"></th:block>
 <script th:src="@{/js/api.js(v=${assetVersion})}"></script>
 <script th:src="@{/js/parts.js(v=${assetVersion})}"></script>

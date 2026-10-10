@@ -161,13 +161,6 @@ public class ClientService {
         clientRepository.deleteById(id);
     }
 
-    public void deactivateClient(Long id) {
-        clientRepository.findById(id).ifPresent(client -> {
-            client.setIsActive(false);
-            clientRepository.save(client);
-        });
-    }
-
     // ── Сводка ─────────────────────────────────────────────────
 
     public ClientSummary summary(Long clientId) {

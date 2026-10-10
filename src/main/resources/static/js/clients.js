@@ -11,6 +11,9 @@ document.addEventListener('DOMContentLoaded', () => {
     loadClients();
     const s = document.getElementById('searchClient');
     if (s) s.addEventListener('keyup', e => { if (e.key === 'Enter') searchClients(); });
+
+    const phoneInput = document.getElementById('clientPhone');
+    if (phoneInput) phoneInput.addEventListener('input', () => checkPhoneDuplicate(phoneInput.value, 'clientPhoneDuplicateWarning'));
 });
 
 async function loadClients() {
@@ -104,6 +107,8 @@ function renderClientsTable(clients) {
 function openCreateClientForm() {
     const form = document.getElementById('createClientForm');
     form.reset();
+    const warn = document.getElementById('clientPhoneDuplicateWarning');
+    if (warn) warn.style.display = 'none';
     document.getElementById('createClientModal').style.display = 'block';
     setTimeout(() => document.getElementById('clientName')?.focus(), 50);
 }
@@ -147,8 +152,23 @@ async function submitClient(event) {
 }
 
 async function searchClients() {
-    clientsPage.q = document.getElementById('searchClient')?.value?.trim() || '';
+    const q = document.getElementById('searchClient')?.value?.trim() || '';
+    clientsPage.q = q;
     clientsPage.page = 0;
+
+    // Если ввели похоже на полный номер телефона — пробуем точное совпадение
+    // и сразу открываем карточку, не дожидаясь обычного нечёткого поиска.
+    const digits = q.replace(/\D/g, '');
+    if (digits.length >= 10) {
+        try {
+            const r = await fetch('/api/clients/phone/' + encodeURIComponent(q));
+            if (r.ok) {
+                const client = await r.json();
+                if (client && client.id) { location.href = `/clients/${client.id}`; return; }
+            }
+        } catch (e) { /* откатываемся на обычный поиск ниже */ }
+    }
+
     loadClients();
 }
 

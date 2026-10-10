@@ -1304,6 +1304,38 @@ async function _partsDelete(path) {
 }
 
 // ====== UTILITY FUNCTIONS ======
+
+let _phoneDuplicateCheckTimer = null;
+
+/** Живая (не блокирующая) подсказка «такой телефон уже есть» — пока печатают, до отправки формы.
+    Используется на /clients (новый клиент) и на /orders (клиент «на месте» в форме заказа).
+    Жёсткая проверка всё равно остаётся на сервере (409 при совпадении на submit). */
+function checkPhoneDuplicate(phone, warningElId, excludeId) {
+    clearTimeout(_phoneDuplicateCheckTimer);
+    const el = document.getElementById(warningElId);
+    if (!el) return;
+    const trimmed = (phone || '').trim();
+    if (trimmed.length < 5) { el.style.display = 'none'; return; }
+
+    _phoneDuplicateCheckTimer = setTimeout(async () => {
+        try {
+            const params = new URLSearchParams({ phone: trimmed });
+            if (excludeId) params.set('excludeId', excludeId);
+            const r = await fetch('/api/clients/duplicates?' + params.toString());
+            if (!r.ok) { el.style.display = 'none'; return; }
+            const matches = await r.json();
+            if (Array.isArray(matches) && matches.length) {
+                const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                const links = matches.map(c => `<a href="/clients/${Number(c.id)}" target="_blank">${esc(c.name || 'клиент')}</a>`).join(', ');
+                el.innerHTML = `⚠️ Уже есть клиент с похожим телефоном: ${links}`;
+                el.style.display = 'block';
+            } else {
+                el.style.display = 'none';
+            }
+        } catch (e) { el.style.display = 'none'; }
+    }, 400);
+}
+
 function formatCurrency(amount) {
     return Math.round(amount) + '₽';
 }

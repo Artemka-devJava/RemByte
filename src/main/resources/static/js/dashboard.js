@@ -177,6 +177,7 @@ async function loadReminders() {
         list.innerHTML = reminders.length ? reminders.map(x => `
             <li style="display:flex;align-items:center;gap:8px;">
               <button class="btn btn-sm btn-secondary" title="Выполнено" onclick="doneReminder(${x.id})">✓</button>
+              <button class="btn btn-sm btn-secondary" title="Удалить" onclick="deleteReminder(${x.id})">🗑</button>
               <span>${escHtmlD(x.text)}${x.dueAt ? ` <span style="color:var(--c-muted);">· до ${fmtDateTimeD(x.dueAt)}</span>` : ''}</span>
             </li>`).join('') : '<li style="color:var(--c-muted)">Нет активных задач</li>';
     } catch (e) {
@@ -211,6 +212,17 @@ async function addReminder() {
 async function doneReminder(id) {
     try {
         await fetch('/api/reminders/' + id + '/done', { method: 'PUT' });
+        loadReminders();
+    } catch (e) { /* ignore */ }
+}
+
+async function deleteReminder(id) {
+    const confirmed = (typeof confirmAction === 'function')
+        ? await confirmAction('Удалить это напоминание?')
+        : confirm('Удалить это напоминание?');
+    if (!confirmed) return;
+    try {
+        await fetch('/api/reminders/' + id, { method: 'DELETE' });
         loadReminders();
     } catch (e) { /* ignore */ }
 }

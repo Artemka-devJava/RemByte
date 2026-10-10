@@ -106,16 +106,6 @@ public class ClientController {
         return ResponseEntity.noContent().build();
     }
 
-    @PutMapping("/{id}/deactivate")
-    public ResponseEntity<Void> deactivateClient(@PathVariable Long id) {
-        try {
-            clientService.deactivateClient(id);
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            return ResponseEntity.notFound().build();
-        }
-    }
-
     @PutMapping("/{id}/archive")
     public ResponseEntity<?> archive(@PathVariable Long id) {
         try {

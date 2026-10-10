@@ -6,6 +6,7 @@ let currentView = 'items';
 let selectedItemIds = new Set();
 let sellContext = null; // { type: 'item'|'lot', id, title }
 let allItemsCache = [];
+let lastLoadedLots = [];
 
 const SOLD_CATEGORY = '__sold__';
 
@@ -414,6 +415,7 @@ async function submitSell(event) {
 
 async function loadLots() {
     const lots = await PartsAPI.getLots();
+    lastLoadedLots = lots;
     const box = document.getElementById('lotsList');
     if (!lots.length) { box.innerHTML = '<p class="empty">Лотов пока нет</p>'; return; }
 
@@ -433,6 +435,7 @@ async function loadLots() {
             <ul class="lot-items-list">${itemsHtml}</ul>
             ${soldBlock}
             <div class="card-actions">
+                ${canSell ? `<button class="btn btn-sm btn-secondary" onclick="openEditLotModal(${lot.id})">✏️ Переименовать</button>` : ''}
                 ${canSell ? `<button class="btn btn-sm btn-success" onclick="openSell('lot', ${lot.id}, '${escHtml(lot.title)}')">Продано</button>` : ''}
                 ${canSell ? `<button class="btn btn-sm btn-danger" onclick="disbandLot(${lot.id})">Разобрать</button>` : ''}
             </div>
@@ -465,6 +468,34 @@ async function submitCreateLot(event) {
     showNotification('Лот создан', 'success');
     switchView('lots');
     loadStats();
+}
+
+/** Переименовать уже собранный лот (без изменения состава) — состав лот,
+    в отличие от создания, здесь не трогаем: берём id деталей как есть,
+    PartsAPI.updateLot требует их явно, иначе бэкенд обнулит состав лота. */
+function openEditLotModal(id) {
+    const lot = lastLoadedLots.find(l => l.id === id);
+    if (!lot) { showNotification('Лот не найден — обновите список', 'error'); return; }
+    document.getElementById('editLotForm').dataset.lotId = String(id);
+    document.getElementById('editLotForm').dataset.itemIds = JSON.stringify((lot.items || []).map(i => i.id));
+    document.getElementById('editLotTitle').value = lot.title;
+    openModal('editLotModal');
+}
+
+async function submitEditLot(event) {
+    event.preventDefault();
+    const form = document.getElementById('editLotForm');
+    const id = Number(form.dataset.lotId);
+    const itemIds = JSON.parse(form.dataset.itemIds || '[]');
+    const title = val('editLotTitle').trim();
+    if (!title) { showNotification('Введите название лота', 'warning'); return; }
+
+    const res = await PartsAPI.updateLot(id, title, itemIds);
+    if (!res || res.error) { showNotification('Ошибка: ' + (res ? res.error : 'сервер недоступен'), 'error'); return; }
+
+    closeModal('editLotModal');
+    showNotification('Лот переименован', 'success');
+    loadLots();
 }
 
 // ===== Вспомогательное =====
